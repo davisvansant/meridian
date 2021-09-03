@@ -3,6 +3,16 @@ name = "system"
 version = "0.1.0"
 edition = "2018"
 
+[[bin]]
+name = "meridian"
+path = "../bin/meridian.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio = { version = "1.11.0", default-features = false, features = [ "rt-multi-thread", "time" ] }
+tonic = "0.5.2"
+prost = "0.8.0"
+
+[build-dependencies]
+tonic-build = { version = "0.5.2", default-features = false, features = [ "transport", "prost" ] }
