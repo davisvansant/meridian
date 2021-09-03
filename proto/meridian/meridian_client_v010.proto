@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package meridian.client.v010;
+
+service Communications {
+  rpc Hello(HelloRequest) returns (HelloResponse);
+}
+
+message HelloRequest {
+  string hello = 1;
+}
+
+message HelloResponse {
+  string hello = 1;
+}
