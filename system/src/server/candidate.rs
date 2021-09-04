@@ -14,7 +14,10 @@ impl Candidate {
         Ok(Candidate { election_timeout })
     }
 
-    pub async fn start_election(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start_election(
+        &self,
+        request: RequestVoteRequest,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         println!("starting election...");
         Ok(())
     }
@@ -66,7 +69,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn start_election() -> Result<(), Box<dyn std::error::Error>> {
         let test_candidate = Candidate::init().await?;
-        assert!(test_candidate.start_election().await.is_ok());
+        let test_server = Server::init().await?;
+        let test_request = test_server.build_request_vote_request().await?;
+        assert!(test_candidate.start_election(test_request).await.is_ok());
         Ok(())
     }
 
