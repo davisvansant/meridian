@@ -27,9 +27,15 @@ pub struct PersistentState {
     log: Vec<LogEntry>,
 }
 
+pub struct VolatileState {
+    commit_index: u32,
+    last_applied: u32,
+}
+
 pub struct Server {
     pub server_state: ServerState,
     persistent_state: PersistentState,
+    volatile_state: VolatileState,
 }
 
 impl Server {
@@ -40,10 +46,15 @@ impl Server {
             voted_for: String::with_capacity(10),
             log: Vec::with_capacity(4096),
         };
+        let volatile_state = VolatileState {
+            commit_index: 0,
+            last_applied: 0,
+        };
 
         Ok(Server {
             server_state,
             persistent_state,
+            volatile_state,
         })
     }
 
@@ -79,6 +90,11 @@ impl Server {
 
     pub async fn leader(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let leader = Leader::init().await?;
+        let request = self
+            .build_append_entires_request(&leader.volatile_state)
+            .await?;
+
+        leader.send_heartbeat(request).await?;
 
         Ok(())
     }
@@ -135,6 +151,17 @@ mod tests {
             "some_test_voted_for",
         );
         assert_eq!(test_persistent_state.log.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn volatile_state() -> Result<(), Box<dyn std::error::Error>> {
+        let test_volatile_state = VolatileState {
+            commit_index: 0,
+            last_applied: 0,
+        };
+        assert_eq!(test_volatile_state.commit_index, 0);
+        assert_eq!(test_volatile_state.last_applied, 0);
         Ok(())
     }
 
