@@ -64,7 +64,13 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn send_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
+        let test_server = Server::init().await?;
+        let test_leader_volatile_state = VolatileState::init().await?;
+        let test_request = test_server
+            .build_append_entires_request(&test_leader_volatile_state)
+            .await?;
         let test_leader = Leader::init().await?;
+        assert!(test_leader.send_heartbeat(test_request).await.is_ok());
         Ok(())
     }
 
