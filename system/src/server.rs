@@ -110,6 +110,35 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn log_entry() -> Result<(), Box<dyn std::error::Error>> {
+        let test_log_entry = LogEntry {
+            term: 0,
+            command: String::from("test_log_entry"),
+            committed: true,
+        };
+        assert_eq!(test_log_entry.term, 0);
+        assert_eq!(test_log_entry.command.as_str(), "test_log_entry");
+        assert!(test_log_entry.committed);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn persistent_state() -> Result<(), Box<dyn std::error::Error>> {
+        let test_persistent_state = PersistentState {
+            current_term: 0,
+            voted_for: String::from("some_test_voted_for"),
+            log: Vec::with_capacity(0),
+        };
+        assert_eq!(test_persistent_state.current_term, 0);
+        assert_eq!(
+            test_persistent_state.voted_for.as_str(),
+            "some_test_voted_for",
+        );
+        assert_eq!(test_persistent_state.log.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_server = Server::init().await?;
         assert_eq!(test_server.server_state, ServerState::Follower);
