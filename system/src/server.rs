@@ -24,7 +24,7 @@ pub struct LogEntry {
 pub struct PersistentState {
     current_term: u32,
     voted_for: String,
-    log: LogEntry,
+    log: Vec<LogEntry>,
 }
 
 pub struct Server {
@@ -38,11 +38,7 @@ impl Server {
         let persistent_state = PersistentState {
             current_term: 0,
             voted_for: String::with_capacity(10),
-            log: LogEntry {
-                term: 0,
-                command: String::with_capacity(10),
-                committed: false,
-            },
+            log: Vec::with_capacity(4096),
         };
 
         Ok(Server {
@@ -66,6 +62,9 @@ impl Server {
 
     pub async fn candidate(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let candidate = Candidate::init().await?;
+
+        self.increment_current_term().await?;
+
         let start_election = candidate.start_election();
 
         if timeout(candidate.election_timeout, start_election)
@@ -95,9 +94,7 @@ mod tests {
         assert_eq!(test_server.server_state, ServerState::Follower);
         assert_eq!(test_server.persistent_state.current_term, 0);
         assert_eq!(test_server.persistent_state.voted_for.as_str(), "");
-        assert_eq!(test_server.persistent_state.log.term, 0);
-        assert_eq!(test_server.persistent_state.log.command.as_str(), "");
-        assert!(!test_server.persistent_state.log.committed);
+        assert_eq!(test_server.persistent_state.log.capacity(), 4096);
         Ok(())
     }
 }
