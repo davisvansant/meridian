@@ -89,6 +89,27 @@ mod tests {
     use super::*;
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn server_state_candidate() -> Result<(), Box<dyn std::error::Error>> {
+        let test_server_state = ServerState::Candidate;
+        assert_eq!(test_server_state, ServerState::Candidate);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn server_state_follower() -> Result<(), Box<dyn std::error::Error>> {
+        let test_server_state = ServerState::Follower;
+        assert_eq!(test_server_state, ServerState::Follower);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn server_state_leader() -> Result<(), Box<dyn std::error::Error>> {
+        let test_server_state = ServerState::Leader;
+        assert_eq!(test_server_state, ServerState::Leader);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_server = Server::init().await?;
         assert_eq!(test_server.server_state, ServerState::Follower);
