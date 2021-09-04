@@ -76,7 +76,8 @@ impl Server {
 
         self.increment_current_term().await?;
 
-        let start_election = candidate.start_election();
+        let request = self.build_request_vote_request().await?;
+        let start_election = candidate.start_election(request);
 
         if timeout(candidate.election_timeout, start_election)
             .await
