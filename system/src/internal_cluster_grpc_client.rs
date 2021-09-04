@@ -21,16 +21,11 @@ impl InternalClusterGrpcClient {
         Ok(InternalClusterGrpcClient { transport })
     }
 
-    pub async fn append_entries(&mut self) -> Result<Response<AppendEntriesResponse>, Status> {
+    pub async fn append_entries(
+        &mut self,
+        request: AppendEntriesRequest,
+    ) -> Result<Response<AppendEntriesResponse>, Status> {
         let mut transport = self.transport.clone();
-        let request = Request::new(AppendEntriesRequest {
-            term: 1,
-            leader_id: String::from("some_leader_id"),
-            prev_log_index: 1,
-            prev_log_term: 1,
-            entries: Vec::with_capacity(10),
-            leader_commit: 1,
-        });
         let response = transport.append_entries(request).await?;
 
         Ok(response)
@@ -52,14 +47,11 @@ impl InternalClusterGrpcClient {
         Ok(response)
     }
 
-    pub async fn request_vote(&mut self) -> Result<Response<RequestVoteResponse>, Status> {
+    pub async fn request_vote(
+        &mut self,
+        request: RequestVoteRequest,
+    ) -> Result<Response<RequestVoteResponse>, Status> {
         let mut transport = self.transport.clone();
-        let request = Request::new(RequestVoteRequest {
-            term: 1,
-            candidate_id: String::from("some_candidate_id"),
-            last_log_index: 1,
-            last_log_term: 1,
-        });
         let response = transport.request_vote(request).await?;
 
         Ok(response)
