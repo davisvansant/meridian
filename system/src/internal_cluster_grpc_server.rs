@@ -15,6 +15,19 @@ impl InternalClusterGrpcServer {
     pub async fn init() -> Result<InternalClusterGrpcServer, Box<dyn std::error::Error>> {
         Ok(InternalClusterGrpcServer {})
     }
+
+    async fn check_term(&self, term: u32) -> bool {
+        let current_term = 0;
+        term > current_term
+    }
+
+    async fn check_candidate_id(&self, voted_for: Option<&str>, candidate_id: &str) -> bool {
+        voted_for == None || voted_for == Some(candidate_id)
+    }
+
+    async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
+        log >= candidate_log
+    }
 }
 
 #[tonic::async_trait]
@@ -44,12 +57,36 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<RequestVoteRequest>,
     ) -> Result<Response<RequestVoteResponse>, Status> {
-        let response = RequestVoteResponse {
-            term: 1,
+        let self_term = 0;
+        let self_log = 0;
+        // let self_voted_for = Some("some_candidate_id");
+        let self_voted_for = None;
+
+        let true_response = RequestVoteResponse {
+            term: self_term,
             vote_granted: String::from("true"),
         };
 
-        Ok(Response::new(response))
+        let false_response = RequestVoteResponse {
+            term: self_term,
+            vote_granted: String::from("false"),
+        };
+
+        match self.check_term(request.get_ref().term).await {
+            false => Ok(Response::new(false_response)),
+            true => {
+                match self
+                    .check_candidate_id(self_voted_for, request.get_ref().candidate_id.as_str())
+                    .await
+                    && self
+                        .check_candidate_log(self_log, request.get_ref().last_log_term)
+                        .await
+                {
+                    true => Ok(Response::new(true_response)),
+                    false => Ok(Response::new(false_response)),
+                }
+            }
+        }
     }
 }
 
@@ -61,6 +98,95 @@ mod tests {
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await;
         assert!(test_internal_cluster_grpc_server.is_ok());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
+        let test_check_term = 6;
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            test_internal_cluster_grpc_server
+                .check_term(test_check_term)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
+        let test_check_term = 0;
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            !test_internal_cluster_grpc_server
+                .check_term(test_check_term)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_none_true() -> Result<(), Box<dyn std::error::Error>> {
+        let test_voted_for = None;
+        let test_candidate_id = "some_test_candidate_id";
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            test_internal_cluster_grpc_server
+                .check_candidate_id(test_voted_for, test_candidate_id)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_some_true() -> Result<(), Box<dyn std::error::Error>> {
+        let test_voted_for = Some("some_test_candidate_id");
+        let test_candidate_id = "some_test_candidate_id";
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            test_internal_cluster_grpc_server
+                .check_candidate_id(test_voted_for, test_candidate_id)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_some_false() -> Result<(), Box<dyn std::error::Error>> {
+        let test_voted_for = Some("some_other_test_candidate_id");
+        let test_candidate_id = "some_test_candidate_id";
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            !test_internal_cluster_grpc_server
+                .check_candidate_id(test_voted_for, test_candidate_id)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_log_true() -> Result<(), Box<dyn std::error::Error>> {
+        let test_log = 1;
+        let test_candidate_log = 1;
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            test_internal_cluster_grpc_server
+                .check_candidate_log(test_log, test_candidate_log)
+                .await
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_log_false() -> Result<(), Box<dyn std::error::Error>> {
+        let test_log = 0;
+        let test_candidate_log = 1;
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        assert!(
+            !test_internal_cluster_grpc_server
+                .check_candidate_log(test_log, test_candidate_log)
+                .await
+        );
         Ok(())
     }
 
@@ -103,7 +229,24 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn request_vote() -> Result<(), Box<dyn std::error::Error>> {
+    async fn request_vote_true() -> Result<(), Box<dyn std::error::Error>> {
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        let test_request = Request::new(RequestVoteRequest {
+            term: 1,
+            candidate_id: String::from("some_candidate_id"),
+            last_log_index: 0,
+            last_log_term: 0,
+        });
+        let test_response = test_internal_cluster_grpc_server
+            .request_vote(test_request)
+            .await?;
+        assert_eq!(test_response.get_ref().term, 0);
+        assert_eq!(test_response.get_ref().vote_granted.as_str(), "true");
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
         let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
         let test_request = Request::new(RequestVoteRequest {
             term: 1,
@@ -114,8 +257,8 @@ mod tests {
         let test_response = test_internal_cluster_grpc_server
             .request_vote(test_request)
             .await?;
-        assert_eq!(test_response.get_ref().term, 1);
-        assert_eq!(test_response.get_ref().vote_granted.as_str(), "true");
+        assert_eq!(test_response.get_ref().term, 0);
+        assert_eq!(test_response.get_ref().vote_granted.as_str(), "false");
         Ok(())
     }
 }
