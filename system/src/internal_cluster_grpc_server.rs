@@ -36,12 +36,34 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<AppendEntriesRequest>,
     ) -> Result<Response<AppendEntriesResponse>, Status> {
-        let response = AppendEntriesResponse {
-            term: 1,
-            success: String::from("some_success"),
+        let self_term = 1;
+        let self_log = 1;
+        let true_response = AppendEntriesResponse {
+            term: self_term,
+            success: String::from("true"),
+        };
+        let false_response = AppendEntriesResponse {
+            term: self_term,
+            success: String::from("false"),
         };
 
-        Ok(Response::new(response))
+        match self.check_term(request.get_ref().term).await {
+            false => Ok(Response::new(false_response)),
+            true => {
+                match self
+                    .check_candidate_log(self_log, request.get_ref().prev_log_term)
+                    .await
+                {
+                    false => Ok(Response::new(false_response)),
+                    true => {
+                        // do some delete stuff here
+                        // do some appending stuff here
+                        // do some setting of commit_index here
+                        Ok(Response::new(true_response))
+                    }
+                }
+            }
+        }
     }
 
     async fn install_snapshot(
@@ -191,7 +213,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn append_entries() -> Result<(), Box<dyn std::error::Error>> {
+    async fn append_entries_true() -> Result<(), Box<dyn std::error::Error>> {
         let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
         let test_request = Request::new(AppendEntriesRequest {
             term: 1,
@@ -205,7 +227,45 @@ mod tests {
             .append_entries(test_request)
             .await?;
         assert_eq!(test_response.get_ref().term, 1);
-        assert_eq!(test_response.get_ref().success.as_str(), "some_success");
+        assert_eq!(test_response.get_ref().success.as_str(), "true");
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn append_entries_false_term() -> Result<(), Box<dyn std::error::Error>> {
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        let test_request = Request::new(AppendEntriesRequest {
+            term: 0,
+            leader_id: String::from("test_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        });
+        let test_response = test_internal_cluster_grpc_server
+            .append_entries(test_request)
+            .await?;
+        assert_eq!(test_response.get_ref().term, 1);
+        assert_eq!(test_response.get_ref().success.as_str(), "false");
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn append_entries_false_log() -> Result<(), Box<dyn std::error::Error>> {
+        let test_internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+        let test_request = Request::new(AppendEntriesRequest {
+            term: 0,
+            leader_id: String::from("test_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 1,
+        });
+        let test_response = test_internal_cluster_grpc_server
+            .append_entries(test_request)
+            .await?;
+        assert_eq!(test_response.get_ref().term, 1);
+        assert_eq!(test_response.get_ref().success.as_str(), "false");
         Ok(())
     }
 
