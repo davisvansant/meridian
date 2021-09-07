@@ -19,12 +19,6 @@ pub enum ServerState {
     Leader,
 }
 
-pub struct LogEntry {
-    term: u32,
-    command: String,
-    committed: bool,
-}
-
 pub struct Server {
     pub server_state: ServerState,
     persistent_state: PersistentState,
