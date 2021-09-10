@@ -1,0 +1,195 @@
+use crate::state::leader_volatile::LeaderVolatile;
+use crate::state::persistent::Persistent;
+use crate::state::volatile::Volatile;
+use crate::Actions;
+
+mod leader_volatile;
+mod persistent;
+mod volatile;
+
+use tokio::sync::broadcast::Sender;
+
+use crate::meridian_cluster_v010::{
+    AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest, InstallSnapshotResponse,
+    RequestVoteRequest, RequestVoteResponse,
+};
+
+pub struct State {
+    persistent: Persistent,
+    volatile: Volatile,
+    leader_volatile: Option<LeaderVolatile>,
+    receive_actions: Sender<Actions>,
+    send_server_actions: Sender<Actions>,
+    send_grpc_actions: Sender<Actions>,
+}
+
+impl State {
+    pub async fn init(
+        receive_actions: Sender<Actions>,
+        send_server_actions: Sender<Actions>,
+        send_grpc_actions: Sender<Actions>,
+    ) -> Result<State, Box<dyn std::error::Error>> {
+        let persistent = Persistent::init().await?;
+        let volatile = Volatile::init().await?;
+
+        Ok(State {
+            persistent,
+            volatile,
+            leader_volatile: None,
+            receive_actions,
+            send_server_actions,
+            send_grpc_actions,
+        })
+    }
+
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut receiver = self.receive_actions.subscribe();
+
+        while let Ok(action) = receiver.recv().await {
+            println!("received action! {:?}", &action);
+            match action {
+                Actions::AppendEntriesRequest(request) => {
+                    println!("do things with the request");
+                    self.append_entries_receiver(request).await?;
+                }
+                Actions::AppendEntriesResponse(_) => println!("do things with the response"),
+                Actions::RequestVoteRequest(request) => {
+                    println!("do things with request votes!");
+                    self.request_vote_receiver(request).await?;
+                }
+                Actions::RequestVoteResponse(_) => println!("do things iwith vote response"),
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn append_entries_receiver(
+        &self,
+        request: AppendEntriesRequest,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let true_response = AppendEntriesResponse {
+            term: self.persistent.current_term,
+            success: String::from("true"),
+        };
+        let false_response = AppendEntriesResponse {
+            term: self.persistent.current_term,
+            success: String::from("false"),
+        };
+
+        match self.check_term(request.term).await {
+            false => {
+                self.send_grpc_actions
+                    .send(Actions::AppendEntriesResponse(false_response))
+                    .unwrap();
+            }
+            true => {
+                match self
+                    .check_candidate_log(self.persistent.current_term, request.prev_log_term)
+                    .await
+                {
+                    false => {
+                        self.send_grpc_actions
+                            .send(Actions::AppendEntriesResponse(false_response))
+                            .unwrap();
+                    }
+                    true => {
+                        // do some delete stuff here
+                        // do some appending stuff here
+                        // do some setting of commit_index here
+                        self.send_grpc_actions
+                            .send(Actions::AppendEntriesResponse(true_response))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn request_vote_receiver(
+        &self,
+        request: RequestVoteRequest,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let true_response = RequestVoteResponse {
+            term: self.persistent.current_term,
+            vote_granted: String::from("true"),
+        };
+
+        let false_response = RequestVoteResponse {
+            term: self.persistent.current_term,
+            vote_granted: String::from("false"),
+        };
+
+        match self.check_term(request.term).await {
+            false => {
+                self.send_grpc_actions
+                    .send(Actions::RequestVoteResponse(false_response))
+                    .unwrap();
+            }
+            true => {
+                match self.check_candidate_id(request.candidate_id.as_str()).await
+                    && self
+                        .check_candidate_log(self.persistent.current_term, request.last_log_term)
+                        .await
+                {
+                    true => {
+                        self.send_grpc_actions
+                            .send(Actions::RequestVoteResponse(true_response))
+                            .unwrap();
+                    }
+                    false => {
+                        self.send_grpc_actions
+                            .send(Actions::RequestVoteResponse(false_response))
+                            .unwrap();
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn check_term(&self, term: u32) -> bool {
+        let current_term = 0;
+        term > current_term
+    }
+
+    async fn check_candidate_id(&self, candidate_id: &str) -> bool {
+        self.persistent.voted_for == None
+            || self.persistent.voted_for == Some(candidate_id.to_string())
+    }
+
+    async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
+        log >= candidate_log
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn log_entry() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_log_entry = LogEntry {
+    //         term: 0,
+    //         command: String::from("test_log_entry"),
+    //         committed: true,
+    //     };
+    //     assert_eq!(test_log_entry.term, 0);
+    //     assert_eq!(test_log_entry.command.as_str(), "test_log_entry");
+    //     assert!(test_log_entry.committed);
+    //     Ok(())
+    // }
+
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn init() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_state = State::init().await?;
+    //     assert_eq!(test_state.persistent.current_term, 0);
+    //     assert_eq!(test_state.persistent.voted_for, None);
+    //     assert_eq!(test_state.persistent.log.len(), 0);
+    //     assert_eq!(test_state.persistent.log.capacity(), 4096);
+    //     Ok(())
+    // }
+}
