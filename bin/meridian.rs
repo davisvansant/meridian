@@ -1,3 +1,4 @@
+use tokio::sync::broadcast::channel;
 use tokio::time::{sleep, Duration};
 
 use system::external_client_grpc_server::{
@@ -6,12 +7,26 @@ use system::external_client_grpc_server::{
 use system::internal_cluster_grpc_server::{
     CommunicationsServer as ClusterServer, InternalClusterGrpcServer,
 };
-use system::server::{Server, ServerState};
+
+use system::server::Server;
+use system::state::State;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cluster_address = "0.0.0.0:10000".parse().unwrap();
-    let internal_cluster_grpc_server = InternalClusterGrpcServer::init().await?;
+
+    let (state_send_handle, _) = channel(64);
+    let grpc_send_actions = state_send_handle.clone();
+    let server_send_actions = state_send_handle.clone();
+
+    let (state_receive_server_actions, _) = channel(64);
+    let (state_receive_grpc_actions, _) = channel(64);
+    let state_send_server_actions = state_receive_server_actions.clone();
+    let state_send_grpc_actions = state_receive_grpc_actions.clone();
+
+    let internal_cluster_grpc_server =
+        InternalClusterGrpcServer::init(state_receive_grpc_actions, grpc_send_actions).await?;
+
     let cluster_service = ClusterServer::new(internal_cluster_grpc_server);
     let cluster_grpc_server = tonic::transport::Server::builder()
         .add_service(cluster_service)
@@ -44,41 +59,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut state_machine = Server::init().await?;
+    let mut server = Server::init(state_receive_server_actions, server_send_actions).await?;
 
-    let machine_handle = tokio::spawn(async move {
-        sleep(Duration::from_secs(1)).await;
+    let server_handle = tokio::spawn(async move {
+        sleep(Duration::from_secs(10)).await;
 
-        while state_machine.server_state == ServerState::Follower {
-            println!("doing follwer stuff!");
+        if let Err(error) = server.run().await {
+            println!("error with running {:?}", error);
+        };
+    });
 
-            if let Err(error) = state_machine.follower().await {
-                println!("Something went wrong with the follower - {:?}", error);
-            }
+    let mut state = State::init(
+        state_send_handle,
+        state_send_server_actions,
+        state_send_grpc_actions,
+    )
+    .await?;
 
-            println!("transitioning to candidate...");
-        }
+    let state_handle = tokio::spawn(async move {
+        sleep(Duration::from_secs(5)).await;
 
-        while state_machine.server_state == ServerState::Candidate {
-            println!("doing candidate stuff!");
-
-            if let Err(error) = state_machine.candidate().await {
-                println!("something went wrong with the candidate {:?}", error);
-            }
-
-            println!("transitioning to leader...");
-        }
-
-        while state_machine.server_state == ServerState::Leader {
-            println!("Leader!");
-
-            if let Err(error) = state_machine.leader().await {
-                println!("the leader had an error - {:?}", error);
-            }
+        if let Err(error) = state.run().await {
+            println!("state error! {:?}", error);
         }
     });
 
-    tokio::try_join!(cluster_handle, client_handle, machine_handle)?;
+    tokio::try_join!(cluster_handle, client_handle, server_handle, state_handle)?;
 
     Ok(())
 }
