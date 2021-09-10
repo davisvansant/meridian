@@ -1,16 +1,17 @@
-pub(crate) struct VolatileState {
-    pub(crate) next_index: u32,
-    pub(crate) match_index: u32,
+#[derive(Copy, Clone)]
+pub struct LeaderVolatile {
+    pub next_index: u32,
+    pub match_index: u32,
 }
 
-impl VolatileState {
-    pub(crate) async fn init() -> Result<VolatileState, Box<dyn std::error::Error>> {
+impl LeaderVolatile {
+    pub async fn init() -> Result<LeaderVolatile, Box<dyn std::error::Error>> {
         let next_index = 0;
         let match_index = 0;
 
         println!("leader volatile state initialized ...");
 
-        Ok(VolatileState {
+        Ok(LeaderVolatile {
             next_index,
             match_index,
         })
@@ -23,9 +24,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let test_volatile_state = VolatileState::init().await?;
-        assert_eq!(test_volatile_state.next_index, 0);
-        assert_eq!(test_volatile_state.match_index, 0);
+        let test_leader_volatile_state = LeaderVolatile::init().await?;
+        assert_eq!(test_leader_volatile_state.next_index, 0);
+        assert_eq!(test_leader_volatile_state.match_index, 0);
         Ok(())
     }
 }
