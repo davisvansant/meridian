@@ -10,7 +10,7 @@ path = "../bin/meridian.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.11.0", default-features = false, features = [ "rt-multi-thread", "time" ] }
+tokio = { version = "1.11.0", default-features = false, features = [ "rt-multi-thread", "sync", "time" ] }
 tonic = "0.5.2"
 prost = "0.8.0"
 
