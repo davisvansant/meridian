@@ -23,37 +23,37 @@ impl Candidate {
     }
 }
 
-impl Server {
-    pub(super) async fn increment_current_term(
-        &mut self,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.persistent_state.current_term += 1;
-
-        Ok(())
-    }
-
-    pub(super) async fn build_request_vote_request(
-        &self,
-    ) -> Result<RequestVoteRequest, Box<dyn std::error::Error>> {
-        let term = self.persistent_state.current_term;
-        let candidate_id = String::from("some_candidate_id");
-        let last_log_index = self.persistent_state.log.len() as u32;
-        let last_log_term = if let Some(log) = self.persistent_state.log.last() {
-            log.term
-        } else {
-            0
-        };
-
-        let request_vote_request = RequestVoteRequest {
-            term,
-            candidate_id,
-            last_log_index,
-            last_log_term,
-        };
-
-        Ok(request_vote_request)
-    }
-}
+// impl Server {
+//     pub(super) async fn increment_current_term(
+//         &mut self,
+//     ) -> Result<(), Box<dyn std::error::Error>> {
+//         self.persistent_state.current_term += 1;
+//
+//         Ok(())
+//     }
+//
+//     pub(super) async fn build_request_vote_request(
+//         &self,
+//     ) -> Result<RequestVoteRequest, Box<dyn std::error::Error>> {
+//         let term = self.persistent_state.current_term;
+//         let candidate_id = String::from("some_candidate_id");
+//         let last_log_index = self.persistent_state.log.len() as u32;
+//         let last_log_term = if let Some(log) = self.persistent_state.log.last() {
+//             log.term
+//         } else {
+//             0
+//         };
+//
+//         let request_vote_request = RequestVoteRequest {
+//             term,
+//             candidate_id,
+//             last_log_index,
+//             last_log_term,
+//         };
+//
+//         Ok(request_vote_request)
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -66,32 +66,35 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn start_election() -> Result<(), Box<dyn std::error::Error>> {
-        let test_candidate = Candidate::init().await?;
-        let test_server = Server::init().await?;
-        let test_request = test_server.build_request_vote_request().await?;
-        assert!(test_candidate.start_election(test_request).await.is_ok());
-        Ok(())
-    }
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn start_election() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_candidate = Candidate::init().await?;
+    //     // let test_server = Server::init().await?;
+    //     let test_server = test_server().await?;
+    //     let test_request = test_server.build_request_vote_request().await?;
+    //     assert!(test_candidate.start_election(test_request).await.is_ok());
+    //     Ok(())
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn increment_current_term() -> Result<(), Box<dyn std::error::Error>> {
-        let mut test_server = Server::init().await?;
-        assert_eq!(test_server.persistent_state.current_term, 0);
-        test_server.increment_current_term().await?;
-        assert_eq!(test_server.persistent_state.current_term, 1);
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn build_request_vote_request() -> Result<(), Box<dyn std::error::Error>> {
-        let test_server = Server::init().await?;
-        let test_request = test_server.build_request_vote_request().await?;
-        assert_eq!(test_request.term, 0);
-        assert_eq!(test_request.candidate_id.as_str(), "some_candidate_id");
-        assert_eq!(test_request.last_log_index, 0);
-        assert_eq!(test_request.last_log_term, 0);
-        Ok(())
-    }
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn increment_current_term() -> Result<(), Box<dyn std::error::Error>> {
+    //     // let mut test_server = Server::init().await?;
+    //     let mut test_server = test_server().await?;
+    //     assert_eq!(test_server.persistent_state.current_term, 0);
+    //     test_server.increment_current_term().await?;
+    //     assert_eq!(test_server.persistent_state.current_term, 1);
+    //     Ok(())
+    // }
+    //
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn build_request_vote_request() -> Result<(), Box<dyn std::error::Error>> {
+    //     // let test_server = Server::init().await?;
+    //     let test_server = test_server().await?;
+    //     let test_request = test_server.build_request_vote_request().await?;
+    //     assert_eq!(test_request.term, 0);
+    //     assert_eq!(test_request.candidate_id.as_str(), "some_candidate_id");
+    //     assert_eq!(test_request.last_log_index, 0);
+    //     assert_eq!(test_request.last_log_term, 0);
+    //     Ok(())
+    // }
 }
