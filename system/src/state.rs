@@ -58,6 +58,18 @@ impl State {
                     self.request_vote_receiver(request).await?;
                 }
                 Actions::RequestVoteResponse(_) => println!("do things iwith vote response"),
+                Actions::Candidate(candidate_id) => {
+                    self.persistent.increment_current_term().await?;
+                    self.persistent.vote_for_self(candidate_id.as_str()).await?;
+
+                    let request_vote_request = self
+                        .build_request_vote_request(candidate_id.as_str())
+                        .await?;
+
+                    self.send_server_actions
+                        .send(Actions::RequestVoteRequest(request_vote_request))
+                        .unwrap();
+                }
             }
         }
 
@@ -163,6 +175,29 @@ impl State {
 
     async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
         log >= candidate_log
+    }
+
+    async fn build_request_vote_request(
+        &self,
+        candidate_id: &str,
+    ) -> Result<RequestVoteRequest, Box<dyn std::error::Error>> {
+        let term = self.persistent.current_term;
+        let candidate_id = String::from(candidate_id);
+        let last_log_index = self.persistent.log.len() as u32;
+        let last_log_term = if let Some(log) = self.persistent.log.last() {
+            log.term
+        } else {
+            0
+        };
+
+        let request_vote_request = RequestVoteRequest {
+            term,
+            candidate_id,
+            last_log_index,
+            last_log_term,
+        };
+
+        Ok(request_vote_request)
     }
 }
 
