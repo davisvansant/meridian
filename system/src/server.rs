@@ -1,5 +1,5 @@
 use tokio::sync::broadcast::Sender;
-use tokio::time::timeout;
+use tokio::time::{sleep, timeout, Duration};
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -58,7 +58,8 @@ impl Server {
             println!("transitioning to leader...");
         }
 
-        if self.server_state == ServerState::Leader {
+        while self.server_state == ServerState::Leader {
+            sleep(Duration::from_secs(10)).await;
             println!("Leader!");
 
             if let Err(error) = self.leader().await {
@@ -83,20 +84,26 @@ impl Server {
     }
 
     pub async fn candidate(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut receiver = self.receive_actions.subscribe();
+        let candidate_id = String::from("some_candidate_id");
         let candidate = Candidate::init().await?;
 
-        // self.increment_current_term().await?;
+        if let Err(error) = self.send_actions.send(Actions::Candidate(candidate_id)) {
+            println!("error sending candidate action - {:?}", error);
+        }
 
-        // let request = self.build_request_vote_request().await?;
-        // let start_election = candidate.start_election(request);
+        if let Ok(Actions::RequestVoteRequest(request)) = receiver.recv().await {
+            println!("sending vote request {:?}", &request);
 
-        // if timeout(candidate.election_timeout, start_election)
-        //     .await
-        //     .is_ok()
-        // {
-        //     self.server_state = ServerState::Leader;
-        // }
-        self.server_state = ServerState::Leader;
+            let start_election = candidate.start_election(request);
+
+            if timeout(candidate.election_timeout, start_election)
+                .await
+                .is_ok()
+            {
+                self.server_state = ServerState::Leader;
+            }
+        }
 
         Ok(())
     }
