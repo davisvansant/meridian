@@ -11,10 +11,10 @@ impl Follower {
         Ok(Follower { election_timeout })
     }
 
-    pub async fn election_timeout(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Waiting for leader...");
-        Ok(())
-    }
+    // pub async fn election_timeout(&self) -> Result<(), Box<dyn std::error::Error>> {
+    //     println!("Waiting for leader...");
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]
@@ -28,10 +28,10 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn election_timeout() -> Result<(), Box<dyn std::error::Error>> {
-        let test_follower = Follower::init().await?;
-        assert!(test_follower.election_timeout().await.is_ok());
-        Ok(())
-    }
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn election_timeout() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_follower = Follower::init().await?;
+    //     assert!(test_follower.election_timeout().await.is_ok());
+    //     Ok(())
+    // }
 }
