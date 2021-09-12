@@ -50,6 +50,9 @@ impl State {
             match action {
                 Actions::AppendEntriesRequest(request) => {
                     println!("do things with the request");
+                    if request.entries.is_empty() {
+                        self.send_server_actions.send(Actions::Follower).unwrap();
+                    }
                     self.append_entries_receiver(request).await?;
                 }
                 Actions::AppendEntriesResponse(_) => println!("do things with the response"),
@@ -70,6 +73,7 @@ impl State {
                         .send(Actions::RequestVoteRequest(request_vote_request))
                         .unwrap();
                 }
+                Actions::Follower => println!("cannot do anything with follower!"),
                 Actions::Leader => {
                     let append_entries_request = self.build_append_entries_request().await?;
 
