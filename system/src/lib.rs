@@ -24,5 +24,6 @@ pub enum Actions {
     RequestVoteRequest(RequestVoteRequest),
     RequestVoteResponse(RequestVoteResponse),
     Candidate(String),
+    Follower,
     Leader,
 }
