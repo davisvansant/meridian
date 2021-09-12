@@ -70,6 +70,13 @@ impl State {
                         .send(Actions::RequestVoteRequest(request_vote_request))
                         .unwrap();
                 }
+                Actions::Leader => {
+                    let append_entries_request = self.build_append_entries_request().await?;
+
+                    self.send_server_actions
+                        .send(Actions::AppendEntriesRequest(append_entries_request))
+                        .unwrap();
+                }
             }
         }
 
@@ -175,6 +182,30 @@ impl State {
 
     async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
         log >= candidate_log
+    }
+
+    async fn build_append_entries_request(
+        &self,
+    ) -> Result<AppendEntriesRequest, Box<dyn std::error::Error>> {
+        let term = self.persistent.current_term;
+        let leader_id = String::from("some_leader_id");
+        // let prev_log_index = self.persistent.next_index;
+        // let prev_log_term = self.persistent.match_index;
+        let prev_log_index = 0;
+        let prev_log_term = 0;
+        let entries = Vec::with_capacity(0);
+        let leader_commit = self.volatile.commit_index;
+
+        let request = AppendEntriesRequest {
+            term,
+            leader_id,
+            prev_log_index,
+            prev_log_term,
+            entries,
+            leader_commit,
+        };
+
+        Ok(request)
     }
 
     async fn build_request_vote_request(
