@@ -1,5 +1,4 @@
 use crate::meridian_cluster_v010::AppendEntriesRequest;
-use crate::server::Server;
 
 pub struct Leader {}
 
@@ -16,31 +15,6 @@ impl Leader {
         Ok(())
     }
 }
-
-// impl Server {
-//     pub(crate) async fn build_append_entires_request(
-//         &self,
-//         leader_volatile_state: &VolatileState,
-//     ) -> Result<AppendEntriesRequest, Box<dyn std::error::Error>> {
-//         let term = self.persistent_state.current_term;
-//         let leader_id = String::from("some_leader_id");
-//         let prev_log_index = leader_volatile_state.next_index;
-//         let prev_log_term = leader_volatile_state.match_index;
-//         let entries = Vec::with_capacity(0);
-//         let leader_commit = self.volatile_state.commit_index;
-//
-//         let request = AppendEntriesRequest {
-//             term,
-//             leader_id,
-//             prev_log_index,
-//             prev_log_term,
-//             entries,
-//             leader_commit,
-//         };
-//
-//         Ok(request)
-//     }
-// }
 
 // #[cfg(test)]
 // mod tests {
