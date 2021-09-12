@@ -22,6 +22,18 @@ impl Persistent {
             log,
         })
     }
+
+    pub async fn increment_current_term(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.current_term += 1;
+
+        Ok(())
+    }
+
+    pub async fn vote_for_self(&mut self, node_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.voted_for = Some(node_id.to_string());
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -48,6 +60,30 @@ mod tests {
         assert_eq!(test_persistent_state.voted_for, None);
         assert_eq!(test_persistent_state.log.len(), 0);
         assert_eq!(test_persistent_state.log.capacity(), 4096);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn increment_current_term() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+        assert_eq!(test_persistent_state.current_term, 0);
+        test_persistent_state.increment_current_term().await?;
+        assert_eq!(test_persistent_state.current_term, 1);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn vote_for_self() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+        assert!(test_persistent_state.voted_for.is_none());
+        test_persistent_state
+            .vote_for_self("test_candidate_id")
+            .await?;
+        assert!(test_persistent_state.voted_for.is_some());
+        assert_eq!(
+            test_persistent_state.voted_for.unwrap().as_str(),
+            "test_candidate_id",
+        );
         Ok(())
     }
 }
