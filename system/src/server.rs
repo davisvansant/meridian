@@ -1,5 +1,5 @@
 use tokio::sync::broadcast::Sender;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -71,14 +71,19 @@ impl Server {
     }
 
     pub async fn follower(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut receiver = self.receive_actions.subscribe();
         let follower = Follower::init().await?;
 
-        if timeout(follower.election_timeout, follower.election_timeout())
-            .await
-            .is_ok()
+        while let Ok(result) =
+            timeout_at(Instant::now() + follower.election_timeout, receiver.recv()).await
         {
-            self.server_state = ServerState::Candidate;
+            if let Ok(Actions::Follower) = result {
+                println!("receiving heartbeat...");
+            }
         }
+
+        println!("timeout ending...starting election");
+        self.server_state = ServerState::Candidate;
 
         Ok(())
     }
