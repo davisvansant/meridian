@@ -109,12 +109,18 @@ impl Server {
     }
 
     pub async fn leader(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut receiver = self.receive_actions.subscribe();
         let leader = Leader::init().await?;
-        // let request = self
-        //     .build_append_entires_request(&leader.volatile_state)
-        //     .await?;
-        //
-        // leader.send_heartbeat(request).await?;
+
+        if let Err(error) = self.send_actions.send(Actions::Leader) {
+            println!("error sending leader action - {:?}", error);
+        }
+
+        if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
+            println!("sending heartbeat ... {:?}", &request);
+
+            leader.send_heartbeat(request).await?;
+        }
 
         Ok(())
     }
