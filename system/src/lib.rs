@@ -23,4 +23,5 @@ pub enum Actions {
     AppendEntriesResponse(AppendEntriesResponse),
     RequestVoteRequest(RequestVoteRequest),
     RequestVoteResponse(RequestVoteResponse),
+    Candidate(String),
 }
