@@ -38,32 +38,38 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        while self.server_state == ServerState::Follower {
-            println!("doing follwer stuff!");
+        loop {
+            match self.server_state {
+                ServerState::Follower => {
+                    println!("doing follwer stuff!");
 
-            if let Err(error) = self.follower().await {
-                println!("Something went wrong with the follower - {:?}", error);
-            }
+                    if let Err(error) = self.follower().await {
+                        println!("Something went wrong with the follower - {:?}", error);
+                        break;
+                    }
 
-            println!("transitioning to candidate...");
-        }
+                    println!("transitioning to candidate...");
+                }
+                ServerState::Candidate => {
+                    sleep(Duration::from_secs(10)).await;
+                    println!("doing candidate stuff!");
 
-        while self.server_state == ServerState::Candidate {
-            println!("doing candidate stuff!");
+                    if let Err(error) = self.candidate().await {
+                        println!("something went wrong with the candidate {:?}", error);
+                        break;
+                    }
 
-            if let Err(error) = self.candidate().await {
-                println!("something went wrong with the candidate {:?}", error);
-            }
+                    println!("transitioning to leader...");
+                }
+                ServerState::Leader => {
+                    sleep(Duration::from_secs(10)).await;
+                    println!("Leader!");
 
-            println!("transitioning to leader...");
-        }
-
-        while self.server_state == ServerState::Leader {
-            sleep(Duration::from_secs(10)).await;
-            println!("Leader!");
-
-            if let Err(error) = self.leader().await {
-                println!("the leader had an error - {:?}", error);
+                    if let Err(error) = self.leader().await {
+                        println!("the leader had an error - {:?}", error);
+                        break;
+                    }
+                }
             }
         }
 
@@ -95,18 +101,27 @@ impl Server {
 
         if let Err(error) = self.send_actions.send(Actions::Candidate(candidate_id)) {
             println!("error sending candidate action - {:?}", error);
-        }
+        };
 
-        if let Ok(Actions::RequestVoteRequest(request)) = receiver.recv().await {
-            println!("sending vote request {:?}", &request);
-
-            let start_election = candidate.start_election(request);
-
-            if timeout(candidate.election_timeout, start_election)
-                .await
-                .is_ok()
-            {
-                self.server_state = ServerState::Leader;
+        while let Ok(action) =
+            timeout_at(Instant::now() + candidate.election_timeout, receiver.recv()).await
+        {
+            match action {
+                Ok(Actions::Follower) => {
+                    println!("received heartbeat...stepping down");
+                    self.server_state = ServerState::Follower;
+                    break;
+                }
+                Ok(Actions::RequestVoteRequest(request)) => {
+                    println!("sending receive request to cluster members - {:?}", request);
+                    if candidate.start_election(request).await? {
+                        self.server_state = ServerState::Leader;
+                    } else {
+                        self.server_state = ServerState::Candidate;
+                        break;
+                    }
+                }
+                _ => println!("cannot do anyhting with other requests"),
             }
         }
 
