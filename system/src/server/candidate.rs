@@ -16,9 +16,22 @@ impl Candidate {
     pub async fn start_election(
         &self,
         request: RequestVoteRequest,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("starting election...");
-        Ok(())
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        // println!("starting election...");
+        let members: Vec<&str> = Vec::with_capacity(5);
+
+        if members.is_empty() {
+            Ok(true)
+        } else {
+            let mut transport = InternalClusterGrpcClient::init("some_test_candidate_id").await?;
+            let result = transport.request_vote(request).await?;
+
+            match result.into_inner().vote_granted.as_str() {
+                "true" => Ok(true),
+                "false" => Ok(false),
+                _ => Ok(false),
+            }
+        }
     }
 }
 
