@@ -38,6 +38,20 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut receiver = self.receive_actions.subscribe();
+
+        tokio::spawn(async move {
+            while let Ok(action) = receiver.recv().await {
+                match action {
+                    Actions::Follower => println!("follower"),
+                    Actions::RequestVoteRequest(request) => println!("{:?}", request),
+                    Actions::Candidate(candidate_id) => println!("{:?}", candidate_id),
+                    Actions::Leader => println!("Sending heartbeat ..."),
+                    _ => println!("other actions not supported"),
+                }
+            }
+        });
+
         loop {
             match self.server_state {
                 ServerState::Follower => {
@@ -59,7 +73,7 @@ impl Server {
                         break;
                     }
 
-                    println!("transitioning to leader...");
+                    // println!("transitioning to leader...");
                 }
                 ServerState::Leader => {
                     sleep(Duration::from_secs(10)).await;
