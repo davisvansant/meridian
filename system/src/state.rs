@@ -78,6 +78,7 @@ impl State {
                 }
                 Actions::Follower => println!("cannot do anything with follower!"),
                 Actions::Leader => {
+                    self.init_leader_volatile_state().await?;
                     let append_entries_request = self.build_append_entries_request().await?;
 
                     self.send_server_actions
@@ -236,6 +237,15 @@ impl State {
         };
 
         Ok(request_vote_request)
+    }
+
+    async fn init_leader_volatile_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let leader_volatile = LeaderVolatile::init().await?;
+        self.leader_volatile = Some(leader_volatile);
+
+        println!("initialing leader volatile state ...");
+
+        Ok(())
     }
 }
 
