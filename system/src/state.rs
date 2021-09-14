@@ -49,9 +49,12 @@ impl State {
             println!("received action! {:?}", &action);
             match action {
                 Actions::AppendEntriesRequest(request) => {
-                    println!("do things with the request");
+                    println!("received append entires request - {:?}", &request);
                     if request.entries.is_empty() {
-                        self.send_server_actions.send(Actions::Follower).unwrap();
+                        if let Err(error) = self.send_server_actions.send(Actions::Follower) {
+                            println!("error trying to send follower action - {:?}", error);
+                        }
+                        // self.send_server_actions.send(Actions::Follower).unwrap();
                     }
                     self.append_entries_receiver(request).await?;
                 }
