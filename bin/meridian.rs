@@ -16,32 +16,40 @@ use system::state::State;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let leaders = Arg::with_name("leaders")
-        .help("how many leaders")
-        .long("leaders")
+    let leaders = Arg::with_name("cluster_size")
+        .help("expected size of cluster and failure tolerance (1 leader/2 leaders)")
+        .long("cluster_size")
         .takes_value(true)
         .possible_value("1")
         .possible_value("3")
         .possible_value("5")
         .required(true)
+        .value_name("NUMBER")
+        .require_equals(true)
         .display_order(1);
     let server_ip_address = Arg::with_name("ip_address")
         .help("set the ip address")
         .long("ip_address")
         .takes_value(true)
         .default_value("0.0.0.0")
+        .value_name("ADDRESS")
+        .require_equals(true)
         .display_order(2);
     let server_cluster_port = Arg::with_name("cluster_port")
         .help("set the cluster port (membership gRPC)")
         .long("cluster_port")
         .takes_value(true)
         .default_value("10000")
+        .value_name("PORT")
+        .require_equals(true)
         .display_order(3);
     let server_client_port = Arg::with_name("client_port")
         .help("set the client port (client communications gRPC)")
         .long("client_port")
         .takes_value(true)
         .default_value("20000")
+        .value_name("PORT")
+        .require_equals(true)
         .display_order(4);
     let run = SubCommand::with_name("run")
         .about("run meridian")
@@ -58,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match meridian.subcommand() {
         ("run", Some(run)) => {
-            if let Some(leaders) = run.value_of("leaders") {
+            if let Some(leaders) = run.value_of("cluster_size") {
                 match leaders {
                     "1" => println!("one"),
                     "3" => println!("three"),
