@@ -23,24 +23,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .possible_value("1")
         .possible_value("3")
         .possible_value("5")
-        .index(1);
-    let cluster_port = Arg::with_name("cluster_port")
+        .required(true)
+        .display_order(1);
+    let server_ip_address = Arg::with_name("ip_address")
+        .help("set the ip address")
+        .long("ip_address")
+        .takes_value(true)
+        .default_value("0.0.0.0")
+        .display_order(2);
+    let server_cluster_port = Arg::with_name("cluster_port")
         .help("set the cluster port (membership gRPC)")
         .long("cluster_port")
         .takes_value(true)
         .default_value("10000")
-        .index(2);
-    let client_port = Arg::with_name("client_port")
+        .display_order(3);
+    let server_client_port = Arg::with_name("client_port")
         .help("set the client port (client communications gRPC)")
         .long("client_port")
         .takes_value(true)
         .default_value("20000")
-        .index(3);
+        .display_order(4);
     let run = SubCommand::with_name("run")
         .about("run meridian")
         .arg(leaders)
-        .arg(cluster_port)
-        .arg(client_port);
+        .arg(server_ip_address)
+        .arg(server_cluster_port)
+        .arg(server_client_port);
     let meridian = App::new("meridian")
         .author("some_author_goes_here")
         .version(env!("CARGO_PKG_VERSION"))
@@ -59,17 +67,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
+            let ip_address_value = run.value_of("ip_address").unwrap();
+            let ip_address = IpAddr::from_str(ip_address_value)?;
+
+            println!("set ip address - {:?}", &ip_address);
+
             let cluster_port_value = run.value_of("cluster_port").unwrap();
             let cluster_port = u16::from_str(cluster_port_value)?;
-            let cluster_ip_address = IpAddr::from_str("0.0.0.0")?;
-            let cluster_address = SocketAddr::new(cluster_ip_address, cluster_port);
+            let cluster_address = SocketAddr::new(ip_address, cluster_port);
 
             println!("launching cluster on {:?}", &cluster_address);
 
             let client_port_value = run.value_of("client_port").unwrap();
             let client_port = u16::from_str(client_port_value)?;
-            let client_ip_address = IpAddr::from_str("0.0.0.0")?;
-            let client_address = SocketAddr::new(client_ip_address, client_port);
+            let client_address = SocketAddr::new(ip_address, client_port);
 
             println!("launching client on {:?}", &client_address);
 
@@ -101,7 +112,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
 
-            let client_address = "0.0.0.0:20000".parse().unwrap();
             let external_client_grpc_server = ExternalClientGrpcServer::init().await?;
             let client_service = ClientServer::new(external_client_grpc_server);
             let client_grpc_server = tonic::transport::Server::builder()
