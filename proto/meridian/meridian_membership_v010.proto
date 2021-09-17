@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package meridian.membership.v010;
+
+service Communications {
+  rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
+}
+
+message JoinClusterRequest {
+  string node_id = 1;
+  string address = 2;
+  string port = 3;
+}
+
+message JoinClusterResponse {
+  string success = 1;
+  string details = 2;
+  repeated string members = 3;
+}
