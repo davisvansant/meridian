@@ -1,6 +1,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build("client")?;
     build("cluster")?;
+    build("membership")?;
     Ok(())
 }
 
