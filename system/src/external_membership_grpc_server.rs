@@ -39,7 +39,7 @@ impl Communications for ExternalMembershipGrpcServer {
         match receiver.recv().await {
             Ok(response) => Ok(Response::new(response)),
             Err(error) => {
-                let message = String::from("not good!");
+                let message = error.to_string();
                 let status = Status::new(Code::NotFound, message);
                 Err(status)
             }
