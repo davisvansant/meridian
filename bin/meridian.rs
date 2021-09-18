@@ -1,21 +1,8 @@
 use clap::{App, Arg, SubCommand};
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::str::FromStr;
-use tokio::sync::broadcast::channel;
-use tokio::time::{sleep, Duration};
 
-use system::external_client_grpc_server::{
-    CommunicationsServer as ClientServer, ExternalClientGrpcServer,
-};
-use system::external_membership_grpc_server::{
-    CommunicationsServer as MembershipServer, ExternalMembershipGrpcServer,
-};
-use system::internal_cluster_grpc_server::{
-    CommunicationsServer as ClusterServer, InternalClusterGrpcServer,
-};
-use system::membership::{ClusterSize, Membership};
-use system::server::Server;
-use system::state::State;
+use system::node::Node;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .require_equals(true)
         .display_order(2);
     let server_cluster_port = Arg::with_name("cluster_port")
-        .help("set the cluster port (membership gRPC)")
+        .help("set the cluster port (internal communications gRPC)")
         .long("cluster_port")
         .takes_value(true)
         .default_value("10000")
@@ -54,12 +41,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .value_name("PORT")
         .require_equals(true)
         .display_order(4);
+    let server_membership_port = Arg::with_name("membership_port")
+        .help("set the membership port (node join communications gRPC)")
+        .long("membership_port")
+        .takes_value(true)
+        .default_value("25000")
+        .value_name("PORT")
+        .require_equals(true)
+        .display_order(5);
     let run = SubCommand::with_name("run")
         .about("run meridian")
         .arg(leaders)
         .arg(server_ip_address)
         .arg(server_cluster_port)
-        .arg(server_client_port);
+        .arg(server_client_port)
+        .arg(server_membership_port);
     let meridian = App::new("meridian")
         .author("some_author_goes_here")
         .version(env!("CARGO_PKG_VERSION"))
@@ -69,14 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match meridian.subcommand() {
         ("run", Some(run)) => {
-            if let Some(leaders) = run.value_of("cluster_size") {
-                match leaders {
-                    "1" => println!("one"),
-                    "3" => println!("three"),
-                    "5" => println!("five"),
-                    _ => println!("not supported!"),
-                }
-            }
+            let cluster_size = run.value_of("cluster_size").unwrap();
 
             let ip_address_value = run.value_of("ip_address").unwrap();
             let ip_address = IpAddr::from_str(ip_address_value)?;
@@ -85,137 +74,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let cluster_port_value = run.value_of("cluster_port").unwrap();
             let cluster_port = u16::from_str(cluster_port_value)?;
-            let cluster_address = SocketAddr::new(ip_address, cluster_port);
 
-            println!("launching cluster on {:?}", &cluster_address);
+            println!("launching cluster on {:?}", &cluster_port);
 
             let client_port_value = run.value_of("client_port").unwrap();
             let client_port = u16::from_str(client_port_value)?;
-            let client_address = SocketAddr::new(ip_address, client_port);
 
-            println!("launching client on {:?}", &client_address);
+            println!("launching client on {:?}", &client_port);
 
-            let (state_send_handle, _) = channel(64);
-            let grpc_send_actions = state_send_handle.clone();
-            let server_send_actions = state_send_handle.clone();
+            let membership_port_value = run.value_of("membership_port").unwrap();
+            let membership_port = u16::from_str(membership_port_value)?;
 
-            let (state_receive_server_actions, _) = channel(64);
-            let (state_receive_grpc_actions, _) = channel(64);
-            let state_send_server_actions = state_receive_server_actions.clone();
-            let state_send_grpc_actions = state_receive_grpc_actions.clone();
+            println!("launching membership on {:?}", &membership_port);
 
-            let internal_cluster_grpc_server =
-                InternalClusterGrpcServer::init(state_receive_grpc_actions, grpc_send_actions)
-                    .await?;
+            let node = Node::init(ip_address, cluster_port, client_port, membership_port).await?;
 
-            let cluster_service = ClusterServer::new(internal_cluster_grpc_server);
-            let cluster_grpc_server = tonic::transport::Server::builder()
-                .add_service(cluster_service)
-                .serve(cluster_address);
-
-            let cluster_handle = tokio::spawn(async move {
-                println!("starting up server");
-                if let Err(error) = cluster_grpc_server.await {
-                    println!(
-                        "something went wrong with the internal grpc interface - {:?}",
-                        error,
-                    );
-                }
-            });
-
-            let external_client_grpc_server = ExternalClientGrpcServer::init().await?;
-            let client_service = ClientServer::new(external_client_grpc_server);
-            let client_grpc_server = tonic::transport::Server::builder()
-                .add_service(client_service)
-                .serve(client_address);
-
-            let client_handle = tokio::spawn(async move {
-                println!("starting up client server");
-                if let Err(error) = client_grpc_server.await {
-                    println!(
-                        "something went wrong with the client grpc interface - {:?}",
-                        error,
-                    );
-                }
-            });
-
-            let membership_address = "0.0.0.0:15000".parse().unwrap();
-
-            let (grpc_send_membership_actions, _) = channel(64);
-            let (membership_send_grpc_actions, _) = channel(64);
-            let membership_receive_grpc_actions = grpc_send_membership_actions.clone();
-            let grpc_receive_membership_actions = membership_send_grpc_actions.clone();
-
-            let external_membership_grpc_server = ExternalMembershipGrpcServer::init(
-                grpc_receive_membership_actions,
-                grpc_send_membership_actions,
-            )
-            .await?;
-
-            let membership_service = MembershipServer::new(external_membership_grpc_server);
-            let membership_grpc_server = tonic::transport::Server::builder()
-                .add_service(membership_service)
-                .serve(membership_address);
-
-            let membership_grpc_handle = tokio::spawn(async move {
-                println!("starting up membership...");
-                if let Err(error) = membership_grpc_server.await {
-                    println!(
-                        "something went wrong with the internal membership - {:?}",
-                        error,
-                    );
-                }
-            });
-
-            let mut membership = Membership::init(
-                ClusterSize::One,
-                membership_send_grpc_actions,
-                membership_receive_grpc_actions,
-            )
-            .await?;
-
-            let membership_run_handle = tokio::spawn(async move {
-                sleep(Duration::from_secs(10)).await;
-
-                if let Err(error) = membership.run().await {
-                    println!("error with running {:?}", error);
-                };
-            });
-
-            let mut server =
-                Server::init(state_receive_server_actions, server_send_actions).await?;
-
-            let server_handle = tokio::spawn(async move {
-                sleep(Duration::from_secs(10)).await;
-
-                if let Err(error) = server.run().await {
-                    println!("error with running {:?}", error);
-                };
-            });
-
-            let mut state = State::init(
-                state_send_handle,
-                state_send_server_actions,
-                state_send_grpc_actions,
-            )
-            .await?;
-
-            let state_handle = tokio::spawn(async move {
-                sleep(Duration::from_secs(5)).await;
-
-                if let Err(error) = state.run().await {
-                    println!("state error! {:?}", error);
-                }
-            });
-
-            tokio::try_join!(
-                cluster_handle,
-                client_handle,
-                server_handle,
-                state_handle,
-                membership_grpc_handle,
-                membership_run_handle,
-            )?;
+            node.run(cluster_size).await?;
         }
         _ => println!("{:?}", meridian.usage()),
     }
