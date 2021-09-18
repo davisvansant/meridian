@@ -7,10 +7,13 @@ use tokio::time::{sleep, Duration};
 use system::external_client_grpc_server::{
     CommunicationsServer as ClientServer, ExternalClientGrpcServer,
 };
+use system::external_membership_grpc_server::{
+    CommunicationsServer as MembershipServer, ExternalMembershipGrpcServer,
+};
 use system::internal_cluster_grpc_server::{
     CommunicationsServer as ClusterServer, InternalClusterGrpcServer,
 };
-
+use system::membership::{ClusterSize, Membership};
 use system::server::Server;
 use system::state::State;
 
@@ -136,6 +139,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
 
+            let membership_address = "0.0.0.0:15000".parse().unwrap();
+
+            let (grpc_send_membership_actions, _) = channel(64);
+            let (membership_send_grpc_actions, _) = channel(64);
+            let membership_receive_grpc_actions = grpc_send_membership_actions.clone();
+            let grpc_receive_membership_actions = membership_send_grpc_actions.clone();
+
+            let external_membership_grpc_server = ExternalMembershipGrpcServer::init(
+                grpc_receive_membership_actions,
+                grpc_send_membership_actions,
+            )
+            .await?;
+
+            let membership_service = MembershipServer::new(external_membership_grpc_server);
+            let membership_grpc_server = tonic::transport::Server::builder()
+                .add_service(membership_service)
+                .serve(membership_address);
+
+            let membership_grpc_handle = tokio::spawn(async move {
+                println!("starting up membership...");
+                if let Err(error) = membership_grpc_server.await {
+                    println!(
+                        "something went wrong with the internal membership - {:?}",
+                        error,
+                    );
+                }
+            });
+
+            let mut membership = Membership::init(
+                ClusterSize::One,
+                membership_send_grpc_actions,
+                membership_receive_grpc_actions,
+            )
+            .await?;
+
+            let membership_run_handle = tokio::spawn(async move {
+                sleep(Duration::from_secs(10)).await;
+
+                if let Err(error) = membership.run().await {
+                    println!("error with running {:?}", error);
+                };
+            });
+
             let mut server =
                 Server::init(state_receive_server_actions, server_send_actions).await?;
 
@@ -162,7 +208,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
 
-            tokio::try_join!(cluster_handle, client_handle, server_handle, state_handle)?;
+            tokio::try_join!(
+                cluster_handle,
+                client_handle,
+                server_handle,
+                state_handle,
+                membership_grpc_handle,
+                membership_run_handle,
+            )?;
         }
         _ => println!("{:?}", meridian.usage()),
     }
