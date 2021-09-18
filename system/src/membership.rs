@@ -43,6 +43,12 @@ impl Membership {
         })
     }
 
+    pub async fn add_node(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
+        self.members.push(node);
+
+        Ok(())
+    }
+
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.grpc_server_receive_actions.subscribe();
 
