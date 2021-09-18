@@ -1,11 +1,11 @@
-pub mod external_client_grpc_server;
-pub mod external_membership_grpc_server;
-pub mod internal_cluster_grpc_client;
-pub mod internal_cluster_grpc_server;
-pub mod membership;
+pub(crate) mod external_client_grpc_server;
+pub(crate) mod external_membership_grpc_server;
+pub(crate) mod internal_cluster_grpc_client;
+pub(crate) mod internal_cluster_grpc_server;
+pub(crate) mod membership;
 pub mod node;
-pub mod server;
-pub mod state;
+pub(crate) mod server;
+pub(crate) mod state;
 
 pub(crate) mod meridian_client_v010 {
     include!("../../proto/meridian.client.v010.rs");
