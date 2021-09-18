@@ -1,4 +1,4 @@
-// use tokio::sync::broadcast::Sender;
+use tokio::sync::broadcast::Sender;
 use tonic::{Code, Request, Response, Status};
 
 pub use crate::meridian_membership_v010::communications_server::{
@@ -8,17 +8,18 @@ pub use crate::meridian_membership_v010::communications_server::{
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
 pub struct ExternalMembershipGrpcServer {
-    // receive_actions: Sender<Actions>,
-// send_actions: Sender<Actions>,
+    membership_receive_actions: Sender<JoinClusterResponse>,
+    membership_send_actions: Sender<JoinClusterRequest>,
 }
 
 impl ExternalMembershipGrpcServer {
-    pub async fn init(// receive_actions: Sender<Actions>,
-    // send_actions: Sender<Actions>,
+    pub async fn init(
+        membership_receive_actions: Sender<JoinClusterResponse>,
+        membership_send_actions: Sender<JoinClusterRequest>,
     ) -> Result<ExternalMembershipGrpcServer, Box<dyn std::error::Error>> {
         Ok(ExternalMembershipGrpcServer {
-            // receive_actions,
-            // send_actions,
+            membership_receive_actions,
+            membership_send_actions,
         })
     }
 }
@@ -29,24 +30,31 @@ impl Communications for ExternalMembershipGrpcServer {
         &self,
         request: Request<JoinClusterRequest>,
     ) -> Result<Response<JoinClusterResponse>, Status> {
-        let response = JoinClusterResponse {
-            success: String::from("true"),
-            details: String::from("node successfully joined cluster!"),
-            members: Vec::with_capacity(0),
+        if let Err(error) = self.membership_send_actions.send(request.into_inner()) {
+            println!("{:?}", error);
         };
 
-        Ok(Response::new(response))
+        let mut receiver = self.membership_receive_actions.subscribe();
+
+        match receiver.recv().await {
+            Ok(response) => Ok(Response::new(response)),
+            Err(error) => {
+                let message = String::from("not good!");
+                let status = Status::new(Code::NotFound, message);
+                Err(status)
+            }
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let test_external_membership_grpc_server = ExternalMembershipGrpcServer::init().await;
-        assert!(test_external_membership_grpc_server.is_ok());
-        Ok(())
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[tokio::test(flavor = "multi_thread")]
+//     async fn init() -> Result<(), Box<dyn std::error::Error>> {
+//         let test_external_membership_grpc_server = ExternalMembershipGrpcServer::init().await;
+//         assert!(test_external_membership_grpc_server.is_ok());
+//         Ok(())
+//     }
+// }
