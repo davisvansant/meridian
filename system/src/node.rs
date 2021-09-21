@@ -19,13 +19,13 @@ use crate::server::Server;
 use crate::state::State;
 use crate::Actions;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct Node {
-    id: Uuid,
-    address: IpAddr,
-    client_port: u16,
-    cluster_port: u16,
-    membership_port: u16,
+    pub id: Uuid,
+    pub address: IpAddr,
+    pub client_port: u16,
+    pub cluster_port: u16,
+    pub membership_port: u16,
 }
 
 impl Node {
@@ -68,6 +68,11 @@ impl Node {
         let membership_receive_grpc_actions = grpc_send_membership_actions.clone();
         let grpc_receive_membership_actions = membership_send_grpc_actions.clone();
 
+        let (server_send_membership_action, _) = channel(64);
+        let (membership_send_server_action, _) = channel(64);
+        let membership_receive_server_action = server_send_membership_action.clone();
+        let server_receive_membership_action = membership_send_server_action.clone();
+
         let client_handle = self.run_client_grpc_server().await?;
         let cluster_handle = self
             .run_cluster_grpc_server(state_receive_grpc_actions, grpc_send_actions)
@@ -79,13 +84,20 @@ impl Node {
             )
             .await?;
         let server_handle = self
-            .run_server(state_receive_server_actions, server_send_actions)
+            .run_server(
+                state_receive_server_actions,
+                server_send_actions,
+                server_send_membership_action,
+                server_receive_membership_action,
+            )
             .await?;
         let membership_run_handle = self
             .run_membership(
                 cluster_size,
                 membership_send_grpc_actions,
                 membership_receive_grpc_actions,
+                membership_send_server_action,
+                membership_receive_server_action,
             )
             .await?;
         let state_handle = self
@@ -188,6 +200,8 @@ impl Node {
         cluster_size: ClusterSize,
         membership_send_grpc_actions: Sender<JoinClusterResponse>,
         membership_receive_grpc_actions: Sender<JoinClusterRequest>,
+        membership_send_server_action: Sender<Node>,
+        membership_receive_server_action: Sender<u8>,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let server = self.to_owned();
         let mut membership = Membership::init(
@@ -196,11 +210,13 @@ impl Node {
             server,
             membership_send_grpc_actions,
             membership_receive_grpc_actions,
+            membership_send_server_action,
+            membership_receive_server_action,
         )
         .await?;
 
         let membership_run_handle = tokio::spawn(async move {
-            sleep(Duration::from_secs(10)).await;
+            // sleep(Duration::from_secs(10)).await;
 
             if let Err(error) = membership.run().await {
                 println!("error with running {:?}", error);
@@ -214,8 +230,16 @@ impl Node {
         &self,
         state_receive_server_actions: Sender<Actions>,
         server_send_actions: Sender<Actions>,
+        server_send_membership_action: Sender<u8>,
+        server_receive_membership_action: Sender<Node>,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
-        let mut server = Server::init(state_receive_server_actions, server_send_actions).await?;
+        let mut server = Server::init(
+            state_receive_server_actions,
+            server_send_actions,
+            server_send_membership_action,
+            server_receive_membership_action,
+        )
+        .await?;
 
         let server_handle = tokio::spawn(async move {
             sleep(Duration::from_secs(10)).await;
