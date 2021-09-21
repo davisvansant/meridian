@@ -1,6 +1,7 @@
 use tokio::sync::broadcast::Sender;
 use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 
+use crate::node::Node;
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
@@ -21,12 +22,16 @@ pub struct Server {
     pub server_state: ServerState,
     receive_actions: Sender<Actions>,
     send_actions: Sender<Actions>,
+    membership_send_action: Sender<u8>,
+    membership_receive_action: Sender<Node>,
 }
 
 impl Server {
     pub async fn init(
         receive_actions: Sender<Actions>,
         send_actions: Sender<Actions>,
+        membership_send_action: Sender<u8>,
+        membership_receive_action: Sender<Node>,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -34,6 +39,8 @@ impl Server {
             server_state,
             receive_actions,
             send_actions,
+            membership_send_action,
+            membership_receive_action,
         })
     }
 
@@ -65,7 +72,7 @@ impl Server {
                     println!("transitioning to candidate...");
                 }
                 ServerState::Candidate => {
-                    sleep(Duration::from_secs(10)).await;
+                    // sleep(Duration::from_secs(10)).await;
                     println!("doing candidate stuff!");
 
                     if let Err(error) = self.candidate().await {
@@ -110,12 +117,26 @@ impl Server {
 
     pub async fn candidate(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_actions.subscribe();
-        let candidate_id = String::from("some_candidate_id");
+        // let candidate_id = String::from("some_candidate_id");
+        let mut membership_receiver = self.membership_receive_action.subscribe();
+        if let Err(error) = self.membership_send_action.send(1) {
+            println!("{:?}", error);
+        };
+
+        if let Ok(candidate_id) = membership_receiver.recv().await {
+            if let Err(error) = self
+                .send_actions
+                .send(Actions::Candidate(candidate_id.id.to_string()))
+            {
+                println!("error sending candidate action - {:?}", error);
+            };
+        };
+
         let candidate = Candidate::init().await?;
 
-        if let Err(error) = self.send_actions.send(Actions::Candidate(candidate_id)) {
-            println!("error sending candidate action - {:?}", error);
-        };
+        // if let Err(error) = self.send_actions.send(Actions::Candidate(candidate_id)) {
+        //     println!("error sending candidate action - {:?}", error);
+        // };
 
         while let Ok(action) =
             timeout_at(Instant::now() + candidate.election_timeout, receiver.recv()).await
