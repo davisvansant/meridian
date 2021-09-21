@@ -3,7 +3,7 @@ use tokio::sync::broadcast::Sender;
 use crate::node::Node;
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
     One,
     Three,
@@ -20,12 +20,15 @@ impl ClusterSize {
     }
 }
 
+#[derive(Clone)]
 pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     members: Vec<Node>,
     grpc_server_send_actions: Sender<JoinClusterResponse>,
     grpc_server_receive_actions: Sender<JoinClusterRequest>,
+    server_send_action: Sender<Node>,
+    server_receive_action: Sender<u8>,
 }
 
 impl Membership {
@@ -34,6 +37,8 @@ impl Membership {
         server: Node,
         grpc_server_send_actions: Sender<JoinClusterResponse>,
         grpc_server_receive_actions: Sender<JoinClusterRequest>,
+        server_send_action: Sender<Node>,
+        server_receive_action: Sender<u8>,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
 
@@ -43,6 +48,8 @@ impl Membership {
             members,
             grpc_server_send_actions,
             grpc_server_receive_actions,
+            server_send_action,
+            server_receive_action,
         })
     }
 
@@ -53,21 +60,42 @@ impl Membership {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.grpc_server_receive_actions.subscribe();
+        let mut grpc_server_receiver = self.grpc_server_receive_actions.subscribe();
+        let grpc_server_sender = self.grpc_server_send_actions.clone();
 
-        while let Ok(action) = receiver.recv().await {
-            println!("incoming action - {:?}", &action);
+        let mut server_receiver = self.server_receive_action.subscribe();
+        let server_sender = self.server_send_action.clone();
 
-            let response = JoinClusterResponse {
-                success: String::from("true"),
-                details: String::from("node successfully joined cluster!"),
-                members: Vec::with_capacity(0),
-            };
+        let node = self.clone();
 
-            if let Err(error) = self.grpc_server_send_actions.send(response) {
-                println!("{:?}", error);
+        let grpc_server = tokio::spawn(async move {
+            println!("awaiting membership grpc server actions!");
+            while let Ok(action) = grpc_server_receiver.recv().await {
+                println!("incoming action - {:?}", &action);
+
+                let response = JoinClusterResponse {
+                    success: String::from("true"),
+                    details: String::from("node successfully joined cluster!"),
+                    members: Vec::with_capacity(0),
+                };
+
+                if let Err(error) = grpc_server_sender.send(response) {
+                    println!("{:?}", error);
+                }
             }
-        }
+        });
+
+        let server = tokio::spawn(async move {
+            while let Ok(action) = server_receiver.recv().await {
+                println!("receive action from server {:?}", &action);
+
+                if let Err(error) = server_sender.send(node.server) {
+                    println!("{:?}", error);
+                }
+            }
+        });
+
+        tokio::try_join!(grpc_server, server)?;
 
         Ok(())
     }
