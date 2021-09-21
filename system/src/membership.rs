@@ -22,6 +22,7 @@ impl ClusterSize {
 
 pub struct Membership {
     cluster_size: ClusterSize,
+    server: Node,
     members: Vec<Node>,
     grpc_server_send_actions: Sender<JoinClusterResponse>,
     grpc_server_receive_actions: Sender<JoinClusterRequest>,
@@ -30,6 +31,7 @@ pub struct Membership {
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
+        server: Node,
         grpc_server_send_actions: Sender<JoinClusterResponse>,
         grpc_server_receive_actions: Sender<JoinClusterRequest>,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
@@ -37,6 +39,7 @@ impl Membership {
 
         Ok(Membership {
             cluster_size,
+            server,
             members,
             grpc_server_send_actions,
             grpc_server_receive_actions,
