@@ -189,15 +189,15 @@ impl Node {
         membership_send_grpc_actions: Sender<JoinClusterResponse>,
         membership_receive_grpc_actions: Sender<JoinClusterRequest>,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
+        let server = self.to_owned();
         let mut membership = Membership::init(
             // ClusterSize::One,
             cluster_size,
+            server,
             membership_send_grpc_actions,
             membership_receive_grpc_actions,
         )
         .await?;
-
-        membership.add_node(self.to_owned()).await?;
 
         let membership_run_handle = tokio::spawn(async move {
             sleep(Duration::from_secs(10)).await;
