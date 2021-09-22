@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("launching membership on {:?}", &membership_port);
 
-            let node = Node::init(ip_address, cluster_port, client_port, membership_port).await?;
+            let node = Node::init(ip_address, client_port, cluster_port, membership_port).await?;
 
             node.run(cluster_size).await?;
         }
