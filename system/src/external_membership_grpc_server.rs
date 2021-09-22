@@ -30,18 +30,28 @@ impl Communications for ExternalMembershipGrpcServer {
         &self,
         request: Request<JoinClusterRequest>,
     ) -> Result<Response<JoinClusterResponse>, Status> {
-        if let Err(error) = self.membership_send_actions.send(request.into_inner()) {
-            println!("{:?}", error);
-        };
+        println!("{:?}", &request);
+        if request.get_ref().node_id.is_empty()
+            | request.get_ref().address.is_empty()
+            | request.get_ref().port.is_empty()
+        {
+            let message = String::from("Received empty request!");
+            let status = Status::new(Code::FailedPrecondition, message);
+            Err(status)
+        } else {
+            if let Err(error) = self.membership_send_actions.send(request.into_inner()) {
+                println!("{:?}", error);
+            };
 
-        let mut receiver = self.membership_receive_actions.subscribe();
+            let mut receiver = self.membership_receive_actions.subscribe();
 
-        match receiver.recv().await {
-            Ok(response) => Ok(Response::new(response)),
-            Err(error) => {
-                let message = error.to_string();
-                let status = Status::new(Code::NotFound, message);
-                Err(status)
+            match receiver.recv().await {
+                Ok(response) => Ok(Response::new(response)),
+                Err(error) => {
+                    let message = error.to_string();
+                    let status = Status::new(Code::NotFound, message);
+                    Err(status)
+                }
             }
         }
     }
