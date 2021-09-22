@@ -1,11 +1,11 @@
 use tokio::sync::broadcast::Sender;
 use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 
-use crate::node::Node;
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
 use crate::Actions;
+use crate::MembershipAction;
 
 pub mod candidate;
 pub mod follower;
@@ -23,7 +23,7 @@ pub struct Server {
     receive_actions: Sender<Actions>,
     send_actions: Sender<Actions>,
     membership_send_action: Sender<u8>,
-    membership_receive_action: Sender<Node>,
+    membership_receive_action: Sender<MembershipAction>,
 }
 
 impl Server {
@@ -31,7 +31,7 @@ impl Server {
         receive_actions: Sender<Actions>,
         send_actions: Sender<Actions>,
         membership_send_action: Sender<u8>,
-        membership_receive_action: Sender<Node>,
+        membership_receive_action: Sender<MembershipAction>,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -123,10 +123,10 @@ impl Server {
             println!("{:?}", error);
         };
 
-        if let Ok(candidate_id) = membership_receiver.recv().await {
+        if let Ok(MembershipAction::Node(node)) = membership_receiver.recv().await {
             if let Err(error) = self
                 .send_actions
-                .send(Actions::Candidate(candidate_id.id.to_string()))
+                .send(Actions::Candidate(node.id.to_string()))
             {
                 println!("error sending candidate action - {:?}", error);
             };
