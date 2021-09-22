@@ -17,7 +17,7 @@ use crate::membership::{ClusterSize, Membership};
 use crate::meridian_membership_v010::{JoinClusterRequest, JoinClusterResponse};
 use crate::server::Server;
 use crate::state::State;
-use crate::Actions;
+use crate::{Actions, MembershipAction};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Node {
@@ -200,7 +200,7 @@ impl Node {
         cluster_size: ClusterSize,
         membership_send_grpc_actions: Sender<JoinClusterResponse>,
         membership_receive_grpc_actions: Sender<JoinClusterRequest>,
-        membership_send_server_action: Sender<Node>,
+        membership_send_server_action: Sender<MembershipAction>,
         membership_receive_server_action: Sender<u8>,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let server = self.to_owned();
@@ -231,7 +231,7 @@ impl Node {
         state_receive_server_actions: Sender<Actions>,
         server_send_actions: Sender<Actions>,
         server_send_membership_action: Sender<u8>,
-        server_receive_membership_action: Sender<Node>,
+        server_receive_membership_action: Sender<MembershipAction>,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let mut server = Server::init(
             state_receive_server_actions,
