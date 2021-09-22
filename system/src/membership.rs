@@ -1,7 +1,7 @@
 use tokio::sync::broadcast::Sender;
 
 use crate::node::Node;
-use crate::{JoinClusterRequest, JoinClusterResponse};
+use crate::{JoinClusterRequest, JoinClusterResponse, MembershipAction};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
@@ -20,14 +20,14 @@ impl ClusterSize {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     members: Vec<Node>,
     grpc_server_send_actions: Sender<JoinClusterResponse>,
     grpc_server_receive_actions: Sender<JoinClusterRequest>,
-    server_send_action: Sender<Node>,
+    server_send_action: Sender<MembershipAction>,
     server_receive_action: Sender<u8>,
 }
 
@@ -37,7 +37,7 @@ impl Membership {
         server: Node,
         grpc_server_send_actions: Sender<JoinClusterResponse>,
         grpc_server_receive_actions: Sender<JoinClusterRequest>,
-        server_send_action: Sender<Node>,
+        server_send_action: Sender<MembershipAction>,
         server_receive_action: Sender<u8>,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
@@ -66,7 +66,8 @@ impl Membership {
         let mut server_receiver = self.server_receive_action.subscribe();
         let server_sender = self.server_send_action.clone();
 
-        let node = self.clone();
+        let node = self.server.to_owned();
+        let members = self.members.to_owned();
 
         let grpc_server = tokio::spawn(async move {
             println!("awaiting membership grpc server actions!");
@@ -89,8 +90,20 @@ impl Membership {
             while let Ok(action) = server_receiver.recv().await {
                 println!("receive action from server {:?}", &action);
 
-                if let Err(error) = server_sender.send(node.server) {
-                    println!("{:?}", error);
+                match action {
+                    1 => {
+                        if let Err(error) = server_sender.send(MembershipAction::Node(node)) {
+                            println!("error sending! {:?}", error);
+                        }
+                    }
+                    2 => {
+                        if let Err(error) =
+                            server_sender.send(MembershipAction::Members(members.to_owned()))
+                        {
+                            println!("error sending ! {:?}", error);
+                        }
+                    }
+                    _ => panic!("received unsupported action!"),
                 }
             }
         });
