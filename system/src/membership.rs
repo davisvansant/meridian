@@ -90,8 +90,19 @@ impl Membership {
                     }
                 }
                 MembershipAction::NodeResponse(_) => println!("received node response!"),
-                MembershipAction::MembersRequest => println!("received members request!"),
-                MembershipAction::MembersResponse => println!("received members response!"),
+                MembershipAction::MembersRequest => {
+                    println!("received members request!");
+
+                    let members = &self.members;
+
+                    if let Err(error) = self
+                        .send_server_action
+                        .send(MembershipAction::MembersResponse(members.to_vec()))
+                    {
+                        println!("error sending! {:?}", error);
+                    }
+                }
+                MembershipAction::MembersResponse(_) => println!("received members response!"),
             }
         }
 

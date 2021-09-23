@@ -149,11 +149,23 @@ impl Server {
                 }
                 Ok(Actions::RequestVoteRequest(request)) => {
                     println!("sending receive request to cluster members - {:?}", request);
-                    if candidate.start_election(request).await? {
-                        self.server_state = ServerState::Leader;
-                    } else {
-                        self.server_state = ServerState::Candidate;
-                        break;
+
+                    if let Err(error) = self
+                        .membership_send_action
+                        .send(MembershipAction::MembersRequest)
+                    {
+                        println!("{:?}", error);
+                    }
+
+                    if let Ok(members) = membership_receiver.recv().await {
+                        println!("members ! {:?}", &members);
+
+                        if candidate.start_election(request).await? {
+                            self.server_state = ServerState::Leader;
+                        } else {
+                            self.server_state = ServerState::Candidate;
+                            break;
+                        }
                     }
                 }
                 _ => println!("cannot do anyhting with other requests"),

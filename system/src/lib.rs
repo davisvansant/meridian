@@ -46,5 +46,5 @@ pub enum MembershipAction {
     NodeRequest,
     NodeResponse(Node),
     MembersRequest,
-    MembersResponse,
+    MembersResponse(Vec<Node>),
 }
