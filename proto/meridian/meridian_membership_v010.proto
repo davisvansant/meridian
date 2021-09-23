@@ -7,9 +7,11 @@ service Communications {
 }
 
 message JoinClusterRequest {
-  string node_id = 1;
+  string id = 1;
   string address = 2;
-  string port = 3;
+  string client_port = 3;
+  string cluster_port = 4;
+  string membership_port = 5;
 }
 
 message JoinClusterResponse {
