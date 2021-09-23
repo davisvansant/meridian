@@ -36,7 +36,7 @@ pub enum Actions {
     RequestVoteResponse(RequestVoteResponse),
     Candidate(String),
     Follower,
-    Leader,
+    Leader(String),
 }
 
 #[derive(Clone, Debug)]

@@ -77,9 +77,10 @@ impl State {
                         .unwrap();
                 }
                 Actions::Follower => println!("cannot do anything with follower!"),
-                Actions::Leader => {
+                Actions::Leader(leader_id) => {
                     self.init_leader_volatile_state().await?;
-                    let append_entries_request = self.build_append_entries_request().await?;
+                    let append_entries_request =
+                        self.build_append_entries_request(leader_id).await?;
 
                     self.send_server_actions
                         .send(Actions::AppendEntriesRequest(append_entries_request))
@@ -194,9 +195,10 @@ impl State {
 
     async fn build_append_entries_request(
         &self,
+        leader_id: String,
     ) -> Result<AppendEntriesRequest, Box<dyn std::error::Error>> {
         let term = self.persistent.current_term;
-        let leader_id = String::from("some_leader_id");
+        // let leader_id = String::from("some_leader_id");
         // let prev_log_index = self.persistent.next_index;
         // let prev_log_term = self.persistent.match_index;
         let prev_log_index = 0;

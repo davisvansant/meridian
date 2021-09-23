@@ -53,7 +53,7 @@ impl Server {
                     Actions::Follower => println!("follower"),
                     Actions::RequestVoteRequest(request) => println!("{:?}", request),
                     Actions::Candidate(candidate_id) => println!("{:?}", candidate_id),
-                    Actions::Leader => println!("Sending heartbeat ..."),
+                    Actions::Leader(_) => println!("Sending heartbeat ..."),
                     _ => println!("other actions not supported"),
                 }
             }
@@ -177,17 +177,45 @@ impl Server {
 
     pub async fn leader(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_actions.subscribe();
+        let mut membership_receiver = self.membership_receive_action.subscribe();
+
         let leader = Leader::init().await?;
 
-        if let Err(error) = self.send_actions.send(Actions::Leader) {
-            println!("error sending leader action - {:?}", error);
+        if let Err(error) = self
+            .membership_send_action
+            .send(MembershipAction::NodeRequest)
+        {
+            println!("{:?}", error);
         }
 
-        if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
-            println!("sending heartbeat ... {:?}", &request);
+        if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
+            println!("server uuid - {:?}", &node);
 
-            leader.send_heartbeat(request).await?;
+            if let Err(error) = self.send_actions.send(Actions::Leader(node.id.to_string())) {
+                println!("error sending leader action - {:?}", error);
+            }
+
+            if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
+                self.membership_send_action
+                    .send(MembershipAction::MembersRequest)?;
+
+                if let Ok(members) = membership_receiver.recv().await {
+                    println!("{:?}", &members);
+                    println!("sending heartbeat ... {:?}", &request);
+
+                    leader.send_heartbeat(request).await?;
+                }
+            }
         }
+
+        // if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
+        //     if let Ok(members) = membership_receiver.recv().await {
+        //         println!("{:?}", &members);
+        //         println!("sending heartbeat ... {:?}", &request);
+        //
+        //         leader.send_heartbeat(request).await?;
+        //     }
+        // }
 
         Ok(())
     }
