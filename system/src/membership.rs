@@ -61,14 +61,10 @@ impl Membership {
                 MembershipAction::JoinClusterRequest(request) => {
                     println!("received join request");
 
-                    let response = self.action_join_cluster_request(request).await;
+                    let response = self.action_join_cluster_request(request).await?;
 
-                    if let Err(error) = self
-                        .send_grpc_action
-                        .send(MembershipAction::JoinClusterResponse(response))
-                    {
-                        println!("{:?}", error);
-                    }
+                    self.send_grpc_action
+                        .send(MembershipAction::JoinClusterResponse(response))?;
                 }
                 MembershipAction::JoinClusterResponse(_) => println!("received join response!"),
                 MembershipAction::NodeRequest => {
@@ -76,12 +72,8 @@ impl Membership {
 
                     let node = self.server;
 
-                    if let Err(error) = self
-                        .send_server_action
-                        .send(MembershipAction::NodeResponse(node))
-                    {
-                        println!("error sending! {:?}", error);
-                    }
+                    self.send_server_action
+                        .send(MembershipAction::NodeResponse(node))?;
                 }
                 MembershipAction::NodeResponse(_) => println!("received node response!"),
                 MembershipAction::MembersRequest => {
@@ -89,12 +81,8 @@ impl Membership {
 
                     let members = &self.members;
 
-                    if let Err(error) = self
-                        .send_server_action
-                        .send(MembershipAction::MembersResponse(members.to_vec()))
-                    {
-                        println!("error sending! {:?}", error);
-                    }
+                    self.send_server_action
+                        .send(MembershipAction::MembersResponse(members.to_vec()))?;
                 }
                 MembershipAction::MembersResponse(_) => println!("received members response!"),
             }
@@ -106,32 +94,34 @@ impl Membership {
     async fn action_join_cluster_request(
         &mut self,
         request: JoinClusterRequest,
-    ) -> JoinClusterResponse {
-        let peer = Self::build_node(request).await;
+    ) -> Result<JoinClusterResponse, Box<dyn std::error::Error>> {
+        let peer = Self::build_node(request).await?;
 
         self.members.push(peer);
 
-        JoinClusterResponse {
+        let response = JoinClusterResponse {
             success: String::from("true"),
             details: String::from("node successfully joined cluster!"),
             members: Vec::with_capacity(0),
-        }
+        };
+
+        Ok(response)
     }
 
-    async fn build_node(request: JoinClusterRequest) -> Node {
-        let id = Uuid::from_str(&request.id).unwrap();
-        let address = IpAddr::from_str(&request.address).unwrap();
-        let client_port = u16::from_str(&request.client_port).unwrap();
-        let cluster_port = u16::from_str(&request.cluster_port).unwrap();
-        let membership_port = u16::from_str(&request.membership_port).unwrap();
+    async fn build_node(request: JoinClusterRequest) -> Result<Node, Box<dyn std::error::Error>> {
+        let id = Uuid::from_str(&request.id)?;
+        let address = IpAddr::from_str(&request.address)?;
+        let client_port = u16::from_str(&request.client_port)?;
+        let cluster_port = u16::from_str(&request.cluster_port)?;
+        let membership_port = u16::from_str(&request.membership_port)?;
 
-        Node {
+        Ok(Node {
             id,
             address,
             client_port,
             cluster_port,
             membership_port,
-        }
+        })
     }
 }
 
