@@ -1,4 +1,7 @@
+use std::net::IpAddr;
+use std::str::FromStr;
 use tokio::sync::broadcast::Sender;
+use uuid::Uuid;
 
 use crate::node::Node;
 use crate::{JoinClusterRequest, JoinClusterResponse, MembershipAction};
@@ -25,20 +28,18 @@ pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     members: Vec<Node>,
-    grpc_server_send_actions: Sender<JoinClusterResponse>,
-    grpc_server_receive_actions: Sender<JoinClusterRequest>,
-    server_send_action: Sender<MembershipAction>,
-    server_receive_action: Sender<u8>,
+    receive_action: Sender<MembershipAction>,
+    send_grpc_action: Sender<MembershipAction>,
+    send_server_action: Sender<MembershipAction>,
 }
 
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
         server: Node,
-        grpc_server_send_actions: Sender<JoinClusterResponse>,
-        grpc_server_receive_actions: Sender<JoinClusterRequest>,
-        server_send_action: Sender<MembershipAction>,
-        server_receive_action: Sender<u8>,
+        receive_action: Sender<MembershipAction>,
+        send_grpc_action: Sender<MembershipAction>,
+        send_server_action: Sender<MembershipAction>,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
 
@@ -46,10 +47,9 @@ impl Membership {
             cluster_size,
             server,
             members,
-            grpc_server_send_actions,
-            grpc_server_receive_actions,
-            server_send_action,
-            server_receive_action,
+            send_grpc_action,
+            receive_action,
+            send_server_action,
         })
     }
 
@@ -60,57 +60,77 @@ impl Membership {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut grpc_server_receiver = self.grpc_server_receive_actions.subscribe();
-        let grpc_server_sender = self.grpc_server_send_actions.clone();
+        let mut receiver = self.receive_action.subscribe();
 
-        let mut server_receiver = self.server_receive_action.subscribe();
-        let server_sender = self.server_send_action.clone();
+        while let Ok(action) = receiver.recv().await {
+            match action {
+                MembershipAction::JoinClusterRequest(request) => {
+                    println!("received join request");
 
-        let node = self.server.to_owned();
-        let members = self.members.to_owned();
+                    let response = self.action_join_cluster_request(request).await;
 
-        let grpc_server = tokio::spawn(async move {
-            println!("awaiting membership grpc server actions!");
-            while let Ok(action) = grpc_server_receiver.recv().await {
-                println!("incoming action - {:?}", &action);
-
-                let response = JoinClusterResponse {
-                    success: String::from("true"),
-                    details: String::from("node successfully joined cluster!"),
-                    members: Vec::with_capacity(0),
-                };
-
-                if let Err(error) = grpc_server_sender.send(response) {
-                    println!("{:?}", error);
-                }
-            }
-        });
-
-        let server = tokio::spawn(async move {
-            while let Ok(action) = server_receiver.recv().await {
-                println!("receive action from server {:?}", &action);
-
-                match action {
-                    1 => {
-                        if let Err(error) = server_sender.send(MembershipAction::Node(node)) {
-                            println!("error sending! {:?}", error);
-                        }
+                    if let Err(error) = self
+                        .send_grpc_action
+                        .send(MembershipAction::JoinClusterResponse(response))
+                    {
+                        println!("{:?}", error);
                     }
-                    2 => {
-                        if let Err(error) =
-                            server_sender.send(MembershipAction::Members(members.to_owned()))
-                        {
-                            println!("error sending ! {:?}", error);
-                        }
-                    }
-                    _ => panic!("received unsupported action!"),
                 }
-            }
-        });
+                MembershipAction::JoinClusterResponse(_) => println!("received join response!"),
+                MembershipAction::Node(node) => {
+                    println!("received node action!");
+                    let node = self.server.to_owned();
 
-        tokio::try_join!(grpc_server, server)?;
+                    if let Err(error) = self.send_server_action.send(MembershipAction::Node(node)) {
+                        println!("error sending! {:?}", error);
+                    }
+                }
+                MembershipAction::Members(members) => println!("received members action!"),
+                MembershipAction::NodeRequest => {
+                    println!("received node request!");
+
+                    let node = self.server;
+
+                    if let Err(error) = self.send_server_action.send(MembershipAction::Node(node)) {
+                        println!("error sending! {:?}", error);
+                    }
+                }
+                MembershipAction::NodeResponse(_) => println!("received node response!"),
+            }
+        }
 
         Ok(())
+    }
+
+    async fn action_join_cluster_request(
+        &mut self,
+        request: JoinClusterRequest,
+    ) -> JoinClusterResponse {
+        let peer = Self::build_node(request).await;
+
+        self.members.push(peer);
+
+        JoinClusterResponse {
+            success: String::from("true"),
+            details: String::from("node successfully joined cluster!"),
+            members: Vec::with_capacity(0),
+        }
+    }
+
+    async fn build_node(request: JoinClusterRequest) -> Node {
+        let id = Uuid::from_str(&request.id).unwrap();
+        let address = IpAddr::from_str(&request.address).unwrap();
+        let client_port = u16::from_str(&request.client_port).unwrap();
+        let cluster_port = u16::from_str(&request.cluster_port).unwrap();
+        let membership_port = u16::from_str(&request.membership_port).unwrap();
+
+        Node {
+            id,
+            address,
+            client_port,
+            cluster_port,
+            membership_port,
+        }
     }
 }
 
