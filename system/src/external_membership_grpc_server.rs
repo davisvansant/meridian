@@ -7,20 +7,30 @@ pub use crate::meridian_membership_v010::communications_server::{
 
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
+use crate::MembershipAction;
+
 pub struct ExternalMembershipGrpcServer {
-    membership_receive_actions: Sender<JoinClusterResponse>,
-    membership_send_actions: Sender<JoinClusterRequest>,
+    receive_membership_action: Sender<MembershipAction>,
+    send_membership_action: Sender<MembershipAction>,
 }
 
 impl ExternalMembershipGrpcServer {
     pub async fn init(
-        membership_receive_actions: Sender<JoinClusterResponse>,
-        membership_send_actions: Sender<JoinClusterRequest>,
+        receive_membership_action: Sender<MembershipAction>,
+        send_membership_action: Sender<MembershipAction>,
     ) -> Result<ExternalMembershipGrpcServer, Box<dyn std::error::Error>> {
         Ok(ExternalMembershipGrpcServer {
-            membership_receive_actions,
-            membership_send_actions,
+            receive_membership_action,
+            send_membership_action,
         })
+    }
+
+    async fn check_incoming_request(request: &JoinClusterRequest) -> bool {
+        request.id.is_empty()
+            | request.address.is_empty()
+            | request.client_port.is_empty()
+            | request.cluster_port.is_empty()
+            | request.membership_port.is_empty()
     }
 }
 
@@ -31,24 +41,29 @@ impl Communications for ExternalMembershipGrpcServer {
         request: Request<JoinClusterRequest>,
     ) -> Result<Response<JoinClusterResponse>, Status> {
         println!("{:?}", &request);
-        if request.get_ref().node_id.is_empty()
-            | request.get_ref().address.is_empty()
-            | request.get_ref().port.is_empty()
-        {
+        if Self::check_incoming_request(request.get_ref()).await {
             let message = String::from("Received empty request!");
             let status = Status::new(Code::FailedPrecondition, message);
             Err(status)
         } else {
-            if let Err(error) = self.membership_send_actions.send(request.into_inner()) {
+            if let Err(error) = self
+                .send_membership_action
+                .send(MembershipAction::JoinClusterRequest(request.into_inner()))
+            {
                 println!("{:?}", error);
             };
 
-            let mut receiver = self.membership_receive_actions.subscribe();
+            let mut receiver = self.receive_membership_action.subscribe();
 
             match receiver.recv().await {
-                Ok(response) => Ok(Response::new(response)),
+                Ok(MembershipAction::JoinClusterResponse(response)) => Ok(Response::new(response)),
                 Err(error) => {
                     let message = error.to_string();
+                    let status = Status::new(Code::NotFound, message);
+                    Err(status)
+                }
+                _ => {
+                    let message = String::from("not good!");
                     let status = Status::new(Code::NotFound, message);
                     Err(status)
                 }
