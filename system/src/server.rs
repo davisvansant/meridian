@@ -117,23 +117,14 @@ impl Server {
 
     pub async fn candidate(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_actions.subscribe();
-        // let candidate_id = String::from("some_candidate_id");
         let mut membership_receiver = self.membership_receive_action.subscribe();
 
-        if let Err(error) = self
-            .membership_send_action
-            .send(MembershipAction::NodeRequest)
-        {
-            println!("I cant send this - {:?}", error);
-        };
+        self.membership_send_action
+            .send(MembershipAction::NodeRequest)?;
 
         if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
-            if let Err(error) = self
-                .send_actions
-                .send(Actions::Candidate(node.id.to_string()))
-            {
-                println!("error sending candidate action - {:?}", error);
-            };
+            self.send_actions
+                .send(Actions::Candidate(node.id.to_string()))?;
         };
 
         let candidate = Candidate::init().await?;
@@ -150,12 +141,8 @@ impl Server {
                 Ok(Actions::RequestVoteRequest(request)) => {
                     println!("sending receive request to cluster members - {:?}", request);
 
-                    if let Err(error) = self
-                        .membership_send_action
-                        .send(MembershipAction::MembersRequest)
-                    {
-                        println!("{:?}", error);
-                    }
+                    self.membership_send_action
+                        .send(MembershipAction::MembersRequest)?;
 
                     if let Ok(members) = membership_receiver.recv().await {
                         println!("members ! {:?}", &members);
@@ -181,19 +168,14 @@ impl Server {
 
         let leader = Leader::init().await?;
 
-        if let Err(error) = self
-            .membership_send_action
-            .send(MembershipAction::NodeRequest)
-        {
-            println!("{:?}", error);
-        }
+        self.membership_send_action
+            .send(MembershipAction::NodeRequest)?;
 
         if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
             println!("server uuid - {:?}", &node);
 
-            if let Err(error) = self.send_actions.send(Actions::Leader(node.id.to_string())) {
-                println!("error sending leader action - {:?}", error);
-            }
+            self.send_actions
+                .send(Actions::Leader(node.id.to_string()))?;
 
             if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
                 self.membership_send_action
@@ -207,15 +189,6 @@ impl Server {
                 }
             }
         }
-
-        // if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
-        //     if let Ok(members) = membership_receiver.recv().await {
-        //         println!("{:?}", &members);
-        //         println!("sending heartbeat ... {:?}", &request);
-        //
-        //         leader.send_heartbeat(request).await?;
-        //     }
-        // }
 
         Ok(())
     }
