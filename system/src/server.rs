@@ -22,7 +22,7 @@ pub struct Server {
     pub server_state: ServerState,
     receive_actions: Sender<Actions>,
     send_actions: Sender<Actions>,
-    membership_send_action: Sender<u8>,
+    membership_send_action: Sender<MembershipAction>,
     membership_receive_action: Sender<MembershipAction>,
 }
 
@@ -30,7 +30,7 @@ impl Server {
     pub async fn init(
         receive_actions: Sender<Actions>,
         send_actions: Sender<Actions>,
-        membership_send_action: Sender<u8>,
+        membership_send_action: Sender<MembershipAction>,
         membership_receive_action: Sender<MembershipAction>,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
@@ -119,8 +119,12 @@ impl Server {
         let mut receiver = self.receive_actions.subscribe();
         // let candidate_id = String::from("some_candidate_id");
         let mut membership_receiver = self.membership_receive_action.subscribe();
-        if let Err(error) = self.membership_send_action.send(1) {
-            println!("{:?}", error);
+
+        if let Err(error) = self
+            .membership_send_action
+            .send(MembershipAction::NodeRequest)
+        {
+            println!("I cant send this - {:?}", error);
         };
 
         if let Ok(MembershipAction::Node(node)) = membership_receiver.recv().await {
@@ -133,10 +137,6 @@ impl Server {
         };
 
         let candidate = Candidate::init().await?;
-
-        // if let Err(error) = self.send_actions.send(Actions::Candidate(candidate_id)) {
-        //     println!("error sending candidate action - {:?}", error);
-        // };
 
         while let Ok(action) =
             timeout_at(Instant::now() + candidate.election_timeout, receiver.recv()).await
