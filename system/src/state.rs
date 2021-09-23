@@ -51,10 +51,7 @@ impl State {
                 Actions::AppendEntriesRequest(request) => {
                     println!("received append entires request - {:?}", &request);
                     if request.entries.is_empty() {
-                        if let Err(error) = self.send_server_actions.send(Actions::Follower) {
-                            println!("error trying to send follower action - {:?}", error);
-                        }
-                        // self.send_server_actions.send(Actions::Follower).unwrap();
+                        self.send_server_actions.send(Actions::Follower)?;
                     }
                     self.append_entries_receiver(request).await?;
                 }
@@ -73,8 +70,7 @@ impl State {
                         .await?;
 
                     self.send_server_actions
-                        .send(Actions::RequestVoteRequest(request_vote_request))
-                        .unwrap();
+                        .send(Actions::RequestVoteRequest(request_vote_request))?;
                 }
                 Actions::Follower => println!("cannot do anything with follower!"),
                 Actions::Leader(leader_id) => {
@@ -83,8 +79,7 @@ impl State {
                         self.build_append_entries_request(leader_id).await?;
 
                     self.send_server_actions
-                        .send(Actions::AppendEntriesRequest(append_entries_request))
-                        .unwrap();
+                        .send(Actions::AppendEntriesRequest(append_entries_request))?;
                 }
             }
         }
@@ -108,8 +103,7 @@ impl State {
         match self.check_term(request.term).await {
             false => {
                 self.send_grpc_actions
-                    .send(Actions::AppendEntriesResponse(false_response))
-                    .unwrap();
+                    .send(Actions::AppendEntriesResponse(false_response))?;
             }
             true => {
                 match self
@@ -118,16 +112,14 @@ impl State {
                 {
                     false => {
                         self.send_grpc_actions
-                            .send(Actions::AppendEntriesResponse(false_response))
-                            .unwrap();
+                            .send(Actions::AppendEntriesResponse(false_response))?;
                     }
                     true => {
                         // do some delete stuff here
                         // do some appending stuff here
                         // do some setting of commit_index here
                         self.send_grpc_actions
-                            .send(Actions::AppendEntriesResponse(true_response))
-                            .unwrap();
+                            .send(Actions::AppendEntriesResponse(true_response))?;
                     }
                 }
             }
@@ -153,8 +145,7 @@ impl State {
         match self.check_term(request.term).await {
             false => {
                 self.send_grpc_actions
-                    .send(Actions::RequestVoteResponse(false_response))
-                    .unwrap();
+                    .send(Actions::RequestVoteResponse(false_response))?;
             }
             true => {
                 match self.check_candidate_id(request.candidate_id.as_str()).await
@@ -164,13 +155,11 @@ impl State {
                 {
                     true => {
                         self.send_grpc_actions
-                            .send(Actions::RequestVoteResponse(true_response))
-                            .unwrap();
+                            .send(Actions::RequestVoteResponse(true_response))?;
                     }
                     false => {
                         self.send_grpc_actions
-                            .send(Actions::RequestVoteResponse(false_response))
-                            .unwrap();
+                            .send(Actions::RequestVoteResponse(false_response))?;
                     }
                 }
             }
