@@ -43,8 +43,8 @@ pub enum Actions {
 pub enum MembershipAction {
     JoinClusterRequest(JoinClusterRequest),
     JoinClusterResponse(JoinClusterResponse),
-    Node(Node),
-    Members(Vec<Node>),
     NodeRequest,
     NodeResponse(Node),
+    MembersRequest,
+    MembersResponse,
 }

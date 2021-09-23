@@ -77,25 +77,21 @@ impl Membership {
                     }
                 }
                 MembershipAction::JoinClusterResponse(_) => println!("received join response!"),
-                MembershipAction::Node(node) => {
-                    println!("received node action!");
-                    let node = self.server.to_owned();
-
-                    if let Err(error) = self.send_server_action.send(MembershipAction::Node(node)) {
-                        println!("error sending! {:?}", error);
-                    }
-                }
-                MembershipAction::Members(members) => println!("received members action!"),
                 MembershipAction::NodeRequest => {
                     println!("received node request!");
 
                     let node = self.server;
 
-                    if let Err(error) = self.send_server_action.send(MembershipAction::Node(node)) {
+                    if let Err(error) = self
+                        .send_server_action
+                        .send(MembershipAction::NodeResponse(node))
+                    {
                         println!("error sending! {:?}", error);
                     }
                 }
                 MembershipAction::NodeResponse(_) => println!("received node response!"),
+                MembershipAction::MembersRequest => println!("received members request!"),
+                MembershipAction::MembersResponse => println!("received members response!"),
             }
         }
 

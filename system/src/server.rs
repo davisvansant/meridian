@@ -127,7 +127,7 @@ impl Server {
             println!("I cant send this - {:?}", error);
         };
 
-        if let Ok(MembershipAction::Node(node)) = membership_receiver.recv().await {
+        if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
             if let Err(error) = self
                 .send_actions
                 .send(Actions::Candidate(node.id.to_string()))
