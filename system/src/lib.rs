@@ -41,6 +41,10 @@ pub enum Actions {
 
 #[derive(Clone, Debug)]
 pub enum MembershipAction {
+    JoinClusterRequest(JoinClusterRequest),
+    JoinClusterResponse(JoinClusterResponse),
     Node(Node),
     Members(Vec<Node>),
+    NodeRequest,
+    NodeResponse(Node),
 }
