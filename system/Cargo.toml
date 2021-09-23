@@ -14,7 +14,7 @@ clap = { version = "2.33.0", default-features = false }
 tokio = { version = "1.11.0", default-features = false, features = [ "rt-multi-thread", "sync", "time" ] }
 tonic = "0.5.2"
 prost = "0.8.0"
-uuid = { version = "0.8.1", default-features = false, features = [ "v4"] }
+uuid = { version = "0.8.1", default-features = false, features = [ "std", "v4"] }
 
 [build-dependencies]
 tonic-build = { version = "0.5.2", default-features = false, features = [ "transport", "prost" ] }
