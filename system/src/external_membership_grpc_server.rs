@@ -1,4 +1,3 @@
-use tokio::sync::broadcast::Sender;
 use tonic::{Code, Request, Response, Status};
 
 pub use crate::meridian_membership_v010::communications_server::{
@@ -7,17 +6,21 @@ pub use crate::meridian_membership_v010::communications_server::{
 
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
-use crate::MembershipAction;
+use crate::channels::ChannelMembershipReceiveAction;
+use crate::channels::ChannelMembershipSendGrpcAction;
+
+use crate::channels::MembershipReceiveAction;
+use crate::channels::MembershipSendGrpcAction;
 
 pub struct ExternalMembershipGrpcServer {
-    receive_membership_action: Sender<MembershipAction>,
-    send_membership_action: Sender<MembershipAction>,
+    receive_membership_action: ChannelMembershipSendGrpcAction,
+    send_membership_action: ChannelMembershipReceiveAction,
 }
 
 impl ExternalMembershipGrpcServer {
     pub async fn init(
-        receive_membership_action: Sender<MembershipAction>,
-        send_membership_action: Sender<MembershipAction>,
+        receive_membership_action: ChannelMembershipSendGrpcAction,
+        send_membership_action: ChannelMembershipReceiveAction,
     ) -> Result<ExternalMembershipGrpcServer, Box<dyn std::error::Error>> {
         Ok(ExternalMembershipGrpcServer {
             receive_membership_action,
@@ -46,9 +49,11 @@ impl Communications for ExternalMembershipGrpcServer {
             let status = Status::new(Code::FailedPrecondition, message);
             Err(status)
         } else {
-            if let Err(error) = self
-                .send_membership_action
-                .send(MembershipAction::JoinClusterRequest(request.into_inner()))
+            if let Err(error) =
+                self.send_membership_action
+                    .send(MembershipReceiveAction::JoinClusterRequest(
+                        request.into_inner(),
+                    ))
             {
                 println!("{:?}", error);
             };
@@ -56,14 +61,11 @@ impl Communications for ExternalMembershipGrpcServer {
             let mut receiver = self.receive_membership_action.subscribe();
 
             match receiver.recv().await {
-                Ok(MembershipAction::JoinClusterResponse(response)) => Ok(Response::new(response)),
+                Ok(MembershipSendGrpcAction::JoinClusterResponse(response)) => {
+                    Ok(Response::new(response))
+                }
                 Err(error) => {
                     let message = error.to_string();
-                    let status = Status::new(Code::NotFound, message);
-                    Err(status)
-                }
-                _ => {
-                    let message = String::from("not good!");
                     let status = Status::new(Code::NotFound, message);
                     Err(status)
                 }

@@ -1,9 +1,16 @@
 use std::net::{IpAddr, SocketAddr};
-use tokio::sync::broadcast::{channel, Sender};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
+use crate::channels::{
+    channel_membership_receive_action, channel_membership_send_grpc_action,
+    channel_membership_send_server_action, channel_state_receive_action,
+    channel_state_send_grpc_action, channel_state_send_server_action,
+    ChannelMembershipReceiveAction, ChannelMembershipSendGrpcAction,
+    ChannelMembershipSendServerAction, ChannelStateReceiveAction, ChannelStateSendGrpcAction,
+    ChannelStateSendServerAction,
+};
 use crate::external_client_grpc_server::{
     CommunicationsServer as ClientServer, ExternalClientGrpcServer,
 };
@@ -14,30 +21,8 @@ use crate::internal_cluster_grpc_server::{
     CommunicationsServer as ClusterServer, InternalClusterGrpcServer,
 };
 use crate::membership::{ClusterSize, Membership};
-use crate::meridian_membership_v010::{JoinClusterRequest, JoinClusterResponse};
 use crate::server::Server;
 use crate::state::State;
-use crate::{Actions, MembershipAction};
-
-type ChannelStateGrpc = (
-    Sender<Actions>,
-    Sender<Actions>,
-    Sender<Actions>,
-    Sender<Actions>,
-);
-
-type ChannelMembershipReceiveAction = (
-    Sender<MembershipAction>,
-    Sender<MembershipAction>,
-    Sender<MembershipAction>,
-);
-
-type ChannelMembershipSendAction = (
-    Sender<MembershipAction>,
-    Sender<MembershipAction>,
-    Sender<MembershipAction>,
-    Sender<MembershipAction>,
-);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Node {
@@ -75,27 +60,25 @@ impl Node {
         };
 
         let (state_send_handle, grpc_send_actions, server_send_actions) =
-            Self::channel_state_grpc_server().await;
+            channel_state_receive_action().await;
 
-        let (
-            state_receive_server_actions,
-            state_receive_grpc_actions,
-            state_send_server_actions,
-            state_send_grpc_actions,
-        ) = Self::channel_state_grpc().await;
+        let (state_receive_grpc_actions, state_send_grpc_actions) =
+            channel_state_send_grpc_action().await;
+
+        let (state_receive_server_actions, state_send_server_actions) =
+            channel_state_send_server_action().await;
 
         let (
             membership_receive_action,
             membership_grpc_send_membership_action,
             server_send_membership_action,
-        ) = Self::channel_membership_receive_action().await;
+        ) = channel_membership_receive_action().await;
 
-        let (
-            membership_send_server_action,
-            membership_send_membership_grpc_action,
-            server_receive_membership_action,
-            membership_grpc_receive_membership_action,
-        ) = Self::channel_membership_send_action().await;
+        let (membership_send_membership_grpc_action, membership_grpc_receive_membership_action) =
+            channel_membership_send_grpc_action().await;
+
+        let (membership_send_server_action, server_receive_membership_action) =
+            channel_membership_send_server_action().await;
 
         let client_handle = self.run_client_grpc_server().await?;
 
@@ -148,55 +131,6 @@ impl Node {
         Ok(())
     }
 
-    async fn channel_state_grpc_server() -> (Sender<Actions>, Sender<Actions>, Sender<Actions>) {
-        let (state_send_handle, _) = channel(64);
-        let grpc_send_actions = state_send_handle.clone();
-        let server_send_actions = state_send_handle.clone();
-
-        (state_send_handle, grpc_send_actions, server_send_actions)
-    }
-
-    async fn channel_state_grpc() -> ChannelStateGrpc {
-        let (state_receive_server_actions, _) = channel(64);
-        let (state_receive_grpc_actions, _) = channel(64);
-        let state_send_server_actions = state_receive_server_actions.clone();
-        let state_send_grpc_actions = state_receive_grpc_actions.clone();
-
-        (
-            state_receive_server_actions,
-            state_receive_grpc_actions,
-            state_send_server_actions,
-            state_send_grpc_actions,
-        )
-    }
-
-    async fn channel_membership_receive_action() -> ChannelMembershipReceiveAction {
-        let (membership_receive_action, _) = channel(64);
-        let membership_grpc_send_membership_action = membership_receive_action.clone();
-        let server_send_membership_action = membership_receive_action.clone();
-
-        (
-            membership_receive_action,
-            membership_grpc_send_membership_action,
-            server_send_membership_action,
-        )
-    }
-
-    async fn channel_membership_send_action() -> ChannelMembershipSendAction {
-        let (membership_send_server_action, _) = channel(64);
-        let (membership_send_membership_grpc_action, _) = channel(64);
-        let server_receive_membership_action = membership_send_server_action.clone();
-        let membership_grpc_receive_membership_action =
-            membership_send_membership_grpc_action.clone();
-
-        (
-            membership_send_server_action,
-            membership_send_membership_grpc_action,
-            server_receive_membership_action,
-            membership_grpc_receive_membership_action,
-        )
-    }
-
     async fn run_client_grpc_server(&self) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let external_client_grpc_server = ExternalClientGrpcServer::init().await?;
         let client_service = ClientServer::new(external_client_grpc_server);
@@ -219,8 +153,8 @@ impl Node {
 
     async fn run_cluster_grpc_server(
         &self,
-        state_receive_grpc_actions: Sender<Actions>,
-        grpc_send_actions: Sender<Actions>,
+        state_receive_grpc_actions: ChannelStateSendGrpcAction,
+        grpc_send_actions: ChannelStateReceiveAction,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let internal_cluster_grpc_server =
             InternalClusterGrpcServer::init(state_receive_grpc_actions, grpc_send_actions).await?;
@@ -245,8 +179,8 @@ impl Node {
 
     async fn run_membership_grpc_server(
         &self,
-        grpc_receive_membership_actions: Sender<MembershipAction>,
-        grpc_send_membership_actions: Sender<MembershipAction>,
+        grpc_receive_membership_actions: ChannelMembershipSendGrpcAction,
+        grpc_send_membership_actions: ChannelMembershipReceiveAction,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let external_membership_grpc_server = ExternalMembershipGrpcServer::init(
             grpc_receive_membership_actions,
@@ -275,9 +209,9 @@ impl Node {
     async fn run_membership(
         &self,
         cluster_size: ClusterSize,
-        membership_send_grpc_actions: Sender<MembershipAction>,
-        membership_receive_grpc_actions: Sender<MembershipAction>,
-        membership_send_server_action: Sender<MembershipAction>,
+        membership_send_grpc_actions: ChannelMembershipReceiveAction,
+        membership_receive_grpc_actions: ChannelMembershipSendGrpcAction,
+        membership_send_server_action: ChannelMembershipSendServerAction,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let server = self.to_owned();
         let mut membership = Membership::init(
@@ -303,10 +237,10 @@ impl Node {
 
     async fn run_server(
         &self,
-        state_receive_server_actions: Sender<Actions>,
-        server_send_actions: Sender<Actions>,
-        server_send_membership_action: Sender<MembershipAction>,
-        server_receive_membership_action: Sender<MembershipAction>,
+        state_receive_server_actions: ChannelStateSendServerAction,
+        server_send_actions: ChannelStateReceiveAction,
+        server_send_membership_action: ChannelMembershipReceiveAction,
+        server_receive_membership_action: ChannelMembershipSendServerAction,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let mut server = Server::init(
             state_receive_server_actions,
@@ -329,9 +263,9 @@ impl Node {
 
     async fn run_state(
         &self,
-        state_send_handle: Sender<Actions>,
-        state_send_server_actions: Sender<Actions>,
-        state_send_grpc_actions: Sender<Actions>,
+        state_send_handle: ChannelStateReceiveAction,
+        state_send_server_actions: ChannelStateSendServerAction,
+        state_send_grpc_actions: ChannelStateSendGrpcAction,
     ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
         let mut state = State::init(
             state_send_handle,

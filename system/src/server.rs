@@ -1,15 +1,22 @@
-use tokio::sync::broadcast::Sender;
 use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
-use crate::Actions;
-use crate::MembershipAction;
 
 pub mod candidate;
 pub mod follower;
 pub mod leader;
+
+use crate::channels::ChannelMembershipReceiveAction;
+use crate::channels::ChannelMembershipSendServerAction;
+use crate::channels::ChannelStateReceiveAction;
+use crate::channels::ChannelStateSendServerAction;
+
+use crate::channels::MembershipReceiveAction;
+use crate::channels::MembershipSendServerAction;
+use crate::channels::StateReceiveAction;
+use crate::channels::StateSendServerAction;
 
 #[derive(Debug, PartialEq)]
 pub enum ServerState {
@@ -20,18 +27,18 @@ pub enum ServerState {
 
 pub struct Server {
     pub server_state: ServerState,
-    receive_actions: Sender<Actions>,
-    send_actions: Sender<Actions>,
-    membership_send_action: Sender<MembershipAction>,
-    membership_receive_action: Sender<MembershipAction>,
+    receive_actions: ChannelStateSendServerAction,
+    send_actions: ChannelStateReceiveAction,
+    membership_send_action: ChannelMembershipReceiveAction,
+    membership_receive_action: ChannelMembershipSendServerAction,
 }
 
 impl Server {
     pub async fn init(
-        receive_actions: Sender<Actions>,
-        send_actions: Sender<Actions>,
-        membership_send_action: Sender<MembershipAction>,
-        membership_receive_action: Sender<MembershipAction>,
+        receive_actions: ChannelStateSendServerAction,
+        send_actions: ChannelStateReceiveAction,
+        membership_send_action: ChannelMembershipReceiveAction,
+        membership_receive_action: ChannelMembershipSendServerAction,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -50,11 +57,11 @@ impl Server {
         tokio::spawn(async move {
             while let Ok(action) = receiver.recv().await {
                 match action {
-                    Actions::Follower => println!("follower"),
-                    Actions::RequestVoteRequest(request) => println!("{:?}", request),
-                    Actions::Candidate(candidate_id) => println!("{:?}", candidate_id),
-                    Actions::Leader(_) => println!("Sending heartbeat ..."),
-                    _ => println!("other actions not supported"),
+                    StateSendServerAction::AppendEntriesRequest(_) => {
+                        println!("received append entries");
+                    }
+                    StateSendServerAction::Follower => println!("follower"),
+                    StateSendServerAction::RequestVoteRequest(request) => println!("{:?}", request),
                 }
             }
         });
@@ -104,7 +111,7 @@ impl Server {
         while let Ok(result) =
             timeout_at(Instant::now() + follower.election_timeout, receiver.recv()).await
         {
-            if let Ok(Actions::Follower) = result {
+            if let Ok(StateSendServerAction::Follower) = result {
                 println!("receiving heartbeat...");
             }
         }
@@ -120,11 +127,12 @@ impl Server {
         let mut membership_receiver = self.membership_receive_action.subscribe();
 
         self.membership_send_action
-            .send(MembershipAction::NodeRequest)?;
+            .send(MembershipReceiveAction::Node)?;
 
-        if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
+        if let Ok(MembershipSendServerAction::NodeResponse(node)) = membership_receiver.recv().await
+        {
             self.send_actions
-                .send(Actions::Candidate(node.id.to_string()))?;
+                .send(StateReceiveAction::Candidate(node.id.to_string()))?;
         };
 
         let candidate = Candidate::init().await?;
@@ -133,16 +141,16 @@ impl Server {
             timeout_at(Instant::now() + candidate.election_timeout, receiver.recv()).await
         {
             match action {
-                Ok(Actions::Follower) => {
+                Ok(StateSendServerAction::Follower) => {
                     println!("received heartbeat...stepping down");
                     self.server_state = ServerState::Follower;
                     break;
                 }
-                Ok(Actions::RequestVoteRequest(request)) => {
+                Ok(StateSendServerAction::RequestVoteRequest(request)) => {
                     println!("sending receive request to cluster members - {:?}", request);
 
                     self.membership_send_action
-                        .send(MembershipAction::MembersRequest)?;
+                        .send(MembershipReceiveAction::Members)?;
 
                     if let Ok(members) = membership_receiver.recv().await {
                         println!("members ! {:?}", &members);
@@ -169,17 +177,19 @@ impl Server {
         let leader = Leader::init().await?;
 
         self.membership_send_action
-            .send(MembershipAction::NodeRequest)?;
+            .send(MembershipReceiveAction::Node)?;
 
-        if let Ok(MembershipAction::NodeResponse(node)) = membership_receiver.recv().await {
+        if let Ok(MembershipSendServerAction::NodeResponse(node)) = membership_receiver.recv().await
+        {
             println!("server uuid - {:?}", &node);
 
             self.send_actions
-                .send(Actions::Leader(node.id.to_string()))?;
+                .send(StateReceiveAction::Leader(node.id.to_string()))?;
 
-            if let Ok(Actions::AppendEntriesRequest(request)) = receiver.recv().await {
+            if let Ok(StateSendServerAction::AppendEntriesRequest(request)) = receiver.recv().await
+            {
                 self.membership_send_action
-                    .send(MembershipAction::MembersRequest)?;
+                    .send(MembershipReceiveAction::Members)?;
 
                 if let Ok(members) = membership_receiver.recv().await {
                     println!("{:?}", &members);

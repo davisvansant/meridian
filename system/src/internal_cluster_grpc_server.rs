@@ -1,4 +1,3 @@
-use tokio::sync::broadcast::Sender;
 use tonic::{Code, Request, Response, Status};
 
 use crate::meridian_cluster_v010::{
@@ -10,17 +9,21 @@ pub use crate::meridian_cluster_v010::communications_server::{
     Communications, CommunicationsServer,
 };
 
-use crate::Actions;
+use crate::channels::ChannelStateReceiveAction;
+use crate::channels::ChannelStateSendGrpcAction;
+
+use crate::channels::StateReceiveAction;
+use crate::channels::StateSendGrpcAction;
 
 pub struct InternalClusterGrpcServer {
-    receive_actions: Sender<Actions>,
-    send_actions: Sender<Actions>,
+    receive_actions: ChannelStateSendGrpcAction,
+    send_actions: ChannelStateReceiveAction,
 }
 
 impl InternalClusterGrpcServer {
     pub async fn init(
-        receive_actions: Sender<Actions>,
-        send_actions: Sender<Actions>,
+        receive_actions: ChannelStateSendGrpcAction,
+        send_actions: ChannelStateReceiveAction,
     ) -> Result<InternalClusterGrpcServer, Box<dyn std::error::Error>> {
         Ok(InternalClusterGrpcServer {
             receive_actions,
@@ -36,13 +39,15 @@ impl Communications for InternalClusterGrpcServer {
         request: Request<AppendEntriesRequest>,
     ) -> Result<Response<AppendEntriesResponse>, Status> {
         self.send_actions
-            .send(Actions::AppendEntriesRequest(request.into_inner()))
+            .send(StateReceiveAction::AppendEntriesRequest(
+                request.into_inner(),
+            ))
             .unwrap();
 
         let mut subscriber = self.receive_actions.subscribe();
 
         match subscriber.recv().await {
-            Ok(Actions::AppendEntriesResponse(response)) => Ok(Response::new(response)),
+            Ok(StateSendGrpcAction::AppendEntriesResponse(response)) => Ok(Response::new(response)),
             Err(error) => {
                 println!("{:?}", error);
                 let message = String::from("not good!");
@@ -71,13 +76,13 @@ impl Communications for InternalClusterGrpcServer {
         request: Request<RequestVoteRequest>,
     ) -> Result<Response<RequestVoteResponse>, Status> {
         self.send_actions
-            .send(Actions::RequestVoteRequest(request.into_inner()))
+            .send(StateReceiveAction::RequestVoteRequest(request.into_inner()))
             .unwrap();
 
         let mut subscriber = self.receive_actions.subscribe();
 
         match subscriber.recv().await {
-            Ok(Actions::RequestVoteResponse(response)) => Ok(Response::new(response)),
+            Ok(StateSendGrpcAction::RequestVoteResponse(response)) => Ok(Response::new(response)),
             Err(error) => {
                 println!("{:?}", error);
                 let message = String::from("not good!");

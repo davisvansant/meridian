@@ -1,10 +1,17 @@
 use std::net::IpAddr;
 use std::str::FromStr;
-use tokio::sync::broadcast::Sender;
 use uuid::Uuid;
 
 use crate::node::Node;
-use crate::{JoinClusterRequest, JoinClusterResponse, MembershipAction};
+use crate::{JoinClusterRequest, JoinClusterResponse};
+
+use crate::channels::ChannelMembershipReceiveAction;
+use crate::channels::ChannelMembershipSendGrpcAction;
+use crate::channels::ChannelMembershipSendServerAction;
+
+use crate::channels::MembershipReceiveAction;
+use crate::channels::MembershipSendGrpcAction;
+use crate::channels::MembershipSendServerAction;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
@@ -28,18 +35,18 @@ pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     members: Vec<Node>,
-    receive_action: Sender<MembershipAction>,
-    send_grpc_action: Sender<MembershipAction>,
-    send_server_action: Sender<MembershipAction>,
+    receive_action: ChannelMembershipReceiveAction,
+    send_grpc_action: ChannelMembershipSendGrpcAction,
+    send_server_action: ChannelMembershipSendServerAction,
 }
 
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
         server: Node,
-        receive_action: Sender<MembershipAction>,
-        send_grpc_action: Sender<MembershipAction>,
-        send_server_action: Sender<MembershipAction>,
+        receive_action: ChannelMembershipReceiveAction,
+        send_grpc_action: ChannelMembershipSendGrpcAction,
+        send_server_action: ChannelMembershipSendServerAction,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
 
@@ -58,33 +65,32 @@ impl Membership {
 
         while let Ok(action) = receiver.recv().await {
             match action {
-                MembershipAction::JoinClusterRequest(request) => {
+                MembershipReceiveAction::JoinClusterRequest(request) => {
                     println!("received join request");
 
                     let response = self.action_join_cluster_request(request).await?;
 
                     self.send_grpc_action
-                        .send(MembershipAction::JoinClusterResponse(response))?;
+                        .send(MembershipSendGrpcAction::JoinClusterResponse(response))?;
                 }
-                MembershipAction::JoinClusterResponse(_) => println!("received join response!"),
-                MembershipAction::NodeRequest => {
+                MembershipReceiveAction::Node => {
                     println!("received node request!");
 
                     let node = self.server;
 
                     self.send_server_action
-                        .send(MembershipAction::NodeResponse(node))?;
+                        .send(MembershipSendServerAction::NodeResponse(node))?;
                 }
-                MembershipAction::NodeResponse(_) => println!("received node response!"),
-                MembershipAction::MembersRequest => {
+                MembershipReceiveAction::Members => {
                     println!("received members request!");
 
                     let members = &self.members;
 
                     self.send_server_action
-                        .send(MembershipAction::MembersResponse(members.to_vec()))?;
+                        .send(MembershipSendServerAction::MembersResponse(
+                            members.to_vec(),
+                        ))?;
                 }
-                MembershipAction::MembersResponse(_) => println!("received members response!"),
             }
         }
 
