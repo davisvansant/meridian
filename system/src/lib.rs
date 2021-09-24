@@ -1,5 +1,6 @@
 use crate::node::Node;
 
+pub(crate) mod channels;
 pub(crate) mod external_client_grpc_server;
 pub(crate) mod external_membership_grpc_server;
 pub(crate) mod internal_cluster_grpc_client;
@@ -27,24 +28,3 @@ use crate::meridian_cluster_v010::{
 };
 
 use crate::meridian_membership_v010::{JoinClusterRequest, JoinClusterResponse};
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Actions {
-    AppendEntriesRequest(AppendEntriesRequest),
-    AppendEntriesResponse(AppendEntriesResponse),
-    RequestVoteRequest(RequestVoteRequest),
-    RequestVoteResponse(RequestVoteResponse),
-    Candidate(String),
-    Follower,
-    Leader(String),
-}
-
-#[derive(Clone, Debug)]
-pub enum MembershipAction {
-    JoinClusterRequest(JoinClusterRequest),
-    JoinClusterResponse(JoinClusterResponse),
-    NodeRequest,
-    NodeResponse(Node),
-    MembersRequest,
-    MembersResponse(Vec<Node>),
-}
