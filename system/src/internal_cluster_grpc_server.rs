@@ -20,6 +20,11 @@ pub struct InternalClusterGrpcServer {
     send_actions: ChannelStateReceiveAction,
 }
 
+enum SendRequest {
+    AppendEntriesRequest(Request<AppendEntriesRequest>),
+    RequestVoteRequest(Request<RequestVoteRequest>),
+}
+
 impl InternalClusterGrpcServer {
     pub async fn init(
         receive_actions: ChannelStateSendGrpcAction,
@@ -30,6 +35,24 @@ impl InternalClusterGrpcServer {
             send_actions,
         })
     }
+
+    async fn send_action(
+        &self,
+        request: SendRequest,
+    ) {
+        if let Err(error) = match request {
+            SendRequest::AppendEntriesRequest(request) => {
+                self.send_actions.send(StateReceiveAction::AppendEntriesRequest(
+                    request.into_inner(),
+                ))
+            }
+            SendRequest::RequestVoteRequest(request) => {
+                self.send_actions.send(StateReceiveAction::RequestVoteRequest(
+                    request.into_inner(),
+                ))
+            }
+        } { println!("{:?}", error); }
+    }
 }
 
 #[tonic::async_trait]
@@ -38,11 +61,7 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<AppendEntriesRequest>,
     ) -> Result<Response<AppendEntriesResponse>, Status> {
-        self.send_actions
-            .send(StateReceiveAction::AppendEntriesRequest(
-                request.into_inner(),
-            ))
-            .unwrap();
+        self.send_action(SendRequest::AppendEntriesRequest(request)).await;
 
         let mut subscriber = self.receive_actions.subscribe();
 
@@ -75,9 +94,7 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<RequestVoteRequest>,
     ) -> Result<Response<RequestVoteResponse>, Status> {
-        self.send_actions
-            .send(StateReceiveAction::RequestVoteRequest(request.into_inner()))
-            .unwrap();
+        self.send_action(SendRequest::RequestVoteRequest(request)).await;
 
         let mut subscriber = self.receive_actions.subscribe();
 
