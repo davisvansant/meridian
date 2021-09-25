@@ -36,22 +36,20 @@ impl InternalClusterGrpcServer {
         })
     }
 
-    async fn send_action(
-        &self,
-        request: SendRequest,
-    ) {
+    async fn send_action(&self, request: SendRequest) {
         if let Err(error) = match request {
             SendRequest::AppendEntriesRequest(request) => {
-                self.send_actions.send(StateReceiveAction::AppendEntriesRequest(
-                    request.into_inner(),
-                ))
+                self.send_actions
+                    .send(StateReceiveAction::AppendEntriesRequest(
+                        request.into_inner(),
+                    ))
             }
-            SendRequest::RequestVoteRequest(request) => {
-                self.send_actions.send(StateReceiveAction::RequestVoteRequest(
-                    request.into_inner(),
-                ))
-            }
-        } { println!("{:?}", error); }
+            SendRequest::RequestVoteRequest(request) => self
+                .send_actions
+                .send(StateReceiveAction::RequestVoteRequest(request.into_inner())),
+        } {
+            println!("{:?}", error);
+        }
     }
 }
 
@@ -61,7 +59,8 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<AppendEntriesRequest>,
     ) -> Result<Response<AppendEntriesResponse>, Status> {
-        self.send_action(SendRequest::AppendEntriesRequest(request)).await;
+        self.send_action(SendRequest::AppendEntriesRequest(request))
+            .await;
 
         let mut subscriber = self.receive_actions.subscribe();
 
@@ -94,7 +93,8 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<RequestVoteRequest>,
     ) -> Result<Response<RequestVoteResponse>, Status> {
-        self.send_action(SendRequest::RequestVoteRequest(request)).await;
+        self.send_action(SendRequest::RequestVoteRequest(request))
+            .await;
 
         let mut subscriber = self.receive_actions.subscribe();
 
