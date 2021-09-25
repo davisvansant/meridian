@@ -105,10 +105,27 @@ impl Membership {
 
         self.members.push(peer);
 
+        let mut members = Vec::with_capacity(self.members.len());
+
+        for member in &self.members {
+            let address = member.address;
+            let port = member.cluster_port;
+            let mut node = String::with_capacity(15);
+
+            node.push_str(&address.to_string());
+            node.push(':');
+            node.push_str(&port.to_string());
+            node.shrink_to_fit();
+
+            members.push(node)
+        }
+
+        members.dedup();
+
         let response = JoinClusterResponse {
             success: String::from("true"),
             details: String::from("node successfully joined cluster!"),
-            members: Vec::with_capacity(0),
+            members,
         };
 
         Ok(response)
