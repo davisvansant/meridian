@@ -13,16 +13,16 @@ impl Leader {
         request: AppendEntriesRequest,
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("sending heartbeat...");
-        let members: Vec<&str> = Vec::with_capacity(5);
-
-        if members.is_empty() {
-            println!("no members to send heartbeat to");
-        } else {
-            let mut transport = InternalClusterGrpcClient::init("some_test_candidate_id").await?;
-            let result = transport.append_entries(request).await?;
-
-            println!("{:?}", result);
-        }
+        // let members: Vec<&str> = Vec::with_capacity(5);
+        //
+        // if members.is_empty() {
+        //     println!("no members to send heartbeat to");
+        // } else {
+        //     let mut transport = InternalClusterGrpcClient::init("some_test_candidate_id").await?;
+        //     let result = transport.append_entries(request).await?;
+        //
+        //     println!("{:?}", result);
+        // }
 
         Ok(())
     }
