@@ -152,14 +152,46 @@ impl Server {
                     self.membership_send_action
                         .send(MembershipReceiveAction::Members)?;
 
-                    if let Ok(members) = membership_receiver.recv().await {
+                    if let Ok(MembershipSendServerAction::MembersResponse(members)) =
+                        membership_receiver.recv().await
+                    {
                         println!("members ! {:?}", &members);
 
-                        if candidate.start_election(request).await? {
+                        let mut nodes = Vec::with_capacity(members.len());
+
+                        for member in &members {
+                            let address = member.address;
+                            let port = member.cluster_port;
+                            let mut node = String::with_capacity(20);
+
+                            node.push_str("http://");
+                            node.push_str(&address.to_string());
+                            node.push(':');
+                            node.push_str(&port.to_string());
+                            node.shrink_to_fit();
+
+                            nodes.push(node)
+                        }
+
+                        if nodes.is_empty() {
                             self.server_state = ServerState::Leader;
                         } else {
-                            self.server_state = ServerState::Candidate;
-                            break;
+                            let mut vote_true = Vec::with_capacity(3);
+                            let mut vote_false = Vec::with_capacity(3);
+
+                            for node in nodes {
+                                println!("sending request to node - {:?}", &node);
+                                if candidate.start_election(request.clone(), node).await? {
+                                    vote_true.push(1);
+                                } else {
+                                    vote_false.push(1);
+                                }
+                            }
+                            if vote_true >= vote_false {
+                                self.server_state = ServerState::Leader;
+                            } else {
+                                self.server_state = ServerState::Follower;
+                            }
                         }
                     }
                 }
