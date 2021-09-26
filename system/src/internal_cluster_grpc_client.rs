@@ -14,7 +14,8 @@ pub struct InternalClusterGrpcClient {
 
 impl InternalClusterGrpcClient {
     pub async fn init(
-        endpoint: &'static str,
+        // endpoint: &'static str,
+        endpoint: String,
     ) -> Result<InternalClusterGrpcClient, Box<dyn std::error::Error>> {
         let transport = CommunicationsClient::connect(endpoint).await?;
 
