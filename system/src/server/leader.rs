@@ -11,18 +11,14 @@ impl Leader {
     pub async fn send_heartbeat(
         &self,
         request: AppendEntriesRequest,
+        address: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("sending heartbeat...");
-        // let members: Vec<&str> = Vec::with_capacity(5);
-        //
-        // if members.is_empty() {
-        //     println!("no members to send heartbeat to");
-        // } else {
-        //     let mut transport = InternalClusterGrpcClient::init("some_test_candidate_id").await?;
-        //     let result = transport.append_entries(request).await?;
-        //
-        //     println!("{:?}", result);
-        // }
+
+        let mut transport = InternalClusterGrpcClient::init(address).await?;
+        let result = transport.append_entries(request).await?;
+
+        println!("{:?}", result);
 
         Ok(())
     }
