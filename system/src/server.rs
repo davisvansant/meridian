@@ -223,11 +223,33 @@ impl Server {
                 self.membership_send_action
                     .send(MembershipReceiveAction::Members)?;
 
-                if let Ok(members) = membership_receiver.recv().await {
+                if let Ok(MembershipSendServerAction::MembersResponse(members)) =
+                    membership_receiver.recv().await
+                {
                     println!("{:?}", &members);
                     println!("sending heartbeat ... {:?}", &request);
 
-                    leader.send_heartbeat(request).await?;
+                    let mut nodes = Vec::with_capacity(members.len());
+
+                    for member in &members {
+                        let address = member.address;
+                        let port = member.cluster_port;
+                        let mut node = String::with_capacity(20);
+
+                        node.push_str("http://");
+                        node.push_str(&address.to_string());
+                        node.push(':');
+                        node.push_str(&port.to_string());
+                        node.shrink_to_fit();
+
+                        nodes.push(node)
+                    }
+
+                    if !nodes.is_empty() {
+                        for node in nodes {
+                            leader.send_heartbeat(request.clone(), node).await?;
+                        }
+                    }
                 }
             }
         }
