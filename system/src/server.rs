@@ -54,6 +54,9 @@ impl Server {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_actions.subscribe();
 
+        println!("waiting for nodes to join...");
+        sleep(Duration::from_secs(15)).await;
+
         tokio::spawn(async move {
             while let Ok(action) = receiver.recv().await {
                 match action {
@@ -90,7 +93,7 @@ impl Server {
                     // println!("transitioning to leader...");
                 }
                 ServerState::Leader => {
-                    sleep(Duration::from_secs(10)).await;
+                    // sleep(Duration::from_secs(10)).await;
                     println!("Leader!");
 
                     if let Err(error) = self.leader().await {
