@@ -2,6 +2,7 @@ use crate::node::Node;
 
 pub(crate) mod channels;
 pub(crate) mod external_client_grpc_server;
+pub(crate) mod external_membership_grpc_client;
 pub(crate) mod external_membership_grpc_server;
 pub(crate) mod internal_cluster_grpc_client;
 pub(crate) mod internal_cluster_grpc_server;
