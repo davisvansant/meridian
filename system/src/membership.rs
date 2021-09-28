@@ -2,6 +2,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use uuid::Uuid;
 
+use crate::external_membership_grpc_client::ExternalMembershipGrpcClient;
 use crate::node::Node;
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
@@ -60,8 +61,33 @@ impl Membership {
         })
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self, peers: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_action.subscribe();
+
+        for member in peers {
+            println!("{:?}", member);
+
+            let request = JoinClusterRequest {
+                id: self.server.id.to_string(),
+                address: self.server.address.to_string(),
+                client_port: self.server.client_port.to_string(),
+                cluster_port: self.server.cluster_port.to_string(),
+                membership_port: self.server.membership_port.to_string(),
+            };
+
+            let mut endpoint = String::with_capacity(20);
+
+            endpoint.push_str("http://");
+            endpoint.push_str(&member);
+            endpoint.shrink_to_fit();
+
+            println!("sending join request ... {:?}", &endpoint);
+
+            let mut client = ExternalMembershipGrpcClient::init(endpoint).await?;
+            let response = client.join_cluster(request).await?;
+
+            println!("join response - {:?}", response);
+        }
 
         while let Ok(action) = receiver.recv().await {
             match action {
@@ -120,7 +146,22 @@ impl Membership {
             members.push(node)
         }
 
+        let mut node = String::with_capacity(15);
+
+        node.push_str(&self.server.address.to_string());
+        node.push(':');
+        node.push_str(&self.server.cluster_port.to_string());
+        node.shrink_to_fit();
+
+        println!("{:?}", &node);
+
+        members.push(node);
+
         members.dedup();
+
+        for m in &members {
+            println!("peers !{:?}", m);
+        }
 
         let response = JoinClusterResponse {
             success: String::from("true"),
