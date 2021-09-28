@@ -14,6 +14,7 @@ use crate::channels::{
 use crate::external_client_grpc_server::{
     CommunicationsServer as ClientServer, ExternalClientGrpcServer,
 };
+use crate::external_membership_grpc_client::ExternalMembershipGrpcClient;
 use crate::external_membership_grpc_server::{
     CommunicationsServer as MembershipServer, ExternalMembershipGrpcServer,
 };
@@ -23,6 +24,7 @@ use crate::internal_cluster_grpc_server::{
 use crate::membership::{ClusterSize, Membership};
 use crate::server::Server;
 use crate::state::State;
+use crate::JoinClusterRequest;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Node {
@@ -51,7 +53,11 @@ impl Node {
         })
     }
 
-    pub async fn run(&self, cluster_size: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        &self,
+        cluster_size: &str,
+        peers: Vec<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let cluster_size = match cluster_size {
             "1" => ClusterSize::One,
             "3" => ClusterSize::Three,
@@ -105,6 +111,7 @@ impl Node {
         let membership_run_handle = self
             .run_membership(
                 cluster_size,
+                peers,
                 membership_receive_action,
                 membership_send_membership_grpc_action,
                 membership_send_server_action,
@@ -209,6 +216,7 @@ impl Node {
     async fn run_membership(
         &self,
         cluster_size: ClusterSize,
+        peers: Vec<String>,
         membership_send_grpc_actions: ChannelMembershipReceiveAction,
         membership_receive_grpc_actions: ChannelMembershipSendGrpcAction,
         membership_send_server_action: ChannelMembershipSendServerAction,
@@ -227,7 +235,7 @@ impl Node {
         let membership_run_handle = tokio::spawn(async move {
             // sleep(Duration::from_secs(10)).await;
 
-            if let Err(error) = membership.run().await {
+            if let Err(error) = membership.run(peers).await {
                 println!("error with running {:?}", error);
             };
         });
