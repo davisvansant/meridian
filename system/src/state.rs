@@ -238,10 +238,11 @@ impl State {
     }
 
     async fn init_leader_volatile_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let leader_volatile = LeaderVolatile::init().await?;
-        self.leader_volatile = Some(leader_volatile);
-
-        println!("initialing leader volatile state ...");
+        if self.leader_volatile.is_none() {
+            println!("initialing leader volatile state ...");
+            let leader_volatile = LeaderVolatile::init().await?;
+            self.leader_volatile = Some(leader_volatile);
+        }
 
         Ok(())
     }
