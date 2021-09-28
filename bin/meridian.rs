@@ -17,6 +17,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .value_name("NUMBER")
         .require_equals(true)
         .display_order(1);
+    let join = Arg::with_name("join")
+        .help("join other nodes in cluster")
+        .long("join")
+        .takes_value(true)
+        .use_delimiter(true)
+        .required_ifs(&[("cluster_size", "3"), ("cluster_size", "5")])
+        .value_name("PEER ADDRESS")
+        .require_equals(true)
+        .display_order(2);
     let server_ip_address = Arg::with_name("ip_address")
         .help("set the ip address")
         .long("ip_address")
@@ -24,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_value("0.0.0.0")
         .value_name("ADDRESS")
         .require_equals(true)
-        .display_order(2);
+        .display_order(3);
     let server_cluster_port = Arg::with_name("cluster_port")
         .help("set the cluster port (internal communications gRPC)")
         .long("cluster_port")
@@ -32,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_value("10000")
         .value_name("PORT")
         .require_equals(true)
-        .display_order(3);
+        .display_order(4);
     let server_client_port = Arg::with_name("client_port")
         .help("set the client port (client communications gRPC)")
         .long("client_port")
@@ -40,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_value("20000")
         .value_name("PORT")
         .require_equals(true)
-        .display_order(4);
+        .display_order(5);
     let server_membership_port = Arg::with_name("membership_port")
         .help("set the membership port (node join communications gRPC)")
         .long("membership_port")
@@ -48,10 +57,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_value("25000")
         .value_name("PORT")
         .require_equals(true)
-        .display_order(5);
+        .display_order(6);
     let run = SubCommand::with_name("run")
         .about("run meridian")
         .arg(leaders)
+        .arg(join)
         .arg(server_ip_address)
         .arg(server_cluster_port)
         .arg(server_client_port)
@@ -66,6 +76,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match meridian.subcommand() {
         ("run", Some(run)) => {
             let cluster_size = run.value_of("cluster_size").unwrap();
+
+            let mut peers = Vec::with_capacity(4);
+
+            if let Some(join) = run.values_of("join") {
+                for node in join {
+                    peers.push(node.to_string());
+                }
+            }
 
             let ip_address_value = run.value_of("ip_address").unwrap();
             let ip_address = IpAddr::from_str(ip_address_value)?;
@@ -89,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let node = Node::init(ip_address, client_port, cluster_port, membership_port).await?;
 
-            node.run(cluster_size).await?;
+            node.run(cluster_size, peers).await?;
         }
         _ => println!("{:?}", meridian.usage()),
     }
