@@ -43,7 +43,7 @@ impl Communications for ExternalMembershipGrpcServer {
         &self,
         request: Request<JoinClusterRequest>,
     ) -> Result<Response<JoinClusterResponse>, Status> {
-        println!("{:?}", &request);
+        println!("incoming join request ... {:?}", &request);
         if Self::check_incoming_request(request.get_ref()).await {
             let message = String::from("Received empty request!");
             let status = Status::new(Code::FailedPrecondition, message);
