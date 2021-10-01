@@ -1,8 +1,7 @@
 use tokio::time::Duration;
 
-use crate::internal_cluster_grpc_client::InternalClusterGrpcClient;
+use crate::grpc::cluster_client::InternalClusterGrpcClient;
 use crate::meridian_cluster_v010::RequestVoteRequest;
-use crate::Node;
 
 pub struct Candidate {
     pub election_timeout: Duration,

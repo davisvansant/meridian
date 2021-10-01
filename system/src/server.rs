@@ -8,15 +8,15 @@ pub mod candidate;
 pub mod follower;
 pub mod leader;
 
-use crate::channels::ChannelMembershipReceiveAction;
-use crate::channels::ChannelMembershipSendServerAction;
-use crate::channels::ChannelStateReceiveAction;
-use crate::channels::ChannelStateSendServerAction;
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
+use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerAction;
+use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
+use crate::runtime::sync::state_send_server_action::ChannelStateSendServerAction;
 
-use crate::channels::MembershipReceiveAction;
-use crate::channels::MembershipSendServerAction;
-use crate::channels::StateReceiveAction;
-use crate::channels::StateSendServerAction;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
+use crate::runtime::sync::membership_send_server_task::MembershipSendServerAction;
+use crate::runtime::sync::state_receive_action::StateReceiveAction;
+use crate::runtime::sync::state_send_server_action::StateSendServerAction;
 
 #[derive(Debug, PartialEq)]
 pub enum ServerState {

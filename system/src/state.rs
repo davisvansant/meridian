@@ -11,13 +11,13 @@ use crate::meridian_cluster_v010::{
     RequestVoteRequest, RequestVoteResponse,
 };
 
-use crate::channels::ChannelStateReceiveAction;
-use crate::channels::ChannelStateSendGrpcAction;
-use crate::channels::ChannelStateSendServerAction;
+use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
+use crate::runtime::sync::state_send_grpc_action::ChannelStateSendGrpcAction;
+use crate::runtime::sync::state_send_server_action::ChannelStateSendServerAction;
 
-use crate::channels::StateReceiveAction;
-use crate::channels::StateSendGrpcAction;
-use crate::channels::StateSendServerAction;
+use crate::runtime::sync::state_receive_action::StateReceiveAction;
+use crate::runtime::sync::state_send_grpc_action::StateSendGrpcAction;
+use crate::runtime::sync::state_send_server_action::StateSendServerAction;
 
 pub struct State {
     persistent: Persistent,

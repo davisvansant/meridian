@@ -1,4 +1,4 @@
-use crate::internal_cluster_grpc_client::InternalClusterGrpcClient;
+use crate::grpc::cluster_client::InternalClusterGrpcClient;
 use crate::meridian_cluster_v010::AppendEntriesRequest;
 
 pub struct Leader {}

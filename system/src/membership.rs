@@ -2,17 +2,17 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::external_membership_grpc_client::ExternalMembershipGrpcClient;
+use crate::grpc::membership_client::ExternalMembershipGrpcClient;
 use crate::node::Node;
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
-use crate::channels::ChannelMembershipReceiveAction;
-use crate::channels::ChannelMembershipSendGrpcAction;
-use crate::channels::ChannelMembershipSendServerAction;
-
-use crate::channels::MembershipReceiveAction;
-use crate::channels::MembershipSendGrpcAction;
-use crate::channels::MembershipSendServerAction;
+use crate::runtime::sync::launch::ChannelLaunch;
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
+use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcAction;
+use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcAction;
+use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerAction;
+use crate::runtime::sync::membership_send_server_task::MembershipSendServerAction;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
@@ -61,7 +61,11 @@ impl Membership {
         })
     }
 
-    pub async fn run(&mut self, peers: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        &mut self,
+        peers: Vec<String>,
+        send_launch_action: ChannelLaunch,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut receiver = self.receive_action.subscribe();
 
         for member in peers {
@@ -87,6 +91,10 @@ impl Membership {
             let response = client.join_cluster(request).await?;
 
             println!("join response - {:?}", response);
+        }
+
+        if send_launch_action.send(()).is_ok() {
+            println!("sending launch action");
         }
 
         while let Ok(action) = receiver.recv().await {
