@@ -1,8 +1,8 @@
 use clap::{App, Arg, SubCommand};
 use std::net::IpAddr;
 use std::str::FromStr;
-
 use system::node::Node;
+use system::runtime::launch;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let node = Node::init(ip_address, client_port, cluster_port, membership_port).await?;
 
-            node.run(cluster_size, peers).await?;
+            launch(cluster_size, peers, node).await?;
         }
         _ => println!("{:?}", meridian.usage()),
     }
