@@ -8,15 +8,15 @@ pub mod candidate;
 pub mod follower;
 pub mod leader;
 
-use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
-use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerAction;
-use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
-use crate::runtime::sync::state_send_server_action::ChannelStateSendServerAction;
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveTask;
+use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerTask;
+use crate::runtime::sync::state_receive_task::ChannelStateReceiveTask;
+use crate::runtime::sync::state_send_server_task::ChannelStateSendServerTask;
 
-use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
-use crate::runtime::sync::membership_send_server_task::MembershipSendServerAction;
-use crate::runtime::sync::state_receive_action::StateReceiveAction;
-use crate::runtime::sync::state_send_server_action::StateSendServerAction;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveTask;
+use crate::runtime::sync::membership_send_server_task::MembershipSendServerTask;
+use crate::runtime::sync::state_receive_task::StateReceiveTask;
+use crate::runtime::sync::state_send_server_task::StateSendServerTask;
 
 #[derive(Debug, PartialEq)]
 pub enum ServerState {
@@ -27,32 +27,32 @@ pub enum ServerState {
 
 pub struct Server {
     pub server_state: ServerState,
-    receive_actions: ChannelStateSendServerAction,
-    send_actions: ChannelStateReceiveAction,
-    membership_send_action: ChannelMembershipReceiveAction,
-    membership_receive_action: ChannelMembershipSendServerAction,
+    receive_task: ChannelStateSendServerTask,
+    send_task: ChannelStateReceiveTask,
+    membership_send_task: ChannelMembershipReceiveTask,
+    membership_receive_task: ChannelMembershipSendServerTask,
 }
 
 impl Server {
     pub async fn init(
-        receive_actions: ChannelStateSendServerAction,
-        send_actions: ChannelStateReceiveAction,
-        membership_send_action: ChannelMembershipReceiveAction,
-        membership_receive_action: ChannelMembershipSendServerAction,
+        receive_task: ChannelStateSendServerTask,
+        send_task: ChannelStateReceiveTask,
+        membership_send_task: ChannelMembershipReceiveTask,
+        membership_receive_task: ChannelMembershipSendServerTask,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
         Ok(Server {
             server_state,
-            receive_actions,
-            send_actions,
-            membership_send_action,
-            membership_receive_action,
+            receive_task,
+            send_task,
+            membership_send_task,
+            membership_receive_task,
         })
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_actions.subscribe();
+        let mut receiver = self.receive_task.subscribe();
 
         println!("waiting for nodes to join...");
         sleep(Duration::from_secs(15)).await;
@@ -60,11 +60,11 @@ impl Server {
         tokio::spawn(async move {
             while let Ok(action) = receiver.recv().await {
                 match action {
-                    StateSendServerAction::AppendEntriesRequest(_) => {
+                    StateSendServerTask::AppendEntriesRequest(_) => {
                         println!("received append entries");
                     }
-                    StateSendServerAction::Follower => println!("follower"),
-                    StateSendServerAction::RequestVoteRequest(request) => println!("{:?}", request),
+                    StateSendServerTask::Follower => println!("follower"),
+                    StateSendServerTask::RequestVoteRequest(request) => println!("{:?}", request),
                 }
             }
         });
@@ -108,13 +108,13 @@ impl Server {
     }
 
     pub async fn follower(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_actions.subscribe();
+        let mut receiver = self.receive_task.subscribe();
         let follower = Follower::init().await?;
 
         while let Ok(result) =
             timeout_at(Instant::now() + follower.election_timeout, receiver.recv()).await
         {
-            if let Ok(StateSendServerAction::Follower) = result {
+            if let Ok(StateSendServerTask::Follower) = result {
                 println!("receiving heartbeat...");
             }
         }
@@ -126,16 +126,15 @@ impl Server {
     }
 
     pub async fn candidate(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_actions.subscribe();
-        let mut membership_receiver = self.membership_receive_action.subscribe();
+        let mut receiver = self.receive_task.subscribe();
+        let mut membership_receiver = self.membership_receive_task.subscribe();
 
-        self.membership_send_action
-            .send(MembershipReceiveAction::Node)?;
+        self.membership_send_task
+            .send(MembershipReceiveTask::Node)?;
 
-        if let Ok(MembershipSendServerAction::NodeResponse(node)) = membership_receiver.recv().await
-        {
-            self.send_actions
-                .send(StateReceiveAction::Candidate(node.id.to_string()))?;
+        if let Ok(MembershipSendServerTask::NodeResponse(node)) = membership_receiver.recv().await {
+            self.send_task
+                .send(StateReceiveTask::Candidate(node.id.to_string()))?;
         };
 
         let candidate = Candidate::init().await?;
@@ -144,18 +143,18 @@ impl Server {
             timeout_at(Instant::now() + candidate.election_timeout, receiver.recv()).await
         {
             match action {
-                Ok(StateSendServerAction::Follower) => {
+                Ok(StateSendServerTask::Follower) => {
                     println!("received heartbeat...stepping down");
                     self.server_state = ServerState::Follower;
                     break;
                 }
-                Ok(StateSendServerAction::RequestVoteRequest(request)) => {
+                Ok(StateSendServerTask::RequestVoteRequest(request)) => {
                     println!("sending receive request to cluster members - {:?}", request);
 
-                    self.membership_send_action
-                        .send(MembershipReceiveAction::Members)?;
+                    self.membership_send_task
+                        .send(MembershipReceiveTask::Members)?;
 
-                    if let Ok(MembershipSendServerAction::MembersResponse(members)) =
+                    if let Ok(MembershipSendServerTask::MembersResponse(members)) =
                         membership_receiver.recv().await
                     {
                         println!("members ! {:?}", &members);
@@ -206,27 +205,25 @@ impl Server {
     }
 
     pub async fn leader(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_actions.subscribe();
-        let mut membership_receiver = self.membership_receive_action.subscribe();
+        let mut receiver = self.receive_task.subscribe();
+        let mut membership_receiver = self.membership_receive_task.subscribe();
 
         let leader = Leader::init().await?;
 
-        self.membership_send_action
-            .send(MembershipReceiveAction::Node)?;
+        self.membership_send_task
+            .send(MembershipReceiveTask::Node)?;
 
-        if let Ok(MembershipSendServerAction::NodeResponse(node)) = membership_receiver.recv().await
-        {
+        if let Ok(MembershipSendServerTask::NodeResponse(node)) = membership_receiver.recv().await {
             println!("server uuid - {:?}", &node);
 
-            self.send_actions
-                .send(StateReceiveAction::Leader(node.id.to_string()))?;
+            self.send_task
+                .send(StateReceiveTask::Leader(node.id.to_string()))?;
 
-            if let Ok(StateSendServerAction::AppendEntriesRequest(request)) = receiver.recv().await
-            {
-                self.membership_send_action
-                    .send(MembershipReceiveAction::Members)?;
+            if let Ok(StateSendServerTask::AppendEntriesRequest(request)) = receiver.recv().await {
+                self.membership_send_task
+                    .send(MembershipReceiveTask::Members)?;
 
-                if let Ok(MembershipSendServerAction::MembersResponse(members)) =
+                if let Ok(MembershipSendServerTask::MembersResponse(members)) =
                     membership_receiver.recv().await
                 {
                     println!("{:?}", &members);

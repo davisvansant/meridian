@@ -6,14 +6,14 @@ use crate::meridian_cluster_v010::{
     AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest, InstallSnapshotResponse,
     RequestVoteRequest, RequestVoteResponse,
 };
-use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
-use crate::runtime::sync::state_receive_action::StateReceiveAction;
-use crate::runtime::sync::state_send_grpc_action::ChannelStateSendGrpcAction;
-use crate::runtime::sync::state_send_grpc_action::StateSendGrpcAction;
+use crate::runtime::sync::state_receive_task::ChannelStateReceiveTask;
+use crate::runtime::sync::state_receive_task::StateReceiveTask;
+use crate::runtime::sync::state_send_grpc_task::ChannelStateSendGrpcTask;
+use crate::runtime::sync::state_send_grpc_task::StateSendGrpcTask;
 
 pub struct InternalClusterGrpcServer {
-    receive_actions: ChannelStateSendGrpcAction,
-    send_actions: ChannelStateReceiveAction,
+    receive_task: ChannelStateSendGrpcTask,
+    send_task: ChannelStateReceiveTask,
 }
 
 enum SendRequest {
@@ -23,26 +23,23 @@ enum SendRequest {
 
 impl InternalClusterGrpcServer {
     pub async fn init(
-        receive_actions: ChannelStateSendGrpcAction,
-        send_actions: ChannelStateReceiveAction,
+        receive_task: ChannelStateSendGrpcTask,
+        send_task: ChannelStateReceiveTask,
     ) -> Result<InternalClusterGrpcServer, Box<dyn std::error::Error>> {
         Ok(InternalClusterGrpcServer {
-            receive_actions,
-            send_actions,
+            receive_task,
+            send_task,
         })
     }
 
-    async fn send_action(&self, request: SendRequest) {
+    async fn send_task(&self, request: SendRequest) {
         if let Err(error) = match request {
-            SendRequest::AppendEntriesRequest(request) => {
-                self.send_actions
-                    .send(StateReceiveAction::AppendEntriesRequest(
-                        request.into_inner(),
-                    ))
-            }
+            SendRequest::AppendEntriesRequest(request) => self
+                .send_task
+                .send(StateReceiveTask::AppendEntriesRequest(request.into_inner())),
             SendRequest::RequestVoteRequest(request) => self
-                .send_actions
-                .send(StateReceiveAction::RequestVoteRequest(request.into_inner())),
+                .send_task
+                .send(StateReceiveTask::RequestVoteRequest(request.into_inner())),
         } {
             println!("{:?}", error);
         }
@@ -55,13 +52,13 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<AppendEntriesRequest>,
     ) -> Result<Response<AppendEntriesResponse>, Status> {
-        self.send_action(SendRequest::AppendEntriesRequest(request))
+        self.send_task(SendRequest::AppendEntriesRequest(request))
             .await;
 
-        let mut subscriber = self.receive_actions.subscribe();
+        let mut subscriber = self.receive_task.subscribe();
 
         match subscriber.recv().await {
-            Ok(StateSendGrpcAction::AppendEntriesResponse(response)) => Ok(Response::new(response)),
+            Ok(StateSendGrpcTask::AppendEntriesResponse(response)) => Ok(Response::new(response)),
             Err(error) => {
                 println!("{:?}", error);
                 let message = String::from("not good!");
@@ -89,13 +86,13 @@ impl Communications for InternalClusterGrpcServer {
         &self,
         request: Request<RequestVoteRequest>,
     ) -> Result<Response<RequestVoteResponse>, Status> {
-        self.send_action(SendRequest::RequestVoteRequest(request))
+        self.send_task(SendRequest::RequestVoteRequest(request))
             .await;
 
-        let mut subscriber = self.receive_actions.subscribe();
+        let mut subscriber = self.receive_task.subscribe();
 
         match subscriber.recv().await {
-            Ok(StateSendGrpcAction::RequestVoteResponse(response)) => Ok(Response::new(response)),
+            Ok(StateSendGrpcTask::RequestVoteResponse(response)) => Ok(Response::new(response)),
             Err(error) => {
                 println!("{:?}", error);
                 let message = String::from("not good!");

@@ -7,18 +7,16 @@ use crate::grpc::cluster_server::{
 };
 
 use crate::runtime::sync::launch::ChannelLaunch;
-use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
-use crate::runtime::sync::state_send_grpc_action::ChannelStateSendGrpcAction;
+use crate::runtime::sync::state_receive_task::ChannelStateReceiveTask;
+use crate::runtime::sync::state_send_grpc_task::ChannelStateSendGrpcTask;
 
 pub async fn run_task(
-    state_receive_grpc_actions: ChannelStateSendGrpcAction,
-    grpc_send_actions: ChannelStateReceiveAction,
+    state_receive_grpc_task: ChannelStateSendGrpcTask,
+    grpc_send_task: ChannelStateReceiveTask,
     socket_address: SocketAddr,
     channel_launch: ChannelLaunch,
 ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
-    let server =
-        InternalClusterGrpcServer::init(state_receive_grpc_actions, grpc_send_actions).await?;
-
+    let server = InternalClusterGrpcServer::init(state_receive_grpc_task, grpc_send_task).await?;
     let grpc_service = ClusterServer::new(server);
     let transport_router = Server::builder()
         .add_service(grpc_service)

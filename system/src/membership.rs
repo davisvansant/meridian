@@ -7,12 +7,12 @@ use crate::node::Node;
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
 use crate::runtime::sync::launch::ChannelLaunch;
-use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
-use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
-use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcAction;
-use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcAction;
-use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerAction;
-use crate::runtime::sync::membership_send_server_task::MembershipSendServerAction;
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveTask;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveTask;
+use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcTask;
+use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcTask;
+use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerTask;
+use crate::runtime::sync::membership_send_server_task::MembershipSendServerTask;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
@@ -36,18 +36,18 @@ pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     members: Vec<Node>,
-    receive_action: ChannelMembershipReceiveAction,
-    send_grpc_action: ChannelMembershipSendGrpcAction,
-    send_server_action: ChannelMembershipSendServerAction,
+    receive_task: ChannelMembershipReceiveTask,
+    send_grpc_task: ChannelMembershipSendGrpcTask,
+    send_server_task: ChannelMembershipSendServerTask,
 }
 
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
         server: Node,
-        receive_action: ChannelMembershipReceiveAction,
-        send_grpc_action: ChannelMembershipSendGrpcAction,
-        send_server_action: ChannelMembershipSendServerAction,
+        receive_task: ChannelMembershipReceiveTask,
+        send_grpc_task: ChannelMembershipSendGrpcTask,
+        send_server_task: ChannelMembershipSendServerTask,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
 
@@ -55,9 +55,9 @@ impl Membership {
             cluster_size,
             server,
             members,
-            send_grpc_action,
-            receive_action,
-            send_server_action,
+            send_grpc_task,
+            receive_task,
+            send_server_task,
         })
     }
 
@@ -66,7 +66,7 @@ impl Membership {
         peers: Vec<String>,
         send_launch_action: ChannelLaunch,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_action.subscribe();
+        let mut receiver = self.receive_task.subscribe();
 
         for member in peers {
             println!("{:?}", member);
@@ -99,31 +99,29 @@ impl Membership {
 
         while let Ok(action) = receiver.recv().await {
             match action {
-                MembershipReceiveAction::JoinClusterRequest(request) => {
+                MembershipReceiveTask::JoinClusterRequest(request) => {
                     println!("received join request");
 
                     let response = self.action_join_cluster_request(request).await?;
 
-                    self.send_grpc_action
-                        .send(MembershipSendGrpcAction::JoinClusterResponse(response))?;
+                    self.send_grpc_task
+                        .send(MembershipSendGrpcTask::JoinClusterResponse(response))?;
                 }
-                MembershipReceiveAction::Node => {
+                MembershipReceiveTask::Node => {
                     println!("received node request!");
 
                     let node = self.server;
 
-                    self.send_server_action
-                        .send(MembershipSendServerAction::NodeResponse(node))?;
+                    self.send_server_task
+                        .send(MembershipSendServerTask::NodeResponse(node))?;
                 }
-                MembershipReceiveAction::Members => {
+                MembershipReceiveTask::Members => {
                     println!("received members request!");
 
                     let members = &self.members;
 
-                    self.send_server_action
-                        .send(MembershipSendServerAction::MembersResponse(
-                            members.to_vec(),
-                        ))?;
+                    self.send_server_task
+                        .send(MembershipSendServerTask::MembersResponse(members.to_vec()))?;
                 }
             }
         }

@@ -2,27 +2,27 @@ use crate::runtime::sync::channel;
 use crate::runtime::sync::Sender;
 use crate::JoinClusterRequest;
 
-pub type ChannelMembershipReceiveAction = Sender<MembershipReceiveAction>;
+pub type ChannelMembershipReceiveTask = Sender<MembershipReceiveTask>;
 
 #[derive(Clone, Debug)]
-pub enum MembershipReceiveAction {
+pub enum MembershipReceiveTask {
     JoinClusterRequest(JoinClusterRequest),
     Node,
     Members,
 }
 
 pub async fn build_channel() -> (
-    ChannelMembershipReceiveAction,
-    ChannelMembershipReceiveAction,
-    ChannelMembershipReceiveAction,
+    ChannelMembershipReceiveTask,
+    ChannelMembershipReceiveTask,
+    ChannelMembershipReceiveTask,
 ) {
-    let (membership_receive_action, _) = channel(64);
-    let membership_grpc_send_membership_action = membership_receive_action.clone();
-    let server_send_membership_action = membership_receive_action.clone();
+    let (membership_receive_task, _) = channel(64);
+    let membership_grpc_send_membership_task = membership_receive_task.clone();
+    let server_send_membership_task = membership_receive_task.clone();
 
     (
-        membership_receive_action,
-        membership_grpc_send_membership_action,
-        server_send_membership_action,
+        membership_receive_task,
+        membership_grpc_send_membership_task,
+        server_send_membership_task,
     )
 }

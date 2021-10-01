@@ -5,9 +5,9 @@ use self::sync::launch;
 use self::sync::membership_receive_task;
 use self::sync::membership_send_grpc_task;
 use self::sync::membership_send_server_task;
-use self::sync::state_receive_action;
-use self::sync::state_send_grpc_action;
-use self::sync::state_send_server_action;
+use self::sync::state_receive_task;
+use self::sync::state_send_grpc_task;
+use self::sync::state_send_server_task;
 
 use self::tasks::client_grpc;
 use self::tasks::cluster_grpc;
@@ -35,25 +35,25 @@ pub async fn launch(
         launch::build_channel().await;
 
     let (
-        membership_receive_action,
-        membership_grpc_send_membership_action,
-        server_send_membership_action,
+        membership_receive_task,
+        membership_grpc_send_membership_task,
+        server_send_membership_task,
     ) = membership_receive_task::build_channel().await;
 
-    let (membership_send_membership_grpc_action, membership_grpc_receive_membership_action) =
+    let (membership_send_membership_grpc_task, membership_grpc_receive_membership_task) =
         membership_send_grpc_task::build_channel().await;
 
-    let (membership_send_server_action, server_receive_membership_action) =
+    let (membership_send_server_task, server_receive_membership_task) =
         membership_send_server_task::build_channel().await;
 
-    let (state_send_handle, grpc_send_action, server_send_action) =
-        state_receive_action::build_channel().await;
+    let (state_send_handle, grpc_send_task, server_send_task) =
+        state_receive_task::build_channel().await;
 
-    let (state_receive_grpc_action, state_send_grpc_action) =
-        state_send_grpc_action::build_channel().await;
+    let (state_receive_grpc_task, state_send_grpc_task) =
+        state_send_grpc_task::build_channel().await;
 
-    let (state_receive_server_action, state_send_server_action) =
-        state_send_server_action::build_channel().await;
+    let (state_receive_server_task, state_send_server_task) =
+        state_send_server_task::build_channel().await;
 
     let client_grpc_handle = client_grpc::run_task(
         node.build_address(node.client_port).await,
@@ -62,8 +62,8 @@ pub async fn launch(
     .await?;
 
     let cluster_grpc_handle = cluster_grpc::run_task(
-        state_receive_grpc_action,
-        grpc_send_action,
+        state_receive_grpc_task,
+        grpc_send_task,
         // "0.0.0.0:10000".parse()?,
         node.build_address(node.cluster_port).await,
         runtime_cluster_grpc_receiver,
@@ -71,8 +71,8 @@ pub async fn launch(
     .await?;
 
     let membership_grpc_handle = membership_grpc::run_task(
-        membership_grpc_receive_membership_action,
-        membership_grpc_send_membership_action,
+        membership_grpc_receive_membership_task,
+        membership_grpc_send_membership_task,
         // "0.0.0.0:15000".parse()?,
         node.build_address(node.membership_port).await,
     )
@@ -82,25 +82,25 @@ pub async fn launch(
         cluster_size,
         node,
         peers,
-        membership_receive_action,
-        membership_send_membership_grpc_action,
-        membership_send_server_action,
+        membership_receive_task,
+        membership_send_membership_grpc_task,
+        membership_send_server_task,
         runtime_sender,
     )
     .await?;
 
     let server_service_handle = server_service::run_task(
-        state_receive_server_action,
-        server_send_action,
-        server_send_membership_action,
-        server_receive_membership_action,
+        state_receive_server_task,
+        server_send_task,
+        server_send_membership_task,
+        server_receive_membership_task,
     )
     .await?;
 
     let state_service_handle = state_service::run_task(
         state_send_handle,
-        state_send_server_action,
-        state_send_grpc_action,
+        state_send_server_task,
+        state_send_grpc_task,
     )
     .await?;
 

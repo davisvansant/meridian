@@ -11,28 +11,28 @@ use crate::meridian_cluster_v010::{
     RequestVoteRequest, RequestVoteResponse,
 };
 
-use crate::runtime::sync::state_receive_action::ChannelStateReceiveAction;
-use crate::runtime::sync::state_send_grpc_action::ChannelStateSendGrpcAction;
-use crate::runtime::sync::state_send_server_action::ChannelStateSendServerAction;
+use crate::runtime::sync::state_receive_task::ChannelStateReceiveTask;
+use crate::runtime::sync::state_send_grpc_task::ChannelStateSendGrpcTask;
+use crate::runtime::sync::state_send_server_task::ChannelStateSendServerTask;
 
-use crate::runtime::sync::state_receive_action::StateReceiveAction;
-use crate::runtime::sync::state_send_grpc_action::StateSendGrpcAction;
-use crate::runtime::sync::state_send_server_action::StateSendServerAction;
+use crate::runtime::sync::state_receive_task::StateReceiveTask;
+use crate::runtime::sync::state_send_grpc_task::StateSendGrpcTask;
+use crate::runtime::sync::state_send_server_task::StateSendServerTask;
 
 pub struct State {
     persistent: Persistent,
     volatile: Volatile,
     leader_volatile: Option<LeaderVolatile>,
-    receive_actions: ChannelStateReceiveAction,
-    send_server_actions: ChannelStateSendServerAction,
-    send_grpc_actions: ChannelStateSendGrpcAction,
+    receive_task: ChannelStateReceiveTask,
+    send_server_task: ChannelStateSendServerTask,
+    send_grpc_task: ChannelStateSendGrpcTask,
 }
 
 impl State {
     pub async fn init(
-        receive_actions: ChannelStateReceiveAction,
-        send_server_actions: ChannelStateSendServerAction,
-        send_grpc_actions: ChannelStateSendGrpcAction,
+        receive_task: ChannelStateReceiveTask,
+        send_server_task: ChannelStateSendServerTask,
+        send_grpc_task: ChannelStateSendGrpcTask,
     ) -> Result<State, Box<dyn std::error::Error>> {
         let persistent = Persistent::init().await?;
         let volatile = Volatile::init().await?;
@@ -41,31 +41,30 @@ impl State {
             persistent,
             volatile,
             leader_volatile: None,
-            receive_actions,
-            send_server_actions,
-            send_grpc_actions,
+            receive_task,
+            send_server_task,
+            send_grpc_task,
         })
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut receiver = self.receive_actions.subscribe();
+        let mut receiver = self.receive_task.subscribe();
 
         while let Ok(action) = receiver.recv().await {
             println!("received action! {:?}", &action);
             match action {
-                StateReceiveAction::AppendEntriesRequest(request) => {
+                StateReceiveTask::AppendEntriesRequest(request) => {
                     println!("received append entires request - {:?}", &request);
                     if request.entries.is_empty() {
-                        self.send_server_actions
-                            .send(StateSendServerAction::Follower)?;
+                        self.send_server_task.send(StateSendServerTask::Follower)?;
                     }
                     self.append_entries_receiver(request).await?;
                 }
-                StateReceiveAction::RequestVoteRequest(request) => {
+                StateReceiveTask::RequestVoteRequest(request) => {
                     println!("do things with request votes!");
                     self.request_vote_receiver(request).await?;
                 }
-                StateReceiveAction::Candidate(candidate_id) => {
+                StateReceiveTask::Candidate(candidate_id) => {
                     self.persistent.increment_current_term().await?;
                     self.persistent.vote_for_self(candidate_id.as_str()).await?;
 
@@ -73,18 +72,18 @@ impl State {
                         .build_request_vote_request(candidate_id.as_str())
                         .await?;
 
-                    self.send_server_actions
-                        .send(StateSendServerAction::RequestVoteRequest(
+                    self.send_server_task
+                        .send(StateSendServerTask::RequestVoteRequest(
                             request_vote_request,
                         ))?;
                 }
-                StateReceiveAction::Leader(leader_id) => {
+                StateReceiveTask::Leader(leader_id) => {
                     self.init_leader_volatile_state().await?;
                     let append_entries_request =
                         self.build_append_entries_request(leader_id).await?;
 
-                    self.send_server_actions
-                        .send(StateSendServerAction::AppendEntriesRequest(
+                    self.send_server_task
+                        .send(StateSendServerTask::AppendEntriesRequest(
                             append_entries_request,
                         ))?;
                 }
@@ -109,8 +108,8 @@ impl State {
 
         match self.check_term(request.term).await {
             false => {
-                self.send_grpc_actions
-                    .send(StateSendGrpcAction::AppendEntriesResponse(false_response))?;
+                self.send_grpc_task
+                    .send(StateSendGrpcTask::AppendEntriesResponse(false_response))?;
             }
             true => {
                 match self
@@ -118,15 +117,15 @@ impl State {
                     .await
                 {
                     false => {
-                        self.send_grpc_actions
-                            .send(StateSendGrpcAction::AppendEntriesResponse(false_response))?;
+                        self.send_grpc_task
+                            .send(StateSendGrpcTask::AppendEntriesResponse(false_response))?;
                     }
                     true => {
                         // do some delete stuff here
                         // do some appending stuff here
                         // do some setting of commit_index here
-                        self.send_grpc_actions
-                            .send(StateSendGrpcAction::AppendEntriesResponse(true_response))?;
+                        self.send_grpc_task
+                            .send(StateSendGrpcTask::AppendEntriesResponse(true_response))?;
                     }
                 }
             }
@@ -151,8 +150,8 @@ impl State {
 
         match self.check_term(request.term).await {
             false => {
-                self.send_grpc_actions
-                    .send(StateSendGrpcAction::RequestVoteResponse(false_response))?;
+                self.send_grpc_task
+                    .send(StateSendGrpcTask::RequestVoteResponse(false_response))?;
             }
             true => {
                 match self.check_candidate_id(request.candidate_id.as_str()).await
@@ -161,12 +160,12 @@ impl State {
                         .await
                 {
                     true => {
-                        self.send_grpc_actions
-                            .send(StateSendGrpcAction::RequestVoteResponse(true_response))?;
+                        self.send_grpc_task
+                            .send(StateSendGrpcTask::RequestVoteResponse(true_response))?;
                     }
                     false => {
-                        self.send_grpc_actions
-                            .send(StateSendGrpcAction::RequestVoteResponse(false_response))?;
+                        self.send_grpc_task
+                            .send(StateSendGrpcTask::RequestVoteResponse(false_response))?;
                     }
                 }
             }

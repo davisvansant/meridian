@@ -2,23 +2,20 @@ use crate::node::Node;
 use crate::runtime::sync::channel;
 use crate::runtime::sync::Sender;
 
-pub type ChannelMembershipSendServerAction = Sender<MembershipSendServerAction>;
+pub type ChannelMembershipSendServerTask = Sender<MembershipSendServerTask>;
 
 #[derive(Clone, Debug)]
-pub enum MembershipSendServerAction {
+pub enum MembershipSendServerTask {
     NodeResponse(Node),
     MembersResponse(Vec<Node>),
 }
 
 pub async fn build_channel() -> (
-    ChannelMembershipSendServerAction,
-    ChannelMembershipSendServerAction,
+    ChannelMembershipSendServerTask,
+    ChannelMembershipSendServerTask,
 ) {
-    let (membership_send_server_action, _) = channel(64);
-    let server_receive_membership_action = membership_send_server_action.clone();
+    let (membership_send_server_task, _) = channel(64);
+    let server_receive_membership_task = membership_send_server_task.clone();
 
-    (
-        membership_send_server_action,
-        server_receive_membership_action,
-    )
+    (membership_send_server_task, server_receive_membership_task)
 }

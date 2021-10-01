@@ -2,25 +2,25 @@ use crate::grpc::{Code, Request, Response, Status};
 pub use crate::meridian_membership_v010::communications_server::{
     Communications, CommunicationsServer,
 };
-use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
-use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
-use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcAction;
-use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcAction;
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveTask;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveTask;
+use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcTask;
+use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcTask;
 use crate::{JoinClusterRequest, JoinClusterResponse};
 
 pub struct ExternalMembershipGrpcServer {
-    receive_membership_action: ChannelMembershipSendGrpcAction,
-    send_membership_action: ChannelMembershipReceiveAction,
+    receive_membership_task: ChannelMembershipSendGrpcTask,
+    send_membership_task: ChannelMembershipReceiveTask,
 }
 
 impl ExternalMembershipGrpcServer {
     pub async fn init(
-        receive_membership_action: ChannelMembershipSendGrpcAction,
-        send_membership_action: ChannelMembershipReceiveAction,
+        receive_membership_task: ChannelMembershipSendGrpcTask,
+        send_membership_task: ChannelMembershipReceiveTask,
     ) -> Result<ExternalMembershipGrpcServer, Box<dyn std::error::Error>> {
         Ok(ExternalMembershipGrpcServer {
-            receive_membership_action,
-            send_membership_action,
+            receive_membership_task,
+            send_membership_task,
         })
     }
 
@@ -46,18 +46,18 @@ impl Communications for ExternalMembershipGrpcServer {
             Err(status)
         } else {
             if let Err(error) =
-                self.send_membership_action
-                    .send(MembershipReceiveAction::JoinClusterRequest(
+                self.send_membership_task
+                    .send(MembershipReceiveTask::JoinClusterRequest(
                         request.into_inner(),
                     ))
             {
                 println!("{:?}", error);
             };
 
-            let mut receiver = self.receive_membership_action.subscribe();
+            let mut receiver = self.receive_membership_task.subscribe();
 
             match receiver.recv().await {
-                Ok(MembershipSendGrpcAction::JoinClusterResponse(response)) => {
+                Ok(MembershipSendGrpcTask::JoinClusterResponse(response)) => {
                     Ok(Response::new(response))
                 }
                 Err(error) => {
