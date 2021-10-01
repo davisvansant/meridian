@@ -1,16 +1,12 @@
-use tonic::{Code, Request, Response, Status};
-
+use crate::grpc::{Code, Request, Response, Status};
 pub use crate::meridian_membership_v010::communications_server::{
     Communications, CommunicationsServer,
 };
-
+use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveAction;
+use crate::runtime::sync::membership_receive_task::MembershipReceiveAction;
+use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcAction;
+use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcAction;
 use crate::{JoinClusterRequest, JoinClusterResponse};
-
-use crate::channels::ChannelMembershipReceiveAction;
-use crate::channels::ChannelMembershipSendGrpcAction;
-
-use crate::channels::MembershipReceiveAction;
-use crate::channels::MembershipSendGrpcAction;
 
 pub struct ExternalMembershipGrpcServer {
     receive_membership_action: ChannelMembershipSendGrpcAction,

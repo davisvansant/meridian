@@ -1,10 +1,8 @@
-use tonic::{Request, Response, Status};
-
-use crate::meridian_client_v010::{HelloRequest, HelloResponse};
-
+use crate::grpc::{Request, Response, Status};
 pub use crate::meridian_client_v010::communications_server::{
     Communications, CommunicationsServer,
 };
+use crate::meridian_client_v010::{HelloRequest, HelloResponse};
 
 pub struct ExternalClientGrpcServer {}
 

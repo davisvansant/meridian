@@ -1,12 +1,9 @@
-use tonic::transport::Channel;
-use tonic::{Request, Response, Status};
-
+use crate::grpc::{Channel, Request, Response, Status};
+pub use crate::meridian_cluster_v010::communications_client::CommunicationsClient;
 use crate::meridian_cluster_v010::{
     AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest, InstallSnapshotResponse,
     RequestVoteRequest, RequestVoteResponse,
 };
-
-pub use crate::meridian_cluster_v010::communications_client::CommunicationsClient;
 
 pub struct InternalClusterGrpcClient {
     transport: CommunicationsClient<Channel>,

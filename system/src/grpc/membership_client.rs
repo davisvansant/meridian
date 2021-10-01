@@ -1,6 +1,4 @@
-use tonic::transport::Channel;
-use tonic::{Request, Response, Status};
-
+use crate::grpc::{Channel, Response, Status};
 pub use crate::meridian_membership_v010::communications_client::CommunicationsClient;
 use crate::meridian_membership_v010::{JoinClusterRequest, JoinClusterResponse};
 
