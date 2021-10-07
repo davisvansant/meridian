@@ -22,4 +22,4 @@ use crate::meridian_cluster_v010::{
     RequestVoteRequest, RequestVoteResponse,
 };
 
-use crate::meridian_membership_v010::{JoinClusterRequest, JoinClusterResponse};
+use crate::meridian_membership_v010::{Empty, MembershipNode, NodeStatus, Nodes};
