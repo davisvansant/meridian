@@ -1,12 +1,14 @@
 use crate::runtime::sync::channel;
 use crate::runtime::sync::Sender;
-use crate::JoinClusterResponse;
+use crate::{MembershipNode, NodeStatus, Nodes};
 
 pub type ChannelMembershipSendGrpcTask = Sender<MembershipSendGrpcTask>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipSendGrpcTask {
-    JoinClusterResponse(JoinClusterResponse),
+    JoinClusterResponse(MembershipNode),
+    Nodes(Nodes),
+    Status(NodeStatus),
 }
 
 pub async fn build_channel() -> (ChannelMembershipSendGrpcTask, ChannelMembershipSendGrpcTask) {
