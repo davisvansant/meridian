@@ -130,7 +130,7 @@ impl Server {
         let mut membership_receiver = self.membership_receive_task.subscribe();
 
         self.membership_send_task
-            .send(MembershipReceiveTask::Node)?;
+            .send(MembershipReceiveTask::Node(2))?;
 
         if let Ok(MembershipSendServerTask::NodeResponse(node)) = membership_receiver.recv().await {
             self.send_task
@@ -152,7 +152,7 @@ impl Server {
                     println!("sending receive request to cluster members - {:?}", request);
 
                     self.membership_send_task
-                        .send(MembershipReceiveTask::Members)?;
+                        .send(MembershipReceiveTask::Members(2))?;
 
                     if let Ok(MembershipSendServerTask::MembersResponse(members)) =
                         membership_receiver.recv().await
@@ -211,7 +211,7 @@ impl Server {
         let leader = Leader::init().await?;
 
         self.membership_send_task
-            .send(MembershipReceiveTask::Node)?;
+            .send(MembershipReceiveTask::Node(2))?;
 
         if let Ok(MembershipSendServerTask::NodeResponse(node)) = membership_receiver.recv().await {
             println!("server uuid - {:?}", &node);
@@ -221,7 +221,7 @@ impl Server {
 
             if let Ok(StateSendServerTask::AppendEntriesRequest(request)) = receiver.recv().await {
                 self.membership_send_task
-                    .send(MembershipReceiveTask::Members)?;
+                    .send(MembershipReceiveTask::Members(2))?;
 
                 if let Ok(MembershipSendServerTask::MembersResponse(members)) =
                     membership_receiver.recv().await
