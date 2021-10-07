@@ -6,7 +6,7 @@ use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveTask;
 use crate::runtime::sync::membership_receive_task::MembershipReceiveTask;
 use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcTask;
 use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcTask;
-use crate::{JoinClusterRequest, JoinClusterResponse};
+use crate::{Empty, MembershipNode, NodeStatus, Nodes};
 
 pub struct ExternalMembershipGrpcServer {
     receive_membership_task: ChannelMembershipSendGrpcTask,
@@ -24,7 +24,7 @@ impl ExternalMembershipGrpcServer {
         })
     }
 
-    async fn check_incoming_request(request: &JoinClusterRequest) -> bool {
+    async fn check_incoming_request(request: &MembershipNode) -> bool {
         request.id.is_empty()
             | request.address.is_empty()
             | request.client_port.is_empty()
@@ -37,19 +37,20 @@ impl ExternalMembershipGrpcServer {
 impl Communications for ExternalMembershipGrpcServer {
     async fn join_cluster(
         &self,
-        request: Request<JoinClusterRequest>,
-    ) -> Result<Response<JoinClusterResponse>, Status> {
+        request: Request<MembershipNode>,
+    ) -> Result<Response<MembershipNode>, Status> {
         println!("incoming join request ... {:?}", &request);
         if Self::check_incoming_request(request.get_ref()).await {
             let message = String::from("Received empty request!");
             let status = Status::new(Code::FailedPrecondition, message);
             Err(status)
         } else {
-            if let Err(error) =
-                self.send_membership_task
-                    .send(MembershipReceiveTask::JoinClusterRequest(
-                        request.into_inner(),
-                    ))
+            if let Err(error) = self
+                .send_membership_task
+                .send(MembershipReceiveTask::JoinCluster((
+                    2,
+                    request.into_inner(),
+                )))
             {
                 println!("{:?}", error);
             };
@@ -65,6 +66,68 @@ impl Communications for ExternalMembershipGrpcServer {
                     let status = Status::new(Code::NotFound, message);
                     Err(status)
                 }
+                _ => {
+                    let message = String::from("nothing");
+                    let status = Status::new(Code::NotFound, message);
+                    Err(status)
+                }
+            }
+        }
+    }
+
+    async fn get_nodes(&self, request: Request<Empty>) -> Result<Response<Nodes>, Status> {
+        println!("incoming join request ... {:?}", &request);
+
+        if let Err(error) = self
+            .send_membership_task
+            .send(MembershipReceiveTask::Members(3))
+        {
+            println!("{:?}", error);
+        };
+
+        let mut receiver = self.receive_membership_task.subscribe();
+
+        match receiver.recv().await {
+            Ok(MembershipSendGrpcTask::Nodes(response)) => Ok(Response::new(response)),
+            Err(error) => {
+                let message = error.to_string();
+                let status = Status::new(Code::NotFound, message);
+                Err(status)
+            }
+            _ => {
+                let message = String::from("nothing");
+                let status = Status::new(Code::NotFound, message);
+                Err(status)
+            }
+        }
+    }
+
+    async fn get_node_status(
+        &self,
+        request: Request<Empty>,
+    ) -> Result<Response<NodeStatus>, Status> {
+        println!("incoming join request ... {:?}", &request);
+
+        if let Err(error) = self
+            .send_membership_task
+            .send(MembershipReceiveTask::Status)
+        {
+            println!("{:?}", error);
+        };
+
+        let mut receiver = self.receive_membership_task.subscribe();
+
+        match receiver.recv().await {
+            Ok(MembershipSendGrpcTask::Status(response)) => Ok(Response::new(response)),
+            Err(error) => {
+                let message = error.to_string();
+                let status = Status::new(Code::NotFound, message);
+                Err(status)
+            }
+            _ => {
+                let message = String::from("nothing");
+                let status = Status::new(Code::NotFound, message);
+                Err(status)
             }
         }
     }
