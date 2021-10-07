@@ -3,10 +3,12 @@ syntax = "proto3";
 package meridian.membership.v010;
 
 service Communications {
-  rpc JoinCluster(JoinClusterRequest) returns (JoinClusterResponse);
+  rpc JoinCluster (MembershipNode) returns (MembershipNode);
+  rpc GetNodes (Empty) returns (Nodes);
+  rpc GetNodeStatus (Empty) returns (NodeStatus);
 }
 
-message JoinClusterRequest {
+message MembershipNode {
   string id = 1;
   string address = 2;
   string client_port = 3;
@@ -14,8 +16,12 @@ message JoinClusterRequest {
   string membership_port = 5;
 }
 
-message JoinClusterResponse {
-  string success = 1;
-  string details = 2;
-  repeated string members = 3;
+message Empty {}
+
+message Nodes {
+  repeated MembershipNode nodes = 1;
+}
+
+message NodeStatus {
+  string status = 1;
 }
