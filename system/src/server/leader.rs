@@ -1,5 +1,6 @@
 use crate::grpc::cluster_client::InternalClusterGrpcClient;
 use crate::meridian_cluster_v010::AppendEntriesRequest;
+use tonic::transport::Endpoint;
 
 pub struct Leader {}
 
@@ -11,7 +12,7 @@ impl Leader {
     pub async fn send_heartbeat(
         &self,
         request: AppendEntriesRequest,
-        address: String,
+        address: Endpoint,
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("sending heartbeat...");
 

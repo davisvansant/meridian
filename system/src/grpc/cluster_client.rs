@@ -4,6 +4,7 @@ use crate::meridian_cluster_v010::{
     AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest, InstallSnapshotResponse,
     RequestVoteRequest, RequestVoteResponse,
 };
+use tonic::transport::Endpoint;
 
 pub struct InternalClusterGrpcClient {
     transport: CommunicationsClient<Channel>,
@@ -11,8 +12,7 @@ pub struct InternalClusterGrpcClient {
 
 impl InternalClusterGrpcClient {
     pub async fn init(
-        // endpoint: &'static str,
-        endpoint: String,
+        endpoint: Endpoint,
     ) -> Result<InternalClusterGrpcClient, Box<dyn std::error::Error>> {
         let transport = CommunicationsClient::connect(endpoint).await?;
 

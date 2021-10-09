@@ -1,6 +1,7 @@
 use crate::grpc::{Channel, Response, Status};
 pub use crate::meridian_membership_v010::communications_client::CommunicationsClient;
 use crate::meridian_membership_v010::{Empty, MembershipNode, NodeStatus, Nodes};
+use tonic::transport::Endpoint;
 
 pub struct ExternalMembershipGrpcClient {
     transport: CommunicationsClient<Channel>,
@@ -8,7 +9,7 @@ pub struct ExternalMembershipGrpcClient {
 
 impl ExternalMembershipGrpcClient {
     pub async fn init(
-        endpoint: String,
+        endpoint: Endpoint,
     ) -> Result<ExternalMembershipGrpcClient, Box<dyn std::error::Error>> {
         let transport = CommunicationsClient::connect(endpoint).await?;
 

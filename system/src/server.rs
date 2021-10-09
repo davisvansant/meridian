@@ -1,4 +1,6 @@
+use std::convert::TryFrom;
 use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
+use tonic::transport::Endpoint;
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -183,7 +185,8 @@ impl Server {
 
                             for node in nodes {
                                 println!("sending request to node - {:?}", &node);
-                                if candidate.start_election(request.clone(), node).await? {
+                                let endpoint = Endpoint::try_from(node)?;
+                                if candidate.start_election(request.clone(), endpoint).await? {
                                     vote_true.push(1);
                                 } else {
                                     vote_false.push(1);
@@ -247,7 +250,8 @@ impl Server {
 
                     if !nodes.is_empty() {
                         for node in nodes {
-                            leader.send_heartbeat(request.clone(), node).await?;
+                            let endpoint = Endpoint::try_from(node)?;
+                            leader.send_heartbeat(request.clone(), endpoint).await?;
                         }
                     }
                 }

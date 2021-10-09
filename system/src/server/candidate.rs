@@ -1,4 +1,5 @@
 use tokio::time::Duration;
+use tonic::transport::Endpoint;
 
 use crate::grpc::cluster_client::InternalClusterGrpcClient;
 use crate::meridian_cluster_v010::RequestVoteRequest;
@@ -16,7 +17,7 @@ impl Candidate {
     pub async fn start_election(
         &self,
         request: RequestVoteRequest,
-        address: String,
+        address: Endpoint,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         // println!("starting election...");
         let mut transport = InternalClusterGrpcClient::init(address).await?;
