@@ -71,9 +71,7 @@ impl Server {
                     String::from_utf8_lossy(&buffer[0..stuff]),
                 );
 
-                if let Err(error) = tcp_stream.write_all(&buffer[0..stuff]).await {
-                    println!("there was an error - {:?}", error);
-                }
+                tcp_stream.write_all(&buffer[0..stuff]).await?;
             }
             Err(error) => println!("{:?}", error),
         }
