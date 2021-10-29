@@ -64,6 +64,7 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rpc::Client;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_communications() -> Result<(), Box<dyn std::error::Error>> {
@@ -110,30 +111,21 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn run_communications() -> Result<(), Box<dyn std::error::Error>> {
-        let test_interface_communications = Server::init(Interface::Communications).await?;
+        let test_communications_server = Server::init(Interface::Communications).await?;
         let test_handle = tokio::spawn(async move {
-            if let Err(error) = test_interface_communications.run().await {
+            if let Err(error) = test_communications_server.run().await {
                 println!("{:?}", error);
             }
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-        let mut test_stream = tokio::net::TcpStream::connect("127.0.0.1:1245").await?;
-
-        test_stream
-            .write_all(b"test_rpc_communications_interface")
+        let test_communications_client = Client::init(Interface::Communications).await?;
+        let test_data = test_communications_client
+            .transmit(b"test_rpc_communications_interface")
             .await?;
-        test_stream.shutdown().await?;
 
-        let mut test_buffer = [0; 1024];
-        let test_data = test_stream.read(&mut test_buffer).await?;
-        let test_response = String::from_utf8_lossy(&test_buffer[0..test_data]);
-
-        assert_eq!(
-            test_response.to_string().as_str(),
-            "test_rpc_communications_interface",
-        );
+        assert_eq!(test_data.as_str(), "test_rpc_communications_interface");
         assert!(test_handle.await.is_ok());
 
         Ok(())
@@ -141,30 +133,21 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn run_membership() -> Result<(), Box<dyn std::error::Error>> {
-        let test_interface_membership = Server::init(Interface::Membership).await?;
+        let test_membership_server = Server::init(Interface::Membership).await?;
         let test_handle = tokio::spawn(async move {
-            if let Err(error) = test_interface_membership.run().await {
+            if let Err(error) = test_membership_server.run().await {
                 println!("{:?}", error);
             }
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-        let mut test_stream = tokio::net::TcpStream::connect("127.0.0.1:1246").await?;
-
-        test_stream
-            .write_all(b"test_rpc_membership_interface")
+        let test_membership_client = Client::init(Interface::Membership).await?;
+        let test_data = test_membership_client
+            .transmit(b"test_rpc_membership_interface")
             .await?;
-        test_stream.shutdown().await?;
 
-        let mut test_buffer = [0; 1024];
-        let test_data = test_stream.read(&mut test_buffer).await?;
-        let test_response = String::from_utf8_lossy(&test_buffer[0..test_data]);
-
-        assert_eq!(
-            test_response.to_string().as_str(),
-            "test_rpc_membership_interface",
-        );
+        assert_eq!(test_data.as_str(), "test_rpc_membership_interface");
         assert!(test_handle.await.is_ok());
 
         Ok(())
