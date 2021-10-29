@@ -29,10 +29,17 @@ impl Client {
         })
     }
 
-    pub async fn connect(&self) -> Result<TcpStream, Box<dyn std::error::Error>> {
-        let tcp_stream = TcpStream::connect(self.socket_address).await?;
+    pub async fn transmit(&self, data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+        let mut buffer = [0; 1024];
+        let mut tcp_stream = TcpStream::connect(self.socket_address).await?;
 
-        Ok(tcp_stream)
+        tcp_stream.write_all(data).await?;
+        tcp_stream.shutdown().await?;
+
+        let received_data = tcp_stream.read(&mut buffer).await?;
+        let string = String::from_utf8_lossy(&buffer[0..received_data]).to_string();
+
+        Ok(string)
     }
 }
 
@@ -90,19 +97,11 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
         let test_client_communications = Client::init(Interface::Communications).await?;
-        let mut test_stream = test_client_communications.connect().await?;
+        let test_data = test_client_communications
+            .transmit(b"test_client_communications")
+            .await?;
 
-        test_stream.write_all(b"test_client_communications").await?;
-        test_stream.shutdown().await?;
-
-        let mut test_buffer = [0; 1024];
-        let test_data = test_stream.read(&mut test_buffer).await?;
-        let test_response = String::from_utf8_lossy(&test_buffer[0..test_data]);
-
-        assert_eq!(
-            test_response.to_string().as_str(),
-            "test_client_communications",
-        );
+        assert_eq!(test_data.as_str(), "test_client_communications");
         assert!(test_server_handle.await.is_ok());
 
         Ok(())
@@ -120,16 +119,11 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
         let test_client_membership = Client::init(Interface::Membership).await?;
-        let mut test_stream = test_client_membership.connect().await?;
+        let test_data = test_client_membership
+            .transmit(b"test_member_communications")
+            .await?;
 
-        test_stream.write_all(b"test_client_membership").await?;
-        test_stream.shutdown().await?;
-
-        let mut test_buffer = [0; 1024];
-        let test_data = test_stream.read(&mut test_buffer).await?;
-        let test_response = String::from_utf8_lossy(&test_buffer[0..test_data]);
-
-        assert_eq!(test_response.to_string().as_str(), "test_client_membership");
+        assert_eq!(test_data.as_str(), "test_member_communications");
         assert!(test_server_handle.await.is_ok());
 
         Ok(())
