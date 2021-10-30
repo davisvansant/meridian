@@ -1,8 +1,24 @@
-pub struct Arguments<'a> {
-    term: u8,
-    candidate_id: &'a str,
-    last_log_index: u8,
-    last_log_term: u8,
+pub struct Arguments {
+    pub term: u8,
+    pub candidate_id: String,
+    pub last_log_index: u8,
+    pub last_log_term: u8,
+}
+
+impl Arguments {
+    pub async fn build() -> Result<Arguments, Box<dyn std::error::Error>> {
+        let term = 0;
+        let candidate_id = String::from("some_candidate_id");
+        let last_log_index = 0;
+        let last_log_term = 0;
+
+        Ok(Arguments {
+            term,
+            candidate_id,
+            last_log_index,
+            last_log_term,
+        })
+    }
 }
 
 pub struct Results {
@@ -16,12 +32,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let test_arguments = Arguments {
-            term: 0,
-            candidate_id: "some_candidate_id",
-            last_log_index: 0,
-            last_log_term: 0,
-        };
+        let test_arguments = Arguments::build().await?;
         assert_eq!(test_arguments.term, 0);
         assert_eq!(test_arguments.candidate_id, "some_candidate_id");
         assert_eq!(test_arguments.last_log_index, 0);
