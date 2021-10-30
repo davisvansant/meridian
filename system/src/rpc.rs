@@ -1,3 +1,4 @@
+use flexbuffers::{Builder, BuilderOptions, FlexbufferSerializer, MapBuilder};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpSocket};
@@ -15,6 +16,46 @@ pub use server::Server;
 pub enum Interface {
     Communications,
     Membership,
+}
+
+pub enum Data {
+    AppendEntriesArguments,
+    InstallSnapshot,
+    RequestVoteArguments,
+}
+
+impl Data {
+    pub async fn build(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let flexbuffer_options = BuilderOptions::SHARE_NONE;
+
+        match self {
+            Data::AppendEntriesArguments => {
+                unimplemented!();
+            }
+            Data::InstallSnapshot => {
+                unimplemented!();
+            }
+            Data::RequestVoteArguments => {
+                let mut flexbuffers_builder = Builder::new(flexbuffer_options);
+                let mut flexbuffers_data = flexbuffers_builder.start_map();
+                let request_vote = request_vote::Arguments::build().await?;
+
+                flexbuffers_data.push("data", "request_vote_arguments");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("term", request_vote.term);
+                details.push("candidate_id", request_vote.candidate_id.as_str());
+                details.push("last_log_index", request_vote.last_log_index);
+                details.push("last_log_term", request_vote.last_log_term);
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+        }
+    }
 }
 
 pub async fn build_ip_address() -> IpAddr {
@@ -36,7 +77,39 @@ pub async fn build_tcp_socket(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flexbuffers::Pushable;
     use std::str::FromStr;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let test_request_vote_arguments = Data::RequestVoteArguments.build().await?;
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_request_vote_arguments.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_arguments",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert_eq!(
+            test_flexbuffers_root_details.idx("candidate_id").as_str(),
+            "some_candidate_id",
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("last_log_index").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("last_log_term").as_u8(),
+            0,
+        );
+
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_ip_address() -> Result<(), Box<dyn std::error::Error>> {
