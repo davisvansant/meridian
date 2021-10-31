@@ -20,6 +20,7 @@ pub enum Interface {
 
 pub enum Data {
     AppendEntriesArguments,
+    AppendEntriesResults,
     InstallSnapshot,
     RequestVoteArguments,
     RequestVoteResults,
@@ -45,6 +46,21 @@ impl Data {
                 details.push("prev_log_term", append_entries_arguments.prev_log_term);
                 details.push("entries", &append_entries_arguments.entries);
                 details.push("leader_commit", append_entries_arguments.leader_commit);
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+            Data::AppendEntriesResults => {
+                let append_entries_results = append_entries::Results::build().await?;
+
+                flexbuffers_data.push("data", "append_entries_results");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("term", append_entries_results.term);
+                details.push("success", append_entries_results.success);
                 details.end_map();
 
                 flexbuffers_data.end_map();
@@ -156,6 +172,32 @@ mod tests {
             test_flexbuffers_root_details.idx("leader_commit").as_u8(),
             0,
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_append_entries_results() -> Result<(), Box<dyn std::error::Error>> {
+        let test_append_entries_results = Data::AppendEntriesResults.build().await?;
+
+        assert_eq!(test_append_entries_results.len(), 73);
+
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_append_entries_results.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("success").as_bool());
 
         Ok(())
     }
