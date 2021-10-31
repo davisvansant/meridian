@@ -22,8 +22,8 @@ impl Arguments {
 }
 
 pub struct Results {
-    term: u8,
-    vote_granted: bool,
+    pub term: u8,
+    pub vote_granted: bool,
 }
 
 impl Results {
