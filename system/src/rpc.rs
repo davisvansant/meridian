@@ -83,6 +83,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
         let test_request_vote_arguments = Data::RequestVoteArguments.build().await?;
+
+        assert_eq!(test_request_vote_arguments.len(), 132);
+
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
         test_request_vote_arguments.push_to_builder(&mut test_flexbuffers_builder);
@@ -90,6 +93,9 @@ mod tests {
         let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
         let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
 
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
         assert_eq!(
             test_flexbuffer_root.as_map().idx("data").as_str(),
             "request_vote_arguments",
