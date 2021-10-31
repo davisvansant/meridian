@@ -1,10 +1,10 @@
 pub struct Arguments {
-    term: u8,
-    leader_id: String,
-    prev_log_index: u8,
-    prev_log_term: u8,
-    entries: Vec<u8>,
-    leader_commit: u8,
+    pub term: u8,
+    pub leader_id: String,
+    pub prev_log_index: u8,
+    pub prev_log_term: u8,
+    pub entries: Vec<u8>,
+    pub leader_commit: u8,
 }
 
 impl Arguments {
@@ -28,8 +28,8 @@ impl Arguments {
 }
 
 pub struct Results {
-    term: u8,
-    success: bool,
+    pub term: u8,
+    pub success: bool,
 }
 
 impl Results {
