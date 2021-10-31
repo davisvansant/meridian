@@ -22,11 +22,14 @@ pub enum Data {
     AppendEntriesArguments,
     InstallSnapshot,
     RequestVoteArguments,
+    RequestVoteResults,
 }
 
 impl Data {
     pub async fn build(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let flexbuffer_options = BuilderOptions::SHARE_NONE;
+        let mut flexbuffers_builder = Builder::new(flexbuffer_options);
+        let mut flexbuffers_data = flexbuffers_builder.start_map();
 
         match self {
             Data::AppendEntriesArguments => {
@@ -36,18 +39,31 @@ impl Data {
                 unimplemented!();
             }
             Data::RequestVoteArguments => {
-                let mut flexbuffers_builder = Builder::new(flexbuffer_options);
-                let mut flexbuffers_data = flexbuffers_builder.start_map();
-                let request_vote = request_vote::Arguments::build().await?;
+                let request_vote_arguments = request_vote::Arguments::build().await?;
 
                 flexbuffers_data.push("data", "request_vote_arguments");
 
                 let mut details = flexbuffers_data.start_map("details");
 
-                details.push("term", request_vote.term);
-                details.push("candidate_id", request_vote.candidate_id.as_str());
-                details.push("last_log_index", request_vote.last_log_index);
-                details.push("last_log_term", request_vote.last_log_term);
+                details.push("term", request_vote_arguments.term);
+                details.push("candidate_id", request_vote_arguments.candidate_id.as_str());
+                details.push("last_log_index", request_vote_arguments.last_log_index);
+                details.push("last_log_term", request_vote_arguments.last_log_term);
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+            Data::RequestVoteResults => {
+                let request_vote_results = request_vote::Results::build().await?;
+
+                flexbuffers_data.push("data", "request_vote_results");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("term", request_vote_results.term);
+                details.push("vote_granted", request_vote_results.vote_granted);
                 details.end_map();
 
                 flexbuffers_data.end_map();
@@ -113,6 +129,32 @@ mod tests {
             test_flexbuffers_root_details.idx("last_log_term").as_u8(),
             0,
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_request_vote_results() -> Result<(), Box<dyn std::error::Error>> {
+        let test_request_vote_results = Data::RequestVoteResults.build().await?;
+
+        assert_eq!(test_request_vote_results.len(), 76);
+
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_request_vote_results.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("vote_granted").as_bool());
 
         Ok(())
     }
