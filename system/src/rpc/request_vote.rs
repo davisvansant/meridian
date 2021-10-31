@@ -26,6 +26,15 @@ pub struct Results {
     vote_granted: bool,
 }
 
+impl Results {
+    pub async fn build() -> Result<Results, Box<dyn std::error::Error>> {
+        let term = 0;
+        let vote_granted = false;
+
+        Ok(Results { term, vote_granted })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -33,21 +42,22 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn arguments() -> Result<(), Box<dyn std::error::Error>> {
         let test_arguments = Arguments::build().await?;
+
         assert_eq!(test_arguments.term, 0);
         assert_eq!(test_arguments.candidate_id, "some_candidate_id");
         assert_eq!(test_arguments.last_log_index, 0);
         assert_eq!(test_arguments.last_log_term, 0);
+
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn results() -> Result<(), Box<dyn std::error::Error>> {
-        let test_results = Results {
-            term: 0,
-            vote_granted: false,
-        };
+        let test_results = Results::build().await?;
+
         assert_eq!(test_results.term, 0);
         assert!(!test_results.vote_granted);
+
         Ok(())
     }
 }
