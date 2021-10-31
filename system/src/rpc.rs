@@ -33,7 +33,23 @@ impl Data {
 
         match self {
             Data::AppendEntriesArguments => {
-                unimplemented!();
+                let append_entries_arguments = append_entries::Arguments::build().await?;
+
+                flexbuffers_data.push("data", "append_entries_arguments");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("term", append_entries_arguments.term);
+                details.push("leader_id", append_entries_arguments.leader_id.as_str());
+                details.push("prev_log_index", append_entries_arguments.prev_log_index);
+                details.push("prev_log_term", append_entries_arguments.prev_log_term);
+                details.push("entries", &append_entries_arguments.entries);
+                details.push("leader_commit", append_entries_arguments.leader_commit);
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
             }
             Data::InstallSnapshot => {
                 unimplemented!();
@@ -95,6 +111,54 @@ mod tests {
     use super::*;
     use flexbuffers::Pushable;
     use std::str::FromStr;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_append_entries_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let test_append_entries_arguments = Data::AppendEntriesArguments.build().await?;
+
+        assert_eq!(test_append_entries_arguments.len(), 157);
+
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_append_entries_arguments.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_arguments",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert_eq!(
+            test_flexbuffers_root_details.idx("leader_id").as_str(),
+            "some_leader_id",
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("prev_log_index").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("prev_log_term").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details
+                .idx("entries")
+                .as_vector()
+                .len(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("leader_commit").as_u8(),
+            0,
+        );
+
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
