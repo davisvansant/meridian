@@ -5,6 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::rpc::build_ip_address;
 use crate::rpc::build_socket_address;
 use crate::rpc::build_tcp_socket;
+use crate::rpc::Data;
 use crate::rpc::Interface;
 
 pub struct Server {
@@ -61,7 +62,7 @@ impl Server {
         Ok(())
     }
 
-    async fn route_incoming(&self, data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    async fn route_incoming(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
         data.push_to_builder(&mut flexbuffers_builder);
@@ -72,17 +73,21 @@ impl Server {
             "append_entries_arguments" => {
                 println!("received append entries arguments!");
 
-                Ok(String::from("append_entries_arguments"))
+                let append_entries_results = Data::AppendEntriesResults.build().await?;
+
+                Ok(append_entries_results)
             }
             "request_vote_arguments" => {
                 println!("received request vote arguments!");
 
-                Ok(String::from("request_vote_arguments"))
+                let request_vote_results = Data::RequestVoteResults.build().await?;
+
+                Ok(request_vote_results)
             }
             _ => {
                 println!("currently unknown ...");
 
-                Ok(String::from("unknown"))
+                Ok(String::from("unknown").as_bytes().to_vec())
             }
         }
     }
@@ -185,11 +190,23 @@ mod tests {
         let test_membership_server = Server::init(Interface::Membership).await?;
         let test_append_entries_arguments =
             crate::rpc::Data::AppendEntriesArguments.build().await?;
-        let test_data = test_membership_server
+        let test_append_entries_results = test_membership_server
             .route_incoming(&test_append_entries_arguments)
             .await?;
 
-        assert_eq!(test_data.as_str(), "append_entries_arguments");
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_append_entries_results.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("success").as_bool());
 
         Ok(())
     }
@@ -198,11 +215,23 @@ mod tests {
     async fn route_incoming_request_vote() -> Result<(), Box<dyn std::error::Error>> {
         let test_membership_server = Server::init(Interface::Membership).await?;
         let test_request_vote_arguments = crate::rpc::Data::RequestVoteArguments.build().await?;
-        let test_data = test_membership_server
+        let test_request_vote_results = test_membership_server
             .route_incoming(&test_request_vote_arguments)
             .await?;
 
-        assert_eq!(test_data.as_str(), "request_vote_arguments");
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_request_vote_results.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("vote_granted").as_bool());
 
         Ok(())
     }
@@ -213,7 +242,7 @@ mod tests {
         let test_unknown = crate::rpc::Data::RequestVoteResults.build().await?;
         let test_data = test_membership_server.route_incoming(&test_unknown).await?;
 
-        assert_eq!(test_data.as_str(), "unknown");
+        assert_eq!(test_data, "unknown".as_bytes());
 
         Ok(())
     }
