@@ -48,12 +48,9 @@ impl Server {
 
         match tcp_stream.read(&mut buffer).await {
             Ok(data_length) => {
-                println!(
-                    "received - {:?}",
-                    String::from_utf8_lossy(&buffer[0..data_length]),
-                );
+                let result = self.route_incoming(&buffer[0..data_length]).await?;
 
-                tcp_stream.write_all(&buffer[0..data_length]).await?;
+                tcp_stream.write_all(&result).await?;
                 tcp_stream.shutdown().await?;
             }
             Err(error) => println!("{:?}", error),
@@ -142,7 +139,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn run_communications() -> Result<(), Box<dyn std::error::Error>> {
+    async fn run_communications_append_entries() -> Result<(), Box<dyn std::error::Error>> {
         let test_communications_server = Server::init(Interface::Communications).await?;
         let test_handle = tokio::spawn(async move {
             if let Err(error) = test_communications_server.run().await {
@@ -153,37 +150,81 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
         let test_communications_client = Client::init(Interface::Communications).await?;
-        let test_data = test_communications_client
-            .transmit(b"test_rpc_communications_interface")
-            .await?;
+        let test_request = Data::AppendEntriesArguments.build().await?;
+        let test_data = test_communications_client.transmit(&test_request).await?;
 
-        assert_eq!(test_data.as_str(), "test_rpc_communications_interface");
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_data.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("success").as_bool());
         assert!(test_handle.await.is_ok());
 
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn run_membership() -> Result<(), Box<dyn std::error::Error>> {
-        let test_membership_server = Server::init(Interface::Membership).await?;
+    async fn run_communications_request_vote() -> Result<(), Box<dyn std::error::Error>> {
+        let test_communications_server = Server::init(Interface::Communications).await?;
         let test_handle = tokio::spawn(async move {
-            if let Err(error) = test_membership_server.run().await {
+            if let Err(error) = test_communications_server.run().await {
                 println!("{:?}", error);
             }
         });
 
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
-        let test_membership_client = Client::init(Interface::Membership).await?;
-        let test_data = test_membership_client
-            .transmit(b"test_rpc_membership_interface")
-            .await?;
+        let test_communications_client = Client::init(Interface::Communications).await?;
+        let test_request = Data::RequestVoteArguments.build().await?;
+        let test_data = test_communications_client.transmit(&test_request).await?;
 
-        assert_eq!(test_data.as_str(), "test_rpc_membership_interface");
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_data.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("vote_granted").as_bool());
         assert!(test_handle.await.is_ok());
 
         Ok(())
     }
+
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn run_membership() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_membership_server = Server::init(Interface::Membership).await?;
+    //     let test_handle = tokio::spawn(async move {
+    //         if let Err(error) = test_membership_server.run().await {
+    //             println!("{:?}", error);
+    //         }
+    //     });
+    //
+    //     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+    //
+    //     let test_membership_client = Client::init(Interface::Membership).await?;
+    //     let test_data = test_membership_client
+    //         .transmit(b"test_rpc_membership_interface")
+    //         .await?;
+    //
+    //     assert_eq!(test_data.as_str(), "test_rpc_membership_interface");
+    //     assert!(test_handle.await.is_ok());
+    //
+    //     Ok(())
+    // }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn route_incoming_append_entries() -> Result<(), Box<dyn std::error::Error>> {
