@@ -5,6 +5,7 @@ use tokio::net::{TcpListener, TcpSocket};
 
 pub mod append_entries;
 pub mod install_snapshot;
+pub mod membership;
 pub mod request_vote;
 
 mod client;
@@ -21,6 +22,7 @@ pub enum Interface {
 pub enum Data {
     AppendEntriesArguments,
     AppendEntriesResults,
+    JoinClusterRequest,
     InstallSnapshot,
     RequestVoteArguments,
     RequestVoteResults,
@@ -61,6 +63,24 @@ impl Data {
 
                 details.push("term", append_entries_results.term);
                 details.push("success", append_entries_results.success);
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+            Data::JoinClusterRequest => {
+                let membership_node = membership::MembershipNode::build().await?;
+
+                flexbuffers_data.push("data", "join_cluster_request");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("id", membership_node.id.as_str());
+                details.push("address", membership_node.address.as_str());
+                details.push("client_port", membership_node.client_port.as_str());
+                details.push("cluster_port", membership_node.cluster_port.as_str());
+                details.push("membership_port", membership_node.membership_port.as_str());
                 details.end_map();
 
                 flexbuffers_data.end_map();
@@ -198,6 +218,38 @@ mod tests {
         );
         assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
         assert!(!test_flexbuffers_root_details.idx("success").as_bool());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_join_cluster_request() -> Result<(), Box<dyn std::error::Error>> {
+        let test_join_cluster_request = Data::JoinClusterRequest.build().await?;
+
+        assert_eq!(test_join_cluster_request.len(), 211);
+
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        test_join_cluster_request.push_to_builder(&mut test_flexbuffers_builder);
+
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffer_root_data = test_flexbuffer_root.as_map().index("data")?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        let test_index_id = test_flexbuffers_root_details.index("id")?;
+        let test_index_address = test_flexbuffers_root_details.index("address")?;
+        let test_index_client_port = test_flexbuffers_root_details.index("client_port")?;
+        let test_index_cluster_port = test_flexbuffers_root_details.index("cluster_port")?;
+        let test_index_membership_port = test_flexbuffers_root_details.index("membership_port")?;
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(test_flexbuffer_root_data.as_str(), "join_cluster_request");
+        assert_eq!(test_index_id.as_str(), "some_node_id");
+        assert_eq!(test_index_address.as_str(), "some_node_address");
+        assert_eq!(test_index_client_port.as_str(), "some_client_port");
+        assert_eq!(test_index_cluster_port.as_str(), "some_cluster_port");
+        assert_eq!(test_index_membership_port.as_str(), "some_membership_port");
 
         Ok(())
     }
