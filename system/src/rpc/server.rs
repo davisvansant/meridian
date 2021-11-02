@@ -40,26 +40,48 @@ impl Server {
         let backlog = 1024;
         let tcp_listener = tcp_socket.listen(backlog)?;
 
-        let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
+        let mut connections = 0;
 
-        println!("running on {:?}", socket_address);
+        while connections <= 0 {
+            let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
 
-        let mut buffer = [0; 1024];
+            println!("running on {:?}", socket_address);
 
-        match tcp_stream.read(&mut buffer).await {
-            Ok(data_length) => {
-                let result = self.route_incoming(&buffer[0..data_length]).await?;
+            tokio::spawn(async move {
+                let mut buffer = [0; 1024];
 
-                tcp_stream.write_all(&result).await?;
-                tcp_stream.shutdown().await?;
-            }
-            Err(error) => println!("{:?}", error),
+                match tcp_stream.read(&mut buffer).await {
+                    Ok(data_length) => {
+                        let send_result = match Self::route_incoming(&buffer[0..data_length]).await
+                        {
+                            Ok(send_result) => send_result,
+                            Err(error) => {
+                                println!("error routing request ! {:?}", error);
+                                return;
+                            }
+                        };
+
+                        if let Err(error) = tcp_stream.write_all(&send_result).await {
+                            println!("tcp stream write error ! {:?}", error);
+                        };
+
+                        if let Err(error) = tcp_stream.shutdown().await {
+                            println!("tcp stream shutdown error! {:?}", error);
+                        };
+                    }
+                    Err(error) => {
+                        println!("{:?}", error);
+                    }
+                }
+            });
+
+            connections += 1;
         }
 
         Ok(())
     }
 
-    async fn route_incoming(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn route_incoming(data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
         data.push_to_builder(&mut flexbuffers_builder);
@@ -228,12 +250,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn route_incoming_append_entries() -> Result<(), Box<dyn std::error::Error>> {
-        let test_membership_server = Server::init(Interface::Membership).await?;
         let test_append_entries_arguments =
             crate::rpc::Data::AppendEntriesArguments.build().await?;
-        let test_append_entries_results = test_membership_server
-            .route_incoming(&test_append_entries_arguments)
-            .await?;
+        let test_append_entries_results =
+            Server::route_incoming(&test_append_entries_arguments).await?;
 
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -254,11 +274,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn route_incoming_request_vote() -> Result<(), Box<dyn std::error::Error>> {
-        let test_membership_server = Server::init(Interface::Membership).await?;
         let test_request_vote_arguments = crate::rpc::Data::RequestVoteArguments.build().await?;
-        let test_request_vote_results = test_membership_server
-            .route_incoming(&test_request_vote_arguments)
-            .await?;
+        let test_request_vote_results =
+            Server::route_incoming(&test_request_vote_arguments).await?;
 
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -279,9 +297,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn route_incoming_unknown() -> Result<(), Box<dyn std::error::Error>> {
-        let test_membership_server = Server::init(Interface::Membership).await?;
         let test_unknown = crate::rpc::Data::RequestVoteResults.build().await?;
-        let test_data = test_membership_server.route_incoming(&test_unknown).await?;
+        let test_data = Server::route_incoming(&test_unknown).await?;
 
         assert_eq!(test_data, "unknown".as_bytes());
 
