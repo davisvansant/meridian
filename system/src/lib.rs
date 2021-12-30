@@ -1,3 +1,4 @@
+pub(crate) mod channel;
 pub(crate) mod grpc;
 pub(crate) mod membership;
 pub mod node;
