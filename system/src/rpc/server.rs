@@ -8,6 +8,12 @@ use crate::rpc::build_tcp_socket;
 use crate::rpc::Data;
 use crate::rpc::Interface;
 
+use std::str::FromStr;
+
+use crate::rpc::Node;
+
+use crate::rpc::membership::MembershipNode;
+
 pub struct Server {
     ip_address: IpAddr,
     port: u16,
@@ -68,6 +74,9 @@ impl Server {
                         if let Err(error) = tcp_stream.shutdown().await {
                             println!("tcp stream shutdown error! {:?}", error);
                         };
+                        // if let Err(error) = tcp_stream.flush().await {
+                        //     println!("tcp stream flush error! {:?}", error);
+                        // };
                     }
                     Err(error) => {
                         println!("{:?}", error);
@@ -95,6 +104,34 @@ impl Server {
                 let append_entries_results = Data::AppendEntriesResults.build().await?;
 
                 Ok(append_entries_results)
+            }
+            "connected" => {
+                println!("received connected nodes request!");
+
+                let connected_response = Data::Connected.build().await?;
+
+                // Ok(String::from("some connected nodes!").as_bytes().to_vec())
+                Ok(connected_response)
+            }
+            "join_cluster_request" => {
+                println!("received join cluster request!");
+
+                // let node = MembershipNode {
+                //     id: String::from("node_id");
+                //     pub id: String,
+                //     pub address: String,
+                //     pub client_port: String,
+                //     pub cluster_port: String,
+                //     pub membership_port: String,
+                // };
+                let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+                let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
+                // let join_cluster_response = MembershipNode::build(&test_node).await?;
+                let join_cluster_response = Data::JoinClusterRequest(test_node).build().await?;
+
+                Ok(join_cluster_response)
+
+                // Ok(String::from("joined!").as_bytes().to_vec())
             }
             "request_vote_arguments" => {
                 println!("received request vote arguments!");
