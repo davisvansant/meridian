@@ -11,11 +11,24 @@ use std::str::FromStr;
 use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 use tonic::transport::Endpoint;
 
+// use crate::rpc::membership::MembershipNode as RpcMembershipNode;
+use crate::rpc::{Client, Data, Interface};
+// use crate::rpc::membership::MembershipNode as RpcMembershipNode;
+
+use flexbuffers::{Builder, BuilderOptions, FlexbufferSerializer, MapBuilder};
+
+use flexbuffers::Pushable;
+
+use crate::channel::MembershipSender;
+
+use crate::channel::{get_node, join_cluster};
+
 pub async fn run_task(
     membership_receive_task: ChannelMembershipReceiveTask,
     preflight_receive_membership_task: ChannelMembershipSendPreflightTask,
     send_launch_action: ChannelLaunch,
     peers: Vec<String>,
+    membership_sender: MembershipSender,
 ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
     println!("waiting for init...");
 
@@ -26,6 +39,7 @@ pub async fn run_task(
             peers,
             membership_receive_task.clone(),
             preflight_receive_membership_task.clone(),
+            membership_sender,
         )
         .await
         {
@@ -50,9 +64,11 @@ async fn preflight(
     peers: Vec<String>,
     sender_channel: ChannelMembershipReceiveTask,
     receiver_channel: ChannelMembershipSendPreflightTask,
+    membership_sender: MembershipSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    send_membership_node_task(sender_channel.clone()).await?;
-    let node = receive_membership_node(receiver_channel).await?;
+    // send_membership_node_task(sender_channel.clone()).await?;
+    // let node = receive_membership_node(receiver_channel).await?;
+    let node = get_node(&membership_sender).await?;
 
     for member in &peers {
         println!("{:?}", member);
@@ -61,23 +77,43 @@ async fn preflight(
         let (address, port) = member.split_once(":").unwrap();
         let endpoint = build_endpoint(address.to_string(), port.to_string()).await?;
 
-        let mut client = ExternalMembershipGrpcClient::init(endpoint).await?;
-        let join_cluster_response = client.join_cluster(membership_node).await?;
+        let rpc_client = Client::init(Interface::Membership).await?;
+        // let join_cluster_request = Data::JoinClusterRequest(node).build().await?;
+        // let join_cluster_response = rpc_client.transmit(&join_cluster_request).await?;
 
-        send_membership_join_cluster_task(
-            sender_channel.clone(),
-            join_cluster_response.into_inner(),
-        )
-        .await?;
+        // let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        // join_cluster_response.push_to_builder(&mut test_flexbuffers_builder);
+
+        // let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+
+        // let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        // // println!("{:?}", test_flexbuffers_root_details);
+        // for value in test_flexbuffers_root_details.iter_values() {
+        //     println!("some value here - {:?}", value.as_str());
+        // }
+
+        rpc_client.join_cluster().await?;
+
+        // send_membership_join_cluster_task(
+        //     sender_channel.clone(),
+        //     join_cluster_response.into_inner(),
+        // )
+        // .await?;
 
         sleep(Duration::from_secs(5)).await;
 
-        let get_nodes_response = client.get_nodes().await?;
+        // let another_rpc_client = Client::init(Interface::Membership).await?;
 
-        for cluster_node in get_nodes_response.into_inner().nodes {
-            let membership_node = build_membership_node(node).await?;
-            let endpoint =
-                build_endpoint(cluster_node.address, cluster_node.membership_port).await?;
+        let connected_nodes = rpc_client.get_connected().await?;
+
+        for connected_node in connected_nodes.iter() {
+            let endpoint = build_endpoint(
+                connected_node.address.to_owned(),
+                connected_node.membership_port.to_owned(),
+            )
+            .await?;
 
             let self_endpoint =
                 build_endpoint(node.address.to_string(), node.membership_port.to_string()).await?;
@@ -86,12 +122,55 @@ async fn preflight(
                 println!("endpoint {:?} - self {:?}", &endpoint, &self_endpoint);
                 println!("not sending request to self!");
             } else {
-                let mut client = ExternalMembershipGrpcClient::init(endpoint).await.unwrap();
-                let response = client.join_cluster(membership_node).await.unwrap();
+                // let mut client = ExternalMembershipGrpcClient::init(endpoint).await.unwrap();
+                // let response = client.join_cluster(membership_node).await.unwrap();
+                rpc_client.join_cluster().await?;
 
-                println!("joining node - {:?}", response);
+                // println!("joining node - {:?}", response);
             }
         }
+        // let connected_nodes = another_rpc_client.get_connected().await?;
+
+        // let client = Client::init(Interface::Membership).await?;
+
+        // let get_connected_request = Data::ConnectedRequest.build().await?;
+        // let get_connected_response = rpc_client.transmit(&get_connected_request).await?;
+
+        // // println!("get connected response - {:?}", String::from_utf8(get_connected_response)?);
+
+        // let mut another_test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        // get_connected_response.push_to_builder(&mut another_test_flexbuffers_builder);
+
+        // let another_test_flexbuffer_root =
+        //     flexbuffers::Reader::get_root(another_test_flexbuffers_builder.view())?;
+
+        // let test_flexbuffers_root_details = another_test_flexbuffer_root.as_vector();
+
+        // for value in test_flexbuffers_root_details.iter() {
+        //     println!("some value here - {:?}", value.as_str());
+        // }
+
+        // let get_nodes_response = client.get_nodes().await?;
+
+        // for cluster_node in get_nodes_response.into_inner().nodes {
+        //     let membership_node = build_membership_node(node).await?;
+        //     let endpoint =
+        //         build_endpoint(cluster_node.address, cluster_node.membership_port).await?;
+
+        //     let self_endpoint =
+        //         build_endpoint(node.address.to_string(), node.membership_port.to_string()).await?;
+
+        //     if endpoint.uri() == self_endpoint.uri() {
+        //         println!("endpoint {:?} - self {:?}", &endpoint, &self_endpoint);
+        //         println!("not sending request to self!");
+        //     } else {
+        //         let mut client = ExternalMembershipGrpcClient::init(endpoint).await.unwrap();
+        //         let response = client.join_cluster(membership_node).await.unwrap();
+
+        //         println!("joining node - {:?}", response);
+        //     }
+        // }
     }
 
     Ok(())
