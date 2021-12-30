@@ -21,6 +21,12 @@ use self::tasks::state_service;
 use crate::membership::ClusterSize;
 use crate::node::Node;
 
+use crate::rpc::{Data, Interface, Server};
+
+use tokio::sync::{mpsc, oneshot};
+
+use crate::channel::{MembershipRequest, MembershipResponse};
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<String>,
@@ -65,6 +71,9 @@ pub async fn launch(
     let (state_receive_server_task, state_send_server_task) =
         state_send_server_task::build_channel().await;
 
+    let (membership_sender, mut membership_receiver) =
+        mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+
     let client_grpc_handle = client_grpc::run_task(
         node.build_address(node.client_port).await,
         runtime_client_grpc_receiver,
@@ -97,6 +106,7 @@ pub async fn launch(
         membership_send_preflight_task,
         membership_send_server_task,
         // runtime_sender,
+        membership_receiver,
     )
     .await?;
 
@@ -105,6 +115,7 @@ pub async fn launch(
         preflight_receive_membership_task,
         runtime_sender,
         peers,
+        membership_sender,
     )
     .await?;
 
@@ -124,14 +135,31 @@ pub async fn launch(
     )
     .await?;
 
+    let rpc_membership_server = Server::init(Interface::Membership).await?;
+
+    let rpc_membership_server_handle = tokio::spawn(async move {
+        if let Err(error) = rpc_membership_server.run().await {
+            println!("error with rpc server {:?}", error);
+        }
+    });
+
+    let rpc_communications_server = Server::init(Interface::Communications).await?;
+    let rpc_communications_server_handle = tokio::spawn(async move {
+        if let Err(error) = rpc_communications_server.run().await {
+            println!("error with rpc communications server {:?}", error);
+        }
+    });
+
     tokio::try_join!(
-        preflight_handle,
+        // preflight_handle,
         state_service_handle,
         server_service_handle,
-        membership_service_handle,
-        membership_grpc_handle,
-        cluster_grpc_handle,
-        client_grpc_handle,
+        // membership_service_handle,
+        // membership_grpc_handle,
+        // cluster_grpc_handle,
+        // client_grpc_handle,
+        rpc_membership_server_handle,
+        rpc_communications_server_handle,
     )?;
 
     Ok(())
