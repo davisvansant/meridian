@@ -1,3 +1,5 @@
+use crate::node::Node;
+
 pub struct MembershipNode {
     pub id: String,
     pub address: String,
@@ -7,12 +9,17 @@ pub struct MembershipNode {
 }
 
 impl MembershipNode {
-    pub async fn build() -> Result<MembershipNode, Box<dyn std::error::Error>> {
-        let id = String::from("some_node_id");
-        let address = String::from("some_node_address");
-        let client_port = String::from("some_client_port");
-        let cluster_port = String::from("some_cluster_port");
-        let membership_port = String::from("some_membership_port");
+    pub async fn build(node: &Node) -> Result<MembershipNode, Box<dyn std::error::Error>> {
+        // let id = String::from("some_node_id");
+        // let address = String::from("some_node_address");
+        // let client_port = String::from("some_client_port");
+        // let cluster_port = String::from("some_cluster_port");
+        // let membership_port = String::from("some_membership_port");
+        let id = node.id.to_string();
+        let address = node.address.to_string();
+        let client_port = node.client_port.to_string();
+        let cluster_port = node.cluster_port.to_string();
+        let membership_port = node.membership_port.to_string();
 
         Ok(MembershipNode {
             id,
@@ -25,7 +32,8 @@ impl MembershipNode {
 }
 
 pub struct Connected {
-    nodes: Vec<MembershipNode>,
+    // pub nodes: Vec<MembershipNode>,
+    pub nodes: Vec<MembershipNode>,
 }
 
 impl Connected {
@@ -37,7 +45,7 @@ impl Connected {
 }
 
 pub struct Status {
-    details: String,
+    pub details: String,
 }
 
 impl Status {
@@ -51,16 +59,20 @@ impl Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn membership_node() -> Result<(), Box<dyn std::error::Error>> {
-        let test_membership_node = MembershipNode::build().await?;
+        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+        let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
 
-        assert_eq!(test_membership_node.id, "some_node_id");
-        assert_eq!(test_membership_node.address, "some_node_address");
-        assert_eq!(test_membership_node.client_port, "some_client_port");
-        assert_eq!(test_membership_node.cluster_port, "some_cluster_port");
-        assert_eq!(test_membership_node.membership_port, "some_membership_port");
+        let test_membership_node = MembershipNode::build(&test_node).await?;
+
+        // assert_eq!(test_membership_node.id, "some_node_id");
+        assert_eq!(test_membership_node.address, "0.0.0.0");
+        assert_eq!(test_membership_node.client_port, "10000");
+        assert_eq!(test_membership_node.cluster_port, "15000");
+        assert_eq!(test_membership_node.membership_port, "20000");
 
         Ok(())
     }
