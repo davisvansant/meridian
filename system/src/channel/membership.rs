@@ -10,7 +10,7 @@ pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<Mem
 pub enum MembershipRequest {
     // JoinCluster(Node),
     AddMember(Node),
-    Members(u8),
+    Members,
     Node,
     RemoveMember,
     Status,
@@ -52,6 +52,22 @@ pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std
 
     match response.await {
         Ok(MembershipResponse::Node(node)) => Ok(node),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
+}
+
+pub async fn cluster_members(
+    membership: &MembershipSender,
+) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    membership
+        .send((MembershipRequest::Members, request))
+        .await?;
+
+    match response.await {
+        Ok(MembershipResponse::Members(cluster_members)) => Ok(cluster_members),
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
