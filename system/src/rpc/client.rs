@@ -32,6 +32,8 @@ use crate::channel::{candidate, get_node};
 
 use crate::rpc::RequestVoteResults;
 
+use crate::channel::cluster_members;
+
 pub struct Client {
     ip_address: IpAddr,
     port: u16,
@@ -80,6 +82,8 @@ impl Client {
                     let mut vote = Vec::with_capacity(2);
 
                     let result = self.request_vote().await?;
+
+                    let peers = cluster_members(&self.membership_sender).await?;
 
                     if result.vote_granted {
                         vote.push(1);

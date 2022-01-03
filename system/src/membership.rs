@@ -90,7 +90,7 @@ impl Membership {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
-                MembershipRequest::Members(service) => {
+                MembershipRequest::Members => {
                     println!("received members request!");
 
                     let mut members = Vec::with_capacity(self.members.len());
