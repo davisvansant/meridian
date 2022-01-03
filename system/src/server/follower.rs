@@ -1,5 +1,14 @@
 use tokio::time::Duration;
 
+use crate::server::ServerState;
+
+use tokio::time::timeout_at;
+
+use tokio::time::Instant;
+
+use tokio::sync::broadcast::Receiver;
+// use tokio::sync::mpsc::Receiver;
+
 pub struct Follower {
     pub election_timeout: Duration,
 }
@@ -15,6 +24,22 @@ impl Follower {
     //     println!("Waiting for leader...");
     //     Ok(())
     // }
+    pub async fn run(
+        &mut self,
+        heartbeat: &mut Receiver<ServerState>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        while let Ok(result) =
+            timeout_at(Instant::now() + self.election_timeout, heartbeat.recv()).await
+        {
+            if let Ok(ServerState::Follower) = result {
+                println!("receiving heartbeat...");
+            }
+        }
+
+        println!("timeout ending...starting election");
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
