@@ -25,6 +25,8 @@ use crate::channel::start_election;
 
 use crate::channel::ClientSender;
 
+use crate::server::ServerSender;
+
 pub struct Candidate {
     pub election_timeout: Duration,
 }
@@ -62,7 +64,8 @@ impl Candidate {
         // transition: &mut mpsc::Receiver<CandidateTransition>,
         client: &ClientSender,
         transition: &mut CandidateReceiver,
-        tx: &Sender<ServerState>,
+        // tx: &Sender<ServerState>,
+        tx: &ServerSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         start_election(client).await?;
 
@@ -80,9 +83,10 @@ impl Candidate {
                             break;
                         }
                         Some(CandidateTransition::Leader) => {
-                            if let Err(error) = tx.send(ServerState::Leader) {
-                                println!("error sending server state {:?}", error);
-                            }
+                            // if let Err(error) = tx.send(ServerState::Leader) {
+                            //     println!("error sending server state {:?}", error);
+                            // }
+                            println!("transitioning server to leader...");
                             break;
                         }
                         None => break,
