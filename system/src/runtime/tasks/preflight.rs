@@ -21,7 +21,8 @@ use flexbuffers::Pushable;
 
 use crate::channel::MembershipSender;
 
-use crate::channel::{get_node, join_cluster};
+// use crate::channel::{get_node, join_cluster};
+use crate::channel::get_node;
 
 pub async fn run_task(
     membership_receive_task: ChannelMembershipReceiveTask,
@@ -77,7 +78,7 @@ async fn preflight(
         let (address, port) = member.split_once(":").unwrap();
         let endpoint = build_endpoint(address.to_string(), port.to_string()).await?;
 
-        let rpc_client = Client::init(Interface::Membership).await?;
+        // let rpc_client = Client::init(Interface::Membership).await?;
         // let join_cluster_request = Data::JoinClusterRequest(node).build().await?;
         // let join_cluster_response = rpc_client.transmit(&join_cluster_request).await?;
 
@@ -94,7 +95,7 @@ async fn preflight(
         //     println!("some value here - {:?}", value.as_str());
         // }
 
-        rpc_client.join_cluster().await?;
+        // rpc_client.join_cluster().await?;
 
         // send_membership_join_cluster_task(
         //     sender_channel.clone(),
@@ -106,29 +107,29 @@ async fn preflight(
 
         // let another_rpc_client = Client::init(Interface::Membership).await?;
 
-        let connected_nodes = rpc_client.get_connected().await?;
+        // let connected_nodes = rpc_client.get_connected().await?;
 
-        for connected_node in connected_nodes.iter() {
-            let endpoint = build_endpoint(
-                connected_node.address.to_owned(),
-                connected_node.membership_port.to_owned(),
-            )
-            .await?;
+        // for connected_node in connected_nodes.iter() {
+        //     let endpoint = build_endpoint(
+        //         connected_node.address.to_owned(),
+        //         connected_node.membership_port.to_owned(),
+        //     )
+        //     .await?;
 
-            let self_endpoint =
-                build_endpoint(node.address.to_string(), node.membership_port.to_string()).await?;
+        //     let self_endpoint =
+        //         build_endpoint(node.address.to_string(), node.membership_port.to_string()).await?;
 
-            if endpoint.uri() == self_endpoint.uri() {
-                println!("endpoint {:?} - self {:?}", &endpoint, &self_endpoint);
-                println!("not sending request to self!");
-            } else {
-                // let mut client = ExternalMembershipGrpcClient::init(endpoint).await.unwrap();
-                // let response = client.join_cluster(membership_node).await.unwrap();
-                rpc_client.join_cluster().await?;
+        //     if endpoint.uri() == self_endpoint.uri() {
+        //         println!("endpoint {:?} - self {:?}", &endpoint, &self_endpoint);
+        //         println!("not sending request to self!");
+        //     } else {
+        //         // let mut client = ExternalMembershipGrpcClient::init(endpoint).await.unwrap();
+        //         // let response = client.join_cluster(membership_node).await.unwrap();
+        //         rpc_client.join_cluster().await?;
 
-                // println!("joining node - {:?}", response);
-            }
-        }
+        //         // println!("joining node - {:?}", response);
+        //     }
+        // }
         // let connected_nodes = another_rpc_client.get_connected().await?;
 
         // let client = Client::init(Interface::Membership).await?;
@@ -181,53 +182,57 @@ async fn attempts(
     receiver_channel: ChannelMembershipSendPreflightTask,
     send_launch_action: ChannelLaunch,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut attempts = 0;
+    // let mut attempts = 0;
 
-    while attempts <= 5 {
-        println!("starting attempts ! {:?}", &attempts);
+    // while attempts <= 5 {
+    //     println!("starting attempts ! {:?}", &attempts);
 
-        send_membership_members_task(sender_channel.clone()).await?;
-        let members = receive_membership_members(receiver_channel.clone()).await?;
-        let mut status = Vec::with_capacity(2);
+    //     send_membership_members_task(sender_channel.clone()).await?;
+    //     let members = receive_membership_members(receiver_channel.clone()).await?;
+    //     let mut status = Vec::with_capacity(2);
 
-        for member in &members {
-            println!("members - {:?}", member);
+    //     for member in &members {
+    //         println!("members - {:?}", member);
 
-            let endpoint = build_endpoint(
-                member.address.to_string(),
-                member.membership_port.to_string(),
-            )
-            .await?;
+    //         let endpoint = build_endpoint(
+    //             member.address.to_string(),
+    //             member.membership_port.to_string(),
+    //         )
+    //         .await?;
 
-            println!("sending status to known members... {:?}", &endpoint);
+    //         println!("sending status to known members... {:?}", &endpoint);
 
-            let mut client = ExternalMembershipGrpcClient::init(endpoint).await?;
-            let response = client.get_node_status().await?;
+    //         let mut client = ExternalMembershipGrpcClient::init(endpoint).await?;
+    //         let response = client.get_node_status().await?;
 
-            println!("join response - {:?}", response);
+    //         println!("join response - {:?}", response);
 
-            if response.into_inner().status.as_str() == "2" {
-                status.push(1);
-            } else {
-                println!("node is not yet ready!");
-            }
-        }
+    //         if response.into_inner().status.as_str() == "2" {
+    //             status.push(1);
+    //         } else {
+    //             println!("node is not yet ready!");
+    //         }
+    //     }
 
-        if status.len() == 2 {
-            println!("preparing to launch...");
+    //     if status.len() == 2 {
+    //         println!("preparing to launch...");
 
-            sleep(Duration::from_secs(10)).await;
+    //         sleep(Duration::from_secs(10)).await;
 
-            if send_launch_action.send(()).is_ok() {
-                println!("sending launch action");
-            }
+    //         if send_launch_action.send(()).is_ok() {
+    //             println!("sending launch action");
+    //         }
 
-            break;
-        }
+    //         break;
+    //     }
 
-        attempts += 1;
+    //     attempts += 1;
 
-        sleep(Duration::from_secs(5)).await;
+    //     sleep(Duration::from_secs(5)).await;
+    // }
+
+    if send_launch_action.send(()).is_ok() {
+        println!("sending launch action");
     }
 
     Ok(())
