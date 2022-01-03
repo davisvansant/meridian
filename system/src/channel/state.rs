@@ -14,6 +14,7 @@ pub enum StateRequest {
     RequestVote(RequestVoteArguments),
     Candidate(String),
     Leader,
+    Heartbeat(String),
 }
 
 #[derive(Clone, Debug)]
@@ -22,6 +23,7 @@ pub enum StateResponse {
     RequestVote(RequestVoteResults),
     Follower,
     Candidate(RequestVoteArguments),
+    Heartbeat(AppendEntriesArguments),
 }
 
 pub async fn candidate(
@@ -75,15 +77,27 @@ pub async fn append_entries(
     }
 }
 
+pub async fn heartbeat(
+    state: &StateSender,
+    leader_id: String,
+) -> Result<AppendEntriesArguments, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    state
+        .send((StateRequest::Heartbeat(leader_id), request))
+        .await?;
+
+    match response.await {
+        Ok(StateResponse::Heartbeat(heartbeat)) => Ok(heartbeat),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
+}
+
 pub async fn leader(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     state.send((StateRequest::Leader, request)).await?;
 
-    // match response.await {
-    //     Ok(StateResponse::AppendEntries(results)) => Ok(results),
-    //     Err(error) => Err(Box::new(error)),
-    //     _ => panic!("unexpected response!"),
-    // }
     Ok(())
 }
