@@ -24,14 +24,30 @@ use crate::rpc::membership::Connected;
 
 use crate::rpc::membership::MembershipNode;
 
+use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
+use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
+use crate::channel::{StateReceiver, StateRequest, StateResponse, StateSender};
+
+use crate::channel::{candidate, get_node};
+
+use crate::rpc::RequestVoteResults;
+
 pub struct Client {
     ip_address: IpAddr,
     port: u16,
     socket_address: SocketAddr,
+    receiver: ClientReceiver,
+    membership_sender: MembershipSender,
+    state_sender: StateSender,
 }
 
 impl Client {
-    pub async fn init(interface: Interface) -> Result<Client, Box<dyn std::error::Error>> {
+    pub async fn init(
+        interface: Interface,
+        receiver: ClientReceiver,
+        membership_sender: MembershipSender,
+        state_sender: StateSender,
+    ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
         let port = match interface {
             Interface::Communications => 1245,
@@ -44,13 +60,41 @@ impl Client {
             ip_address,
             port,
             socket_address,
+            receiver,
+            membership_sender,
+            state_sender,
         })
     }
 
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        while let Some((request, response)) = self.receiver.recv().await {
+            match request {
+                ClientRequest::JoinCluster => {
+                    println!("received join cluster request!");
+
+                    self.join_cluster().await?;
+                }
+                ClientRequest::PeerNodes => println!("received get peer nodes"),
+                ClientRequest::PeerStatus => println!("received get peer status"),
+                ClientRequest::StartElection => {
+                    let mut vote = Vec::with_capacity(2);
+
+                    let result = self.request_vote().await?;
+
+                    if result.vote_granted {
+                        vote.push(1);
+                    }
+                }
+                ClientRequest::SendHeartbeat => println!("sending heartbeat"),
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn join_cluster(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
-        let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
-        let request = Data::JoinClusterRequest(test_node).build().await?;
+        let node = get_node(&self.membership_sender).await?;
+        let request = Data::JoinClusterRequest(node).build().await?;
         let response = self.transmit(&request).await?;
 
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
@@ -58,24 +102,6 @@ impl Client {
         response.push_to_builder(&mut flexbuffers_builder);
 
         let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
-
-        // let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-        // let flexbuffer = singleton(response);
-        // let
-        // let remote_node = singleton(&response);
-        // let root = remote_node.get_root()?;
-
-        // // println!("response -> {:?}", String::from_utf8(response)?);
-        // for value in remote_node.as_map().idx("details").as_map().iter_values() {
-        //     println!("some value here - {:?}", value.as_str());
-        // }
-        // for key in flexbuffer_root.as_map().idx("details").as_map().iter_keys() {
-        //     println!("some keys from the buffer -> {:?}", key)
-        // }
-
-        // for value in flexbuffer_root.as_map().idx("details").as_map().iter_values() {
-        //     println!("some values from the buffer -> {:?}", value.as_str())
-        // }
 
         Ok(())
     }
@@ -91,8 +117,6 @@ impl Client {
         let another_test_flexbuffer_root =
             flexbuffers::Reader::get_root(another_test_flexbuffers_builder.view())?;
 
-        println!("Im still alive");
-
         let flexbuffers_root = another_test_flexbuffer_root
             .as_map()
             .idx("details")
@@ -101,21 +125,14 @@ impl Client {
             .as_vector();
         let mut connected = Connected::build().await?;
 
-        println!("{:?}", &flexbuffers_root.len());
-
-        println!("building the sclak");
-
         match flexbuffers_root.is_empty() {
             true => {
                 println!("empty nodes...");
             }
             false => {
                 for node in flexbuffers_root.iter() {
-                    println!("are we the errorrer");
-                    println!("{:?}", node.as_map().idx("id").as_str());
                     let id =
                         Uuid::parse_str(node.as_map().idx("details").as_map().idx("id").as_str())?;
-                    println!("are we happy?");
                     let address = IpAddr::from_str(
                         node.as_map()
                             .idx("details")
@@ -123,7 +140,6 @@ impl Client {
                             .idx("address")
                             .as_str(),
                     )?;
-                    println!("are we dead?");
                     let client_port = u16::from_str(
                         node.as_map()
                             .idx("details")
@@ -161,6 +177,31 @@ impl Client {
         Ok(connected.nodes)
     }
 
+    pub async fn request_vote(&self) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
+        let candidate_id = get_node(&self.membership_sender).await?;
+        let request_vote_arguments =
+            candidate(&self.state_sender, candidate_id.id.to_string()).await?;
+        let data = Data::RequestVoteArguments(request_vote_arguments)
+            .build()
+            .await?;
+
+        let response = self.transmit(&data).await?;
+
+        let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        response.push_to_builder(&mut flexbuffer_builder);
+
+        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
+        let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
+
+        let request_vote_results = RequestVoteResults {
+            term: flexbuffer_root_details.idx("term").as_u32(),
+            vote_granted: flexbuffer_root_details.idx("vote_granted").as_bool(),
+        };
+
+        Ok(request_vote_results)
+    }
+
     pub async fn transmit(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
         let mut tcp_stream = TcpStream::connect(self.socket_address).await?;
@@ -179,42 +220,42 @@ mod tests {
     use super::*;
     use crate::rpc::Server;
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn init_communications() -> Result<(), Box<dyn std::error::Error>> {
-        let test_client_communications = Client::init(Interface::Communications).await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn init_communications() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_client_communications = Client::init(Interface::Communications).await?;
 
-        assert_eq!(
-            test_client_communications.ip_address.to_string().as_str(),
-            "127.0.0.1",
-        );
-        assert_eq!(test_client_communications.port, 1245);
-        assert_eq!(
-            test_client_communications
-                .socket_address
-                .to_string()
-                .as_str(),
-            "127.0.0.1:1245",
-        );
+    //     assert_eq!(
+    //         test_client_communications.ip_address.to_string().as_str(),
+    //         "127.0.0.1",
+    //     );
+    //     assert_eq!(test_client_communications.port, 1245);
+    //     assert_eq!(
+    //         test_client_communications
+    //             .socket_address
+    //             .to_string()
+    //             .as_str(),
+    //         "127.0.0.1:1245",
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn init_membership() -> Result<(), Box<dyn std::error::Error>> {
-        let test_client_membership = Client::init(Interface::Membership).await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn init_membership() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_client_membership = Client::init(Interface::Membership).await?;
 
-        assert_eq!(
-            test_client_membership.ip_address.to_string().as_str(),
-            "127.0.0.1",
-        );
-        assert_eq!(test_client_membership.port, 1246);
-        assert_eq!(
-            test_client_membership.socket_address.to_string().as_str(),
-            "127.0.0.1:1246",
-        );
+    //     assert_eq!(
+    //         test_client_membership.ip_address.to_string().as_str(),
+    //         "127.0.0.1",
+    //     );
+    //     assert_eq!(test_client_membership.port, 1246);
+    //     assert_eq!(
+    //         test_client_membership.socket_address.to_string().as_str(),
+    //         "127.0.0.1:1246",
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     // #[tokio::test(flavor = "multi_thread")]
     // async fn connect_communications() -> Result<(), Box<dyn std::error::Error>> {
