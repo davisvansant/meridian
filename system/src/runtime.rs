@@ -102,6 +102,8 @@ pub async fn launch(
     let (tx, mut rx) = broadcast::channel::<ServerState>(64);
     // let (tx, mut rx) = mpsc::channel::<ServerState>(64);
     let client_transition_sender = tx.clone();
+    let rpc_communications_server_transition_sender = tx.clone();
+    let rpc_membership_server_transition_sender = tx.clone();
 
     let client_grpc_handle = client_grpc::run_task(
         node.build_address(node.client_port).await,
@@ -175,6 +177,7 @@ pub async fn launch(
         Interface::Membership,
         rpc_membership_server_membership_sender,
         rpc_membership_server_state_sender,
+        rpc_membership_server_transition_sender,
     )
     .await?;
 
@@ -188,6 +191,7 @@ pub async fn launch(
         Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
+        rpc_communications_server_transition_sender,
     )
     .await?;
     let rpc_communications_server_handle = tokio::spawn(async move {

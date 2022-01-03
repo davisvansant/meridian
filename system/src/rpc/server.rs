@@ -26,12 +26,15 @@ use crate::rpc::AppendEntriesArguments;
 
 use crate::channel::append_entries;
 
+use crate::channel::{ServerSender, ServerState};
+
 pub struct Server {
     ip_address: IpAddr,
     port: u16,
     socket_address: SocketAddr,
     membership_sender: MembershipSender,
     state_sender: StateSender,
+    heartbeat: ServerSender,
 }
 
 impl Server {
@@ -39,6 +42,7 @@ impl Server {
         interface: Interface,
         membership_sender: MembershipSender,
         state_sender: StateSender,
+        heartbeat: ServerSender,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
         let port = match interface {
@@ -54,6 +58,7 @@ impl Server {
             socket_address,
             membership_sender,
             state_sender,
+            heartbeat,
         })
     }
 
@@ -76,6 +81,7 @@ impl Server {
 
             let membership_sender = owned_membership_sender.to_owned();
             let state_sender = self.state_sender.to_owned();
+            let heartbeat = self.heartbeat.to_owned();
 
             tokio::spawn(async move {
                 let mut buffer = [0; 1024];
@@ -86,6 +92,7 @@ impl Server {
                             &buffer[0..data_length],
                             &membership_sender.to_owned(),
                             &state_sender,
+                            &heartbeat,
                         )
                         .await
                         {
@@ -123,6 +130,7 @@ impl Server {
         data: &[u8],
         membership_sender: &MembershipSender,
         state_sender: &StateSender,
+        heartbeat: &ServerSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -148,6 +156,10 @@ impl Server {
                 }
 
                 let leader_commit = request_details.idx("leader_commit").as_u32();
+
+                if entries.is_empty() {
+                    heartbeat.send(ServerState::Follower)?;
+                }
 
                 let arguments = AppendEntriesArguments {
                     term,
