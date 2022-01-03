@@ -13,7 +13,7 @@ pub mod leader;
 use crate::channel::ClientSender;
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
-use crate::channel::{ServerReceiver, ServerState};
+use crate::channel::{ServerReceiver, ServerSender, ServerState};
 
 use crate::channel::{CandidateReceiver, CandidateTransition};
 
@@ -49,6 +49,8 @@ pub struct Server {
     membership: MembershipSender,
     // receiver: ServerReceiver,
     state: StateSender,
+    tx: ServerSender,
+    rx: ServerReceiver,
 }
 
 impl Server {
@@ -61,6 +63,8 @@ impl Server {
         membership: MembershipSender,
         // receiver: ServerReceiver,
         state: StateSender,
+        tx: ServerSender,
+        rx: ServerReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -74,6 +78,8 @@ impl Server {
             membership,
             // receiver,
             state,
+            tx,
+            rx,
         })
     }
 
@@ -94,7 +100,7 @@ impl Server {
         // }
         // let (tx, mut rx) = watch::channel(String::from("preflight"));
         // let (tx, mut rx) = mpsc::channel::<ServerState>(64);
-        let (tx, mut rx) = broadcast::channel::<ServerState>(64);
+        // let (tx, mut rx) = broadcast::channel::<ServerState>(64);
         let (sender, mut receiver) = broadcast::channel::<ServerState>(64);
 
         let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
@@ -104,7 +110,8 @@ impl Server {
         // let mut candidate_receiver = sender.subscribe();
         // let mut follower_receiver = tx.clone();
         // let mut candidate_receiver = tx.clone();
-        let mut follower_receiver = tx.subscribe();
+        let mut follower_receiver = self.tx.to_owned().subscribe();
+        let mut rx = self.tx.to_owned().subscribe();
         // let mut candidate_receiver = tx.subscribe();
 
         tokio::spawn(async move {
@@ -142,6 +149,11 @@ impl Server {
 
                         // system.state = ServerState::Leader;
 
+                        if let Err(error) = candidate_sender.send(CandidateTransition::Leader).await
+                        {
+                            println!("error sending transition...");
+                        }
+
                         if let Err(error) = sender.send(ServerState::Leader) {
                             println!("leader error {:?}", error);
                         }
@@ -160,14 +172,14 @@ impl Server {
         });
 
         // launch.send(ServerState::Preflight)?;
-        tx.send(ServerState::Preflight)?;
+        self.tx.send(ServerState::Preflight)?;
 
         while let Ok(transition) = receiver.recv().await {
             match transition {
                 ServerState::Preflight => {
                     println!("running preflight tasks...");
 
-                    if let Err(error) = tx.send(ServerState::Follower) {
+                    if let Err(error) = self.tx.send(ServerState::Follower) {
                         println!("error sending server state {:?}", error);
                     }
                 }
@@ -177,7 +189,7 @@ impl Server {
                     let mut follower = Follower::init().await?;
                     follower.run(&mut follower_receiver).await?;
 
-                    if let Err(error) = tx.send(ServerState::Candidate) {
+                    if let Err(error) = self.tx.send(ServerState::Candidate) {
                         println!("error sending server state {:?}", error);
                     }
                 }
@@ -186,7 +198,7 @@ impl Server {
 
                     let mut candidate = Candidate::init().await?;
                     candidate
-                        .run(&self.client, &mut candidate_receiver, &tx)
+                        .run(&self.client, &mut candidate_receiver, &self.tx)
                         .await?;
                 }
                 ServerState::Leader => {
