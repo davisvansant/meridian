@@ -1,7 +1,9 @@
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
-pub type ServerReceiver = mpsc::Receiver<ServerState>;
-pub type ServerSender = mpsc::Sender<ServerState>;
+// pub type ServerReceiver = mpsc::Receiver<ServerState>;
+// pub type ServerSender = mpsc::Sender<ServerState>;
+pub type ServerReceiver = broadcast::Receiver<ServerState>;
+pub type ServerSender = broadcast::Sender<ServerState>;
 
 pub type CandidateReceiver = mpsc::Receiver<CandidateTransition>;
 pub type CandidateSender = mpsc::Sender<CandidateTransition>;
