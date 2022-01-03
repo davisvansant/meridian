@@ -25,7 +25,10 @@ use crate::rpc::{Data, Interface, Server};
 
 use tokio::sync::{mpsc, oneshot};
 
+use crate::channel::ServerState;
+use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
+use crate::channel::{StateRequest, StateResponse};
 
 pub async fn launch(
     cluster_size: &str,
@@ -71,8 +74,24 @@ pub async fn launch(
     let (state_receive_server_task, state_send_server_task) =
         state_send_server_task::build_channel().await;
 
+    let (rpc_client_sender, mut rpc_client_receiver) =
+        mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+
     let (membership_sender, mut membership_receiver) =
         mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+    let preflight_membership_sender = membership_sender.to_owned();
+    let server_membership_sender = membership_sender.to_owned();
+
+    let rpc_communications_server_membership_sender = membership_sender.to_owned();
+    let rpc_membership_server_membership_sender = membership_sender.to_owned();
+
+    let (server_sender, server_receiver) = mpsc::channel::<ServerState>(64);
+
+    let (state_sender, state_receiver) =
+        mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+
+    let rpc_communications_server_state_sender = state_sender.clone();
+    let rpc_membership_server_state_sender = state_sender.clone();
 
     let client_grpc_handle = client_grpc::run_task(
         node.build_address(node.client_port).await,
@@ -101,10 +120,10 @@ pub async fn launch(
         cluster_size,
         node,
         // peers,
-        membership_receive_task,
-        membership_send_membership_grpc_task,
-        membership_send_preflight_task,
-        membership_send_server_task,
+        // membership_receive_task,
+        // membership_send_membership_grpc_task,
+        // membership_send_preflight_task,
+        // membership_send_server_task,
         // runtime_sender,
         membership_receiver,
     )
@@ -115,27 +134,37 @@ pub async fn launch(
         preflight_receive_membership_task,
         runtime_sender,
         peers,
-        membership_sender,
+        preflight_membership_sender,
     )
     .await?;
 
     let server_service_handle = server_service::run_task(
-        state_receive_server_task,
-        server_send_task,
-        server_send_membership_task,
-        server_receive_membership_task,
+        // state_receive_server_task,
+        // server_send_task,
+        // server_send_membership_task,
+        // server_receive_membership_task,
+        rpc_client_sender,
+        server_membership_sender,
+        // server_receiver,
+        state_sender,
         launch_server_service,
     )
     .await?;
 
     let state_service_handle = state_service::run_task(
-        state_send_handle,
-        state_send_server_task,
-        state_send_grpc_task,
+        // state_send_handle,
+        // state_send_server_task,
+        // state_send_grpc_task,
+        state_receiver,
     )
     .await?;
 
-    let rpc_membership_server = Server::init(Interface::Membership).await?;
+    let mut rpc_membership_server = Server::init(
+        Interface::Membership,
+        rpc_membership_server_membership_sender,
+        rpc_membership_server_state_sender,
+    )
+    .await?;
 
     let rpc_membership_server_handle = tokio::spawn(async move {
         if let Err(error) = rpc_membership_server.run().await {
@@ -143,7 +172,12 @@ pub async fn launch(
         }
     });
 
-    let rpc_communications_server = Server::init(Interface::Communications).await?;
+    let mut rpc_communications_server = Server::init(
+        Interface::Communications,
+        rpc_communications_server_membership_sender,
+        rpc_communications_server_state_sender,
+    )
+    .await?;
     let rpc_communications_server_handle = tokio::spawn(async move {
         if let Err(error) = rpc_communications_server.run().await {
             println!("error with rpc communications server {:?}", error);
