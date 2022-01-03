@@ -151,18 +151,15 @@ impl State {
                         println!("state > error sending request vote arguments {:?}", error);
                     }
                 }
+                StateRequest::Heartbeat(leader_id) => {
+                    let heartbeat = self.heartbeat(leader_id).await?;
+
+                    if let Err(error) = response.send(StateResponse::Heartbeat(heartbeat)) {
+                        println!("state > error sending heartbeat arguments {:?}", error);
+                    }
+                }
                 StateRequest::Leader => {
                     self.init_leader_volatile_state().await?;
-                    // let append_entries_request =
-                    //     self.build_append_entries_request(leader_id).await?;
-
-                    // self.send_server_task
-                    //     .send(StateSendServerTask::AppendEntriesRequest(
-                    //         append_entries_request,
-                    //     ))?;
-                    // if let Err(error) = response.send(StateResponse::Leader(new_leader_id)) {
-                    //     println!("state > error sending leader response {:?}", error);
-                    // }
                 }
                 StateRequest::RequestVote(arguments) => {
                     println!("received request vote {:?}", &arguments);
@@ -211,6 +208,28 @@ impl State {
                 }
             }
         }
+    }
+
+    async fn heartbeat(
+        &self,
+        leader_id: String,
+    ) -> Result<AppendEntriesArguments, Box<dyn std::error::Error>> {
+        let term = self.persistent.current_term;
+        let prev_log_index = 0;
+        let prev_log_term = 0;
+        let entries = Vec::with_capacity(0);
+        let leader_commit = self.volatile.commit_index;
+
+        let heartbeat = AppendEntriesArguments {
+            term,
+            leader_id,
+            prev_log_index,
+            prev_log_term,
+            entries,
+            leader_commit,
+        };
+
+        Ok(heartbeat)
     }
 
     async fn request_vote(
