@@ -34,6 +34,8 @@ use crate::rpc::RequestVoteResults;
 
 use crate::channel::cluster_members;
 
+use crate::channel::{ServerSender, ServerState};
+
 pub struct Client {
     ip_address: IpAddr,
     port: u16,
@@ -41,6 +43,7 @@ pub struct Client {
     receiver: ClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
+    state_transition: ServerSender,
 }
 
 impl Client {
@@ -49,6 +52,7 @@ impl Client {
         receiver: ClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
+        state_transition: ServerSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
         let port = match interface {
@@ -65,6 +69,7 @@ impl Client {
             receiver,
             membership_sender,
             state_sender,
+            state_transition,
         })
     }
 
@@ -81,12 +86,18 @@ impl Client {
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
 
-                    let result = self.request_vote().await?;
-
                     let peers = cluster_members(&self.membership_sender).await?;
 
-                    if result.vote_granted {
-                        vote.push(1);
+                    if peers.is_empty() {
+                        self.state_transition.send(ServerState::Leader)?;
+                    } else {
+                        for peer in peers {
+                            let result = self.request_vote().await?;
+
+                            if result.vote_granted {
+                                vote.push(1);
+                            }
+                        }
                     }
                 }
                 ClientRequest::SendHeartbeat => println!("sending heartbeat"),
