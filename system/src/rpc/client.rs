@@ -36,6 +36,8 @@ use crate::channel::cluster_members;
 
 use crate::channel::{ServerSender, ServerState};
 
+use crate::channel::heartbeat;
+
 pub struct Client {
     ip_address: IpAddr,
     port: u16,
@@ -100,7 +102,15 @@ impl Client {
                         }
                     }
                 }
-                ClientRequest::SendHeartbeat => println!("sending heartbeat"),
+                ClientRequest::SendHeartbeat => {
+                    println!("sending heartbeat");
+
+                    let cluster_member = cluster_members(&self.membership_sender).await?;
+
+                    for follower in cluster_member {
+                        self.send_heartbeat().await?;
+                    }
+                }
             }
         }
 
@@ -215,6 +225,16 @@ impl Client {
         };
 
         Ok(request_vote_results)
+    }
+
+    pub async fn send_heartbeat(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let leader = get_node(&self.membership_sender).await?;
+        let heartbeat = heartbeat(&self.state_sender, leader.id.to_string()).await?;
+        let data = Data::AppendEntriesArguments(heartbeat).build().await?;
+
+        self.transmit(&data).await?;
+
+        Ok(())
     }
 
     pub async fn transmit(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
