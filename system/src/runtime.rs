@@ -23,12 +23,14 @@ use crate::node::Node;
 
 use crate::rpc::{Data, Interface, Server};
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
+
+use crate::rpc::Client;
 
 pub async fn launch(
     cluster_size: &str,
@@ -92,6 +94,14 @@ pub async fn launch(
 
     let rpc_communications_server_state_sender = state_sender.clone();
     let rpc_membership_server_state_sender = state_sender.clone();
+    let client_state_sender = state_sender.clone();
+
+    // let (client_sender, client_receiver) =
+    //     mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+
+    let (tx, mut rx) = broadcast::channel::<ServerState>(64);
+    // let (tx, mut rx) = mpsc::channel::<ServerState>(64);
+    let client_transition_sender = tx.clone();
 
     let client_grpc_handle = client_grpc::run_task(
         node.build_address(node.client_port).await,
@@ -148,6 +158,8 @@ pub async fn launch(
         // server_receiver,
         state_sender,
         launch_server_service,
+        tx,
+        rx,
     )
     .await?;
 
@@ -184,8 +196,24 @@ pub async fn launch(
         }
     });
 
+    let mut client = Client::init(
+        Interface::Communications,
+        rpc_client_receiver,
+        membership_sender,
+        client_state_sender,
+        client_transition_sender,
+    )
+    .await?;
+
+    let client_handle = tokio::spawn(async move {
+        if let Err(error) = client.run().await {
+            println!("error running client...");
+        }
+    });
+
     tokio::try_join!(
         // preflight_handle,
+        client_handle,
         state_service_handle,
         server_service_handle,
         // membership_service_handle,
