@@ -23,15 +23,12 @@ pub enum ClientResponse {
 }
 
 pub async fn start_election(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, _response) = oneshot::channel();
+    let (_request, _response) = oneshot::channel();
 
-    client.send((ClientRequest::StartElection, request)).await?;
+    client
+        .send((ClientRequest::StartElection, _request))
+        .await?;
 
-    // match response.await {
-    //     Ok(StateResponse::Candidate(request_vote_arguments)) => Ok(request_vote_arguments),
-    //     Err(error) => Err(Box::new(error)),
-    //     _ => panic!("unexpected response!"),
-    // }
     Ok(())
 }
 
