@@ -11,4 +11,4 @@ pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
 pub use client::{send_heartbeat, start_election};
 pub use membership::{cluster_members, get_node};
-pub use state::{append_entries, candidate, leader, request_vote};
+pub use state::{append_entries, candidate, heartbeat, leader, request_vote};
