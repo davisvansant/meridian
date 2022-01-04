@@ -30,6 +30,8 @@ use crate::channel::{ServerSender, ServerState};
 
 use uuid::Uuid;
 
+use crate::channel::cluster_members;
+
 pub struct Server {
     ip_address: IpAddr,
     port: u16,
@@ -181,7 +183,8 @@ impl Server {
             "connected" => {
                 println!("received connected nodes request!");
 
-                let connected_response = Data::Connected.build().await?;
+                let connected_nodes = cluster_members(membership_sender).await?;
+                let connected_response = Data::ConnectedResponse(connected_nodes).build().await?;
 
                 Ok(connected_response)
             }
