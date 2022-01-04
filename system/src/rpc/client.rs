@@ -81,7 +81,7 @@ impl Client {
                 ClientRequest::JoinCluster => {
                     println!("received join cluster request!");
 
-                    self.join_cluster().await?;
+                    let joined_node = self.join_cluster().await?;
                 }
                 ClientRequest::PeerNodes => println!("received get peer nodes"),
                 ClientRequest::PeerStatus => println!("received get peer status"),
@@ -117,7 +117,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn join_cluster(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn join_cluster(&self) -> Result<Node, Box<dyn std::error::Error>> {
         let node = get_node(&self.membership_sender).await?;
         let request = Data::JoinClusterRequest(node).build().await?;
         let response = self.transmit(&request).await?;
@@ -128,7 +128,22 @@ impl Client {
 
         let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
 
-        Ok(())
+        let response_details = flexbuffer_root.as_map().idx("details").as_map();
+        let id = Uuid::from_str(response_details.idx("id").as_str())?;
+        let address = IpAddr::from_str(response_details.idx("address").as_str())?;
+        let client_port = response_details.idx("client_port").as_u16();
+        let cluster_port = response_details.idx("cluster_port").as_u16();
+        let membership_port = response_details.idx("membership_port").as_u16();
+
+        let joined_node = Node {
+            id,
+            address,
+            client_port,
+            cluster_port,
+            membership_port,
+        };
+
+        Ok(joined_node)
     }
 
     pub async fn get_connected(&self) -> Result<Vec<MembershipNode>, Box<dyn std::error::Error>> {

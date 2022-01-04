@@ -24,9 +24,11 @@ use crate::rpc::RequestVoteArguments;
 
 use crate::rpc::AppendEntriesArguments;
 
-use crate::channel::append_entries;
+use crate::channel::{add_member, append_entries};
 
 use crate::channel::{ServerSender, ServerState};
+
+use uuid::Uuid;
 
 pub struct Server {
     ip_address: IpAddr,
@@ -186,8 +188,25 @@ impl Server {
             "join_cluster_request" => {
                 println!("received join cluster request!");
 
-                let node = get_node(membership_sender).await?;
-                let join_cluster_response = Data::JoinClusterRequest(node).build().await?;
+                let request_details = flexbuffers_root.as_map().idx("details").as_map();
+                let id = Uuid::from_str(request_details.idx("id").as_str())?;
+                let address = IpAddr::from_str(request_details.idx("address").as_str())?;
+                let client_port = request_details.idx("client_port").as_u16();
+                let cluster_port = request_details.idx("cluster_port").as_u16();
+                let membership_port = request_details.idx("membership_port").as_u16();
+
+                let candidate_node = Node {
+                    id,
+                    address,
+                    client_port,
+                    cluster_port,
+                    membership_port,
+                };
+
+                add_member(membership_sender, candidate_node).await?;
+
+                let server_node = get_node(membership_sender).await?;
+                let join_cluster_response = Data::JoinClusterRequest(server_node).build().await?;
 
                 Ok(join_cluster_response)
             }
