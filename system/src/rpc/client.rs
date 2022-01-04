@@ -146,75 +146,44 @@ impl Client {
         Ok(joined_node)
     }
 
-    pub async fn get_connected(&self) -> Result<Vec<MembershipNode>, Box<dyn std::error::Error>> {
+    pub async fn get_connected(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
         let request = Data::ConnectedRequest.build().await?;
         let response = self.transmit(&request).await?;
 
-        let mut another_test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-        response.push_to_builder(&mut another_test_flexbuffers_builder);
+        response.push_to_builder(&mut flexbuffers_builder);
 
-        let another_test_flexbuffer_root =
-            flexbuffers::Reader::get_root(another_test_flexbuffers_builder.view())?;
+        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
 
-        let flexbuffers_root = another_test_flexbuffer_root
+        let response_details = flexbuffer_root
             .as_map()
             .idx("details")
             .as_map()
             .idx("nodes")
             .as_vector();
-        let mut connected = Connected::build().await?;
 
-        match flexbuffers_root.is_empty() {
-            true => {
-                println!("empty nodes...");
-            }
-            false => {
-                for node in flexbuffers_root.iter() {
-                    let id =
-                        Uuid::parse_str(node.as_map().idx("details").as_map().idx("id").as_str())?;
-                    let address = IpAddr::from_str(
-                        node.as_map()
-                            .idx("details")
-                            .as_map()
-                            .idx("address")
-                            .as_str(),
-                    )?;
-                    let client_port = u16::from_str(
-                        node.as_map()
-                            .idx("details")
-                            .as_map()
-                            .idx("client_port")
-                            .as_str(),
-                    )?;
-                    let cluster_port = u16::from_str(
-                        node.as_map()
-                            .idx("details")
-                            .as_map()
-                            .idx("cluster_port")
-                            .as_str(),
-                    )?;
-                    let membership_port = u16::from_str(
-                        node.as_map()
-                            .idx("details")
-                            .as_map()
-                            .idx("membership_port")
-                            .as_str(),
-                    )?;
+        let mut connected_nodes = Vec::with_capacity(response_details.len());
 
-                    let connected_node = MembershipNode {
-                        id: id.to_string(),
-                        address: address.to_string(),
-                        client_port: client_port.to_string(),
-                        cluster_port: cluster_port.to_string(),
-                        membership_port: membership_port.to_string(),
-                    };
+        for node in response_details.iter() {
+            let id = Uuid::from_str(node.as_map().idx("id").as_str())?;
+            let address = IpAddr::from_str(node.as_map().idx("address").as_str())?;
+            let client_port = node.as_map().idx("client_port").as_u16();
+            let cluster_port = node.as_map().idx("cluster_port").as_u16();
+            let membership_port = node.as_map().idx("membership_port").as_u16();
 
-                    connected.nodes.push(connected_node);
-                }
-            }
+            let connected_node = Node {
+                id,
+                address,
+                client_port,
+                cluster_port,
+                membership_port,
+            };
+
+            connected_nodes.push(connected_node)
         }
-        Ok(connected.nodes)
+
+        Ok(connected_nodes)
     }
 
     pub async fn request_vote(&self) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
