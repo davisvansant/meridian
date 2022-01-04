@@ -45,6 +45,23 @@ pub enum MembershipResponse {
 //     }
 // }
 
+pub async fn add_member(
+    membership: &MembershipSender,
+    node: Node,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    membership
+        .send((MembershipRequest::AddMember(node), request))
+        .await?;
+
+    match response.await {
+        Ok(MembershipResponse::Ok) => Ok(()),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
+}
+
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
