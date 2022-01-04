@@ -221,6 +221,21 @@ impl Client {
         Ok(())
     }
 
+    pub async fn status(&self) -> Result<u8, Box<dyn std::error::Error>> {
+        let data = Data::StatusRequest.build().await?;
+        let response = self.transmit(&data).await?;
+
+        let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+        response.push_to_builder(&mut flexbuffer_builder);
+
+        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
+        let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
+        let status = flexbuffer_root_details.idx("status").as_u8();
+
+        Ok(status)
+    }
+
     pub async fn transmit(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
         let mut tcp_stream = TcpStream::connect(self.socket_address).await?;

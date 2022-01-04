@@ -32,6 +32,8 @@ use uuid::Uuid;
 
 use crate::channel::cluster_members;
 
+use crate::channel::status;
+
 pub struct Server {
     ip_address: IpAddr,
     port: u16,
@@ -234,6 +236,14 @@ impl Server {
                 let request_vote_results = Data::RequestVoteResults(results).build().await?;
 
                 Ok(request_vote_results)
+            }
+            "status" => {
+                println!("received status request!");
+
+                let results = status(membership_sender).await?;
+                let status_response = Data::StatusResponse(results).build().await?;
+
+                Ok(status_response)
             }
             _ => {
                 println!("currently unknown ...");
