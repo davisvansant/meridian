@@ -1,8 +1,8 @@
 use tokio::time::Duration;
 use tonic::transport::Endpoint;
 
-use crate::grpc::cluster_client::InternalClusterGrpcClient;
-use crate::meridian_cluster_v010::RequestVoteRequest;
+// use crate::grpc::cluster_client::InternalClusterGrpcClient;
+// use crate::meridian_cluster_v010::RequestVoteRequest;
 
 // use tokio::time::Duration;
 
@@ -37,27 +37,27 @@ impl Candidate {
         Ok(Candidate { election_timeout })
     }
 
-    pub async fn start_election(
-        &self,
-        request: RequestVoteRequest,
-        address: Endpoint,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        // println!("starting election...");
+    // pub async fn start_election(
+    //     &self,
+    //     request: RequestVoteRequest,
+    //     address: Endpoint,
+    // ) -> Result<bool, Box<dyn std::error::Error>> {
+    //     // println!("starting election...");
 
-        // increment term
-        // vote for self
-        // reset election timer
-        // send request vote rpc to servers
+    //     // increment term
+    //     // vote for self
+    //     // reset election timer
+    //     // send request vote rpc to servers
 
-        let mut transport = InternalClusterGrpcClient::init(address).await?;
-        let result = transport.request_vote(request).await?;
+    //     let mut transport = InternalClusterGrpcClient::init(address).await?;
+    //     let result = transport.request_vote(request).await?;
 
-        match result.into_inner().vote_granted.as_str() {
-            "true" => Ok(true),
-            "false" => Ok(false),
-            _ => Ok(false),
-        }
-    }
+    //     match result.into_inner().vote_granted.as_str() {
+    //         "true" => Ok(true),
+    //         "false" => Ok(false),
+    //         _ => Ok(false),
+    //     }
+    // }
 
     pub async fn run(
         &mut self,
