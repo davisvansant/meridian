@@ -30,6 +30,7 @@ pub enum Data {
     Connected,
     ConnectedRequest,
     JoinClusterRequest(Node),
+    JoinClusterResponse(Node),
     InstallSnapshot,
     RequestVoteArguments(RequestVoteArguments),
     RequestVoteResults(RequestVoteResults),
@@ -142,6 +143,24 @@ impl Data {
                 details.push("client_port", membership_node.client_port.as_str());
                 details.push("cluster_port", membership_node.cluster_port.as_str());
                 details.push("membership_port", membership_node.membership_port.as_str());
+                details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+            Data::JoinClusterResponse(node) => {
+                // let membership_node = membership::MembershipNode::build(node).await?;
+
+                flexbuffers_data.push("data", "join_cluster_response");
+
+                let mut details = flexbuffers_data.start_map("details");
+
+                details.push("id", node.id.to_string().as_str());
+                details.push("address", node.address.to_string().as_str());
+                details.push("client_port", node.client_port.to_string().as_str());
+                details.push("cluster_port", node.cluster_port.to_string().as_str());
+                details.push("membership_port", node.membership_port.to_string().as_str());
                 details.end_map();
 
                 flexbuffers_data.end_map();
