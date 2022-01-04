@@ -29,6 +29,7 @@ pub enum Data {
     AppendEntriesResults(AppendEntriesResults),
     Connected,
     ConnectedRequest,
+    ConnectedResponse(Vec<Node>),
     JoinClusterRequest(Node),
     JoinClusterResponse(Node),
     InstallSnapshot,
@@ -85,6 +86,31 @@ impl Data {
                 flexbuffers_data.push("data", "connected");
                 // let mut details = flexbuffers_data.start_map("details");
                 // details.end_map();
+
+                flexbuffers_data.end_map();
+
+                Ok(flexbuffers_builder.take_buffer())
+            }
+            Data::ConnectedResponse(cluster_member) => {
+                flexbuffers_data.push("data", "connected");
+
+                let mut details = flexbuffers_data.start_map("details");
+                let mut nodes = details.start_vector("nodes");
+
+                for node in cluster_member {
+                    let mut connected_nodes = nodes.start_map();
+
+                    connected_nodes.push("id", node.id.to_string().as_str());
+                    connected_nodes.push("address", node.address.to_string().as_str());
+                    connected_nodes.push("client_port", node.client_port.to_string().as_str());
+                    connected_nodes.push("cluster_port", node.cluster_port.to_string().as_str());
+                    connected_nodes
+                        .push("membership_port", node.membership_port.to_string().as_str());
+                    connected_nodes.end_map();
+                }
+
+                nodes.end_vector();
+                details.end_map();
 
                 flexbuffers_data.end_map();
 
