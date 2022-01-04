@@ -120,19 +120,17 @@ impl Membership {
                     }
                 }
                 MembershipRequest::Status => {
-                    let length = match self.members.len() {
-                        0 => String::from("0"),
-                        1 => String::from("1"),
-                        2 => String::from("2"),
-                        3 => String::from("3"),
+                    let connected_nodes = match self.members.len() {
+                        0 => 0,
+                        1 => 1,
+                        2 => 2,
+                        3 => 3,
                         _ => panic!("unexpected number of peers!"),
                     };
 
-                    // let system = NodeStatus { status: length };
-
-                    // if let Err(error) = response.send(MembershipResponse::Status(system.status)) {
-                    //     println!("error sending membership response -> {:?}", error);
-                    // }
+                    if let Err(error) = response.send(MembershipResponse::Status(connected_nodes)) {
+                        println!("error sending membership response -> {:?}", error);
+                    }
                 }
             }
         }
