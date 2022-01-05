@@ -83,9 +83,13 @@ impl Client {
                 ClientRequest::JoinCluster(address) => {
                     println!("received join cluster request!");
 
-                    let socket_address = SocketAddr::from_str(&address)?;
+                    let joined_node = self.join_cluster().await?;
+                    let socket_address =
+                        joined_node.build_address(joined_node.membership_port).await;
 
-                    self.join_cluster().await?;
+                    if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
+                        println!("error sending client response -> {:?}", error);
+                    }
                 }
                 ClientRequest::PeerNodes => {
                     println!("received get peer nodes");
@@ -129,7 +133,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn join_cluster(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn join_cluster(&self) -> Result<Node, Box<dyn std::error::Error>> {
         let node = get_node(&self.membership_sender).await?;
         let request = Data::JoinClusterRequest(node).build().await?;
         let response = self.transmit(&request).await?;
@@ -157,7 +161,7 @@ impl Client {
 
         add_member(&self.membership_sender, joined_node).await?;
 
-        Ok(())
+        Ok(joined_node)
     }
 
     pub async fn get_connected(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
