@@ -38,6 +38,8 @@ use crate::channel::{ServerSender, ServerState};
 
 use crate::channel::heartbeat;
 
+use crate::channel::add_member;
+
 pub struct Client {
     ip_address: IpAddr,
     port: u16,
@@ -78,10 +80,10 @@ impl Client {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
-                ClientRequest::JoinCluster => {
+                ClientRequest::JoinCluster(address) => {
                     println!("received join cluster request!");
 
-                    let joined_node = self.join_cluster().await?;
+                    self.join_cluster().await?;
                 }
                 ClientRequest::PeerNodes => println!("received get peer nodes"),
                 ClientRequest::PeerStatus => println!("received get peer status"),
@@ -117,7 +119,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn join_cluster(&self) -> Result<Node, Box<dyn std::error::Error>> {
+    pub async fn join_cluster(&self) -> Result<(), Box<dyn std::error::Error>> {
         let node = get_node(&self.membership_sender).await?;
         let request = Data::JoinClusterRequest(node).build().await?;
         let response = self.transmit(&request).await?;
@@ -143,7 +145,9 @@ impl Client {
             membership_port,
         };
 
-        Ok(joined_node)
+        add_member(&self.membership_sender, joined_node).await?;
+
+        Ok(())
     }
 
     pub async fn get_connected(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
