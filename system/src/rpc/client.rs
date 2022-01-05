@@ -87,7 +87,11 @@ impl Client {
 
                     self.join_cluster().await?;
                 }
-                ClientRequest::PeerNodes => println!("received get peer nodes"),
+                ClientRequest::PeerNodes => {
+                    println!("received get peer nodes");
+
+                    self.get_connected().await?;
+                }
                 ClientRequest::PeerStatus => println!("received get peer status"),
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
