@@ -6,7 +6,7 @@ pub type ClientSender = mpsc::Sender<(ClientRequest, oneshot::Sender<ClientRespo
 #[derive(Clone, Debug)]
 pub enum ClientRequest {
     // Candidate,
-    JoinCluster,
+    JoinCluster(String),
     // Node,
     PeerNodes,
     PeerStatus,
@@ -42,5 +42,18 @@ pub async fn send_heartbeat(client: &ClientSender) -> Result<(), Box<dyn std::er
     //     Err(error) => Err(Box::new(error)),
     //     _ => panic!("unexpected response!"),
     // }
+    Ok(())
+}
+
+pub async fn join_cluster(
+    client: &ClientSender,
+    address: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (_request, _response) = oneshot::channel();
+
+    client
+        .send((ClientRequest::JoinCluster(address), _request))
+        .await?;
+
     Ok(())
 }
