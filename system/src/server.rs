@@ -9,6 +9,7 @@ use crate::server::leader::Leader;
 pub mod candidate;
 pub mod follower;
 pub mod leader;
+mod preflight;
 
 use crate::channel::ClientSender;
 use crate::channel::MembershipSender;
