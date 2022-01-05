@@ -65,3 +65,11 @@ pub async fn peer_nodes(client: &ClientSender) -> Result<(), Box<dyn std::error:
 
     Ok(())
 }
+
+pub async fn peer_status(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
+    let (_request, _response) = oneshot::channel();
+
+    client.send((ClientRequest::PeerStatus, _request)).await?;
+
+    Ok(())
+}

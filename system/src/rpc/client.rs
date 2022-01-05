@@ -92,7 +92,11 @@ impl Client {
 
                     self.get_connected().await?;
                 }
-                ClientRequest::PeerStatus => println!("received get peer status"),
+                ClientRequest::PeerStatus => {
+                    println!("received get peer status");
+
+                    self.status().await?;
+                }
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
 
