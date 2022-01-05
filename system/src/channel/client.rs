@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use tokio::sync::{mpsc, oneshot};
 
 pub type ClientReceiver = mpsc::Receiver<(ClientRequest, oneshot::Sender<ClientResponse>)>;
@@ -6,7 +7,7 @@ pub type ClientSender = mpsc::Sender<(ClientRequest, oneshot::Sender<ClientRespo
 #[derive(Clone, Debug)]
 pub enum ClientRequest {
     // Candidate,
-    JoinCluster(String),
+    JoinCluster(SocketAddr),
     // Node,
     PeerNodes,
     PeerStatus,
@@ -16,8 +17,10 @@ pub enum ClientRequest {
 
 #[derive(Clone, Debug)]
 pub enum ClientResponse {
-    JoinCluster,
+    JoinCluster(SocketAddr),
     // Node,
+    Nodes(Vec<SocketAddr>),
+    Status(u8),
     MemberNodes,
     MemberStatus,
 }
@@ -47,7 +50,7 @@ pub async fn send_heartbeat(client: &ClientSender) -> Result<(), Box<dyn std::er
 
 pub async fn join_cluster(
     client: &ClientSender,
-    address: String,
+    address: SocketAddr,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
@@ -58,18 +61,28 @@ pub async fn join_cluster(
     Ok(())
 }
 
-pub async fn peer_nodes(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
-    let (_request, _response) = oneshot::channel();
+pub async fn peer_nodes(
+    client: &ClientSender,
+) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
 
-    client.send((ClientRequest::PeerNodes, _request)).await?;
+    client.send((ClientRequest::PeerNodes, request)).await?;
 
-    Ok(())
+    match response.await {
+        Ok(ClientResponse::Nodes(peer_nodes)) => Ok(peer_nodes),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
 }
 
-pub async fn peer_status(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
-    let (_request, _response) = oneshot::channel();
+pub async fn peer_status(client: &ClientSender) -> Result<u8, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
 
-    client.send((ClientRequest::PeerStatus, _request)).await?;
+    client.send((ClientRequest::PeerStatus, request)).await?;
 
-    Ok(())
+    match response.await {
+        Ok(ClientResponse::Status(peer_status)) => Ok(peer_status),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
 }
