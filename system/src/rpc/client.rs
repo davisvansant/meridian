@@ -83,6 +83,8 @@ impl Client {
                 ClientRequest::JoinCluster(address) => {
                     println!("received join cluster request!");
 
+                    let socket_address = SocketAddr::from_str(&address)?;
+
                     self.join_cluster().await?;
                 }
                 ClientRequest::PeerNodes => println!("received get peer nodes"),
