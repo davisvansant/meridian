@@ -61,7 +61,7 @@ impl Client {
                 ClientRequest::JoinCluster(address) => {
                     println!("received join cluster request!");
 
-                    let joined_node = self.join_cluster().await?;
+                    let joined_node = self.join_cluster(address).await?;
                     let socket_address =
                         joined_node.build_address(joined_node.membership_port).await;
 
@@ -69,19 +69,19 @@ impl Client {
                         println!("error sending client response -> {:?}", error);
                     }
                 }
-                ClientRequest::PeerNodes => {
+                ClientRequest::PeerNodes(socket_address) => {
                     println!("received peer nodes client request");
 
-                    let connected_nodes = self.get_connected().await?;
+                    let connected_nodes = self.get_connected(socket_address).await?;
 
                     if let Err(error) = response.send(ClientResponse::Nodes(connected_nodes)) {
                         println!("error sending client peer nodes response -> {:?}", error);
                     }
                 }
-                ClientRequest::PeerStatus => {
+                ClientRequest::PeerStatus(socket_address) => {
                     println!("received get peer status");
 
-                    self.status().await?;
+                    self.status(socket_address).await?;
                 }
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
@@ -92,7 +92,8 @@ impl Client {
                         self.state_transition.send(ServerState::Leader)?;
                     } else {
                         for peer in peers {
-                            let result = self.request_vote().await?;
+                            let socket_address = peer.build_address(peer.cluster_port).await;
+                            let result = self.request_vote(socket_address).await?;
 
                             if result.vote_granted {
                                 vote.push(1);
@@ -106,7 +107,8 @@ impl Client {
                     let cluster_member = cluster_members(&self.membership_sender).await?;
 
                     for follower in cluster_member {
-                        self.send_heartbeat().await?;
+                        let socket_address = follower.build_address(follower.cluster_port).await;
+                        self.send_heartbeat(socket_address).await?;
                     }
                 }
             }
@@ -115,10 +117,13 @@ impl Client {
         Ok(())
     }
 
-    pub async fn join_cluster(&self) -> Result<Node, Box<dyn std::error::Error>> {
+    pub async fn join_cluster(
+        &self,
+        socket_address: SocketAddr,
+    ) -> Result<Node, Box<dyn std::error::Error>> {
         let node = get_node(&self.membership_sender).await?;
         let request = Data::JoinClusterRequest(node).build().await?;
-        let response = self.transmit(&request).await?;
+        let response = Client::transmit(socket_address, &request).await?;
 
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -146,9 +151,12 @@ impl Client {
         Ok(joined_node)
     }
 
-    pub async fn get_connected(&self) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+    pub async fn get_connected(
+        &self,
+        socket_address: SocketAddr,
+    ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
         let request = Data::ConnectedRequest.build().await?;
-        let response = self.transmit(&request).await?;
+        let response = Client::transmit(socket_address, &request).await?;
 
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -191,7 +199,10 @@ impl Client {
         Ok(connected_nodes)
     }
 
-    pub async fn request_vote(&self) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
+    pub async fn request_vote(
+        &self,
+        socket_address: SocketAddr,
+    ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
         let candidate_id = get_node(&self.membership_sender).await?;
         let request_vote_arguments =
             candidate(&self.state_sender, candidate_id.id.to_string()).await?;
@@ -199,7 +210,7 @@ impl Client {
             .build()
             .await?;
 
-        let response = self.transmit(&data).await?;
+        let response = Client::transmit(socket_address, &data).await?;
 
         let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -216,19 +227,25 @@ impl Client {
         Ok(request_vote_results)
     }
 
-    pub async fn send_heartbeat(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_heartbeat(
+        &self,
+        socket_address: SocketAddr,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let leader = get_node(&self.membership_sender).await?;
         let heartbeat = heartbeat(&self.state_sender, leader.id.to_string()).await?;
         let data = Data::AppendEntriesArguments(heartbeat).build().await?;
 
-        self.transmit(&data).await?;
+        Client::transmit(socket_address, &data).await?;
 
         Ok(())
     }
 
-    pub async fn status(&self) -> Result<u8, Box<dyn std::error::Error>> {
+    pub async fn status(
+        &self,
+        socket_address: SocketAddr,
+    ) -> Result<u8, Box<dyn std::error::Error>> {
         let data = Data::StatusRequest.build().await?;
-        let response = self.transmit(&data).await?;
+        let response = Client::transmit(socket_address, &data).await?;
 
         let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -241,9 +258,12 @@ impl Client {
         Ok(status)
     }
 
-    pub async fn transmit(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn transmit(
+        socket_address: SocketAddr,
+        data: &[u8],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
-        let mut tcp_stream = TcpStream::connect(self.socket_address).await?;
+        let mut tcp_stream = TcpStream::connect(socket_address).await?;
 
         tcp_stream.write_all(data).await?;
         tcp_stream.shutdown().await?;
