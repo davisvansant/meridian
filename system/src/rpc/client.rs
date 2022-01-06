@@ -92,9 +92,13 @@ impl Client {
                     }
                 }
                 ClientRequest::PeerNodes => {
-                    println!("received get peer nodes");
+                    println!("received peer nodes client request");
 
-                    self.get_connected().await?;
+                    let connected_nodes = self.get_connected().await?;
+
+                    if let Err(error) = response.send(ClientResponse::Nodes(connected_nodes)) {
+                        println!("error sending client peer nodes response -> {:?}", error);
+                    }
                 }
                 ClientRequest::PeerStatus => {
                     println!("received get peer status");
@@ -164,7 +168,7 @@ impl Client {
         Ok(joined_node)
     }
 
-    pub async fn get_connected(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+    pub async fn get_connected(&self) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
         let request = Data::ConnectedRequest.build().await?;
         let response = self.transmit(&request).await?;
 
@@ -198,7 +202,12 @@ impl Client {
                 membership_port,
             };
 
-            connected_nodes.push(connected_node)
+            let socket_address = connected_node
+                .build_address(connected_node.membership_port)
+                .await;
+
+            // connected_nodes.push(connected_node)
+            connected_nodes.push(socket_address)
         }
 
         Ok(connected_nodes)
