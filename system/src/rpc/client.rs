@@ -1,44 +1,22 @@
+use flexbuffers::{Builder, BuilderOptions, Pushable};
+
 use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use crate::rpc::build_ip_address;
-use crate::rpc::build_socket_address;
-use crate::rpc::Interface;
-
-use flexbuffers::singleton;
-
-use crate::rpc::Node;
-
-use crate::rpc::Data;
-
-use std::str::FromStr;
-
-use flexbuffers::Pushable;
-
-use flexbuffers::{Builder, BuilderOptions};
-
 use uuid::Uuid;
 
-use crate::rpc::membership::Connected;
-
-use crate::rpc::membership::MembershipNode;
-
+use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
+use crate::channel::{ServerSender, ServerState};
 use crate::channel::{StateReceiver, StateRequest, StateResponse, StateSender};
 
-use crate::channel::{candidate, get_node};
-
-use crate::rpc::RequestVoteResults;
-
-use crate::channel::cluster_members;
-
-use crate::channel::{ServerSender, ServerState};
-
-use crate::channel::heartbeat;
-
-use crate::channel::add_member;
+use crate::rpc::membership::{Connected, MembershipNode};
+use crate::rpc::{build_ip_address, build_socket_address};
+use crate::rpc::{Data, Interface, Node, RequestVoteResults};
 
 pub struct Client {
     ip_address: IpAddr,
