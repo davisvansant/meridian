@@ -180,6 +180,8 @@ impl Server {
                 ServerState::Preflight => {
                     println!("running preflight tasks...");
 
+                    preflight::run(&self.client, &self.membership).await?;
+
                     if let Err(error) = self.tx.send(ServerState::Follower) {
                         println!("error sending server state {:?}", error);
                     }
