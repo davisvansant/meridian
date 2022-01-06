@@ -9,8 +9,8 @@ pub enum ClientRequest {
     // Candidate,
     JoinCluster(SocketAddr),
     // Node,
-    PeerNodes,
-    PeerStatus,
+    PeerNodes(SocketAddr),
+    PeerStatus(SocketAddr),
     StartElection,
     SendHeartbeat,
 }
@@ -69,10 +69,13 @@ pub async fn join_cluster(
 
 pub async fn peer_nodes(
     client: &ClientSender,
+    socket_address: SocketAddr,
 ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
-    client.send((ClientRequest::PeerNodes, request)).await?;
+    client
+        .send((ClientRequest::PeerNodes(socket_address), request))
+        .await?;
 
     match response.await {
         Ok(ClientResponse::Nodes(peer_nodes)) => Ok(peer_nodes),
@@ -81,10 +84,15 @@ pub async fn peer_nodes(
     }
 }
 
-pub async fn peer_status(client: &ClientSender) -> Result<u8, Box<dyn std::error::Error>> {
+pub async fn peer_status(
+    client: &ClientSender,
+    socket_address: SocketAddr,
+) -> Result<u8, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
-    client.send((ClientRequest::PeerStatus, request)).await?;
+    client
+        .send((ClientRequest::PeerStatus(socket_address), request))
+        .await?;
 
     match response.await {
         Ok(ClientResponse::Status(peer_status)) => Ok(peer_status),
