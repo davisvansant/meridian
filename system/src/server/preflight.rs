@@ -1,17 +1,17 @@
 use std::net::SocketAddr;
 use std::str::FromStr;
 
-use crate::channel::ClientSender;
-use crate::channel::{join_cluster, peer_nodes, peer_status};
+use crate::channel::{join_cluster, launch_nodes, peer_nodes, peer_status};
+use crate::channel::{ClientSender, MembershipSender};
 
 pub async fn run(
     client: &ClientSender,
-    peers: Vec<String>,
+    membership: &MembershipSender, // peers: Vec<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for peer_address in peers {
-        let socket_address = SocketAddr::from_str(&peer_address)?;
+    let launch_nodes = launch_nodes(membership).await?;
 
-        join_cluster(client, socket_address).await?;
+    for node in launch_nodes {
+        join_cluster(client, node).await?;
     }
 
     let mut attempts = 0;
