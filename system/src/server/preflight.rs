@@ -1,12 +1,9 @@
-use std::net::SocketAddr;
-use std::str::FromStr;
-
 use crate::channel::{get_node, join_cluster, launch_nodes, peer_nodes, peer_status};
 use crate::channel::{ClientSender, MembershipSender};
 
 pub async fn run(
     client: &ClientSender,
-    membership: &MembershipSender, // peers: Vec<String>,
+    membership: &MembershipSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let local_node = get_node(membership).await?;
     let local_address = local_node.build_address(local_node.membership_port).await;
