@@ -1,23 +1,11 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::str::FromStr;
+
 use uuid::Uuid;
 
-// use crate::grpc::membership_client::ExternalMembershipGrpcClient;
-use crate::node::Node;
-// use crate::{MembershipNode, NodeStatus, Nodes};
-
-// use crate::runtime::sync::membership_receive_task::ChannelMembershipReceiveTask;
-// use crate::runtime::sync::membership_receive_task::MembershipReceiveTask;
-// use crate::runtime::sync::membership_send_grpc_task::ChannelMembershipSendGrpcTask;
-// use crate::runtime::sync::membership_send_grpc_task::MembershipSendGrpcTask;
-// use crate::runtime::sync::membership_send_preflight_task::ChannelMembershipSendPreflightTask;
-// use crate::runtime::sync::membership_send_preflight_task::MembershipSendPreflightTask;
-// use crate::runtime::sync::membership_send_server_task::ChannelMembershipSendServerTask;
-// use crate::runtime::sync::membership_send_server_task::MembershipSendServerTask;
-
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
+use crate::node::Node;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
@@ -42,10 +30,6 @@ pub struct Membership {
     server: Node,
     launch_nodes: Vec<SocketAddr>,
     members: HashMap<Uuid, Node>,
-    // receive_task: ChannelMembershipReceiveTask,
-    // send_grpc_task: ChannelMembershipSendGrpcTask,
-    // send_preflight_task: ChannelMembershipSendPreflightTask,
-    // send_server_task: ChannelMembershipSendServerTask,
     receiver: MembershipReceiver,
 }
 
@@ -54,10 +38,6 @@ impl Membership {
         cluster_size: ClusterSize,
         launch_nodes: Vec<SocketAddr>,
         server: Node,
-        // receive_task: ChannelMembershipReceiveTask,
-        // send_grpc_task: ChannelMembershipSendGrpcTask,
-        // send_preflight_task: ChannelMembershipSendPreflightTask,
-        // send_server_task: ChannelMembershipSendServerTask,
         receiver: MembershipReceiver,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         let members = cluster_size.members().await;
@@ -67,17 +47,11 @@ impl Membership {
             launch_nodes,
             server,
             members,
-            // send_grpc_task,
-            // receive_task,
-            // send_preflight_task,
-            // send_server_task,
             receiver,
         })
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // let mut receiver = self.receive_task.subscribe();
-
         println!("membership initialized and running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
@@ -155,45 +129,6 @@ impl Membership {
 
         Ok(())
     }
-
-    // async fn action_join_cluster_request(
-    //     &mut self,
-    //     node: MembershipNode,
-    // ) -> Result<MembershipNode, Box<dyn std::error::Error>> {
-    //     let peer = Self::build_node(node).await?;
-
-    //     match self.members.insert(peer.id, peer) {
-    //         Some(value) => println!("updated node! {:?}", value),
-    //         None => println!("added node !"),
-    //     }
-
-    //     let response = MembershipNode {
-    //         id: self.server.id.to_string(),
-    //         address: self.server.address.to_string(),
-    //         client_port: self.server.client_port.to_string(),
-    //         cluster_port: self.server.cluster_port.to_string(),
-    //         membership_port: self.server.membership_port.to_string(),
-    //     };
-
-    //     Ok(response)
-    // }
-
-    // async fn build_node(node: MembershipNode) -> Result<Node, Box<dyn std::error::Error>> {
-    // async fn build_node(node: MembershipNode) -> Result<Node, Box<dyn std::error::Error>> {
-    //     let id = Uuid::from_str(&node.id)?;
-    //     let address = IpAddr::from_str(&node.address)?;
-    //     let client_port = u16::from_str(&node.client_port)?;
-    //     let cluster_port = u16::from_str(&node.cluster_port)?;
-    //     let membership_port = u16::from_str(&node.membership_port)?;
-
-    //     Ok(Node {
-    //         id,
-    //         address,
-    //         client_port,
-    //         cluster_port,
-    //         membership_port,
-    //     })
-    // }
 }
 
 // #[cfg(test)]
