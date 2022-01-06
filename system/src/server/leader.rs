@@ -1,13 +1,5 @@
-// use crate::grpc::cluster_client::InternalClusterGrpcClient;
-// use crate::meridian_cluster_v010::AppendEntriesRequest;
-use tonic::transport::Endpoint;
-
-use crate::channel::ClientSender;
-use crate::channel::StateSender;
-
-use crate::channel::send_heartbeat;
-
-use crate::channel::leader;
+use crate::channel::{leader, send_heartbeat};
+use crate::channel::{ClientSender, StateSender};
 
 pub struct Leader {}
 
@@ -15,21 +7,6 @@ impl Leader {
     pub async fn init() -> Result<Leader, Box<dyn std::error::Error>> {
         Ok(Leader {})
     }
-
-    // pub async fn send_heartbeat(
-    //     &self,
-    //     request: AppendEntriesRequest,
-    //     address: Endpoint,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     println!("sending heartbeat...");
-
-    //     let mut transport = InternalClusterGrpcClient::init(address).await?;
-    //     let result = transport.append_entries(request).await?;
-
-    //     println!("{:?}", result);
-
-    //     Ok(())
-    // }
 
     pub async fn run(
         &mut self,
