@@ -23,6 +23,8 @@ use crate::node::Node;
 
 use crate::rpc::{Data, Interface, Server};
 
+use std::net::SocketAddr;
+
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::ServerState;
@@ -34,7 +36,7 @@ use crate::rpc::Client;
 
 pub async fn launch(
     cluster_size: &str,
-    peers: Vec<String>,
+    peers: Vec<SocketAddr>,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cluster_size = match cluster_size {
@@ -130,6 +132,7 @@ pub async fn launch(
 
     let membership_service_handle = membership_service::run_task(
         cluster_size,
+        peers,
         node,
         // peers,
         // membership_receive_task,
@@ -141,14 +144,14 @@ pub async fn launch(
     )
     .await?;
 
-    let preflight_handle = preflight::run_task(
-        // preflight_send_membership_task,
-        // preflight_receive_membership_task,
-        // runtime_sender,
-        peers,
-        preflight_membership_sender,
-    )
-    .await?;
+    // let preflight_handle = preflight::run_task(
+    //     // preflight_send_membership_task,
+    //     // preflight_receive_membership_task,
+    //     // runtime_sender,
+    //     peers,
+    //     preflight_membership_sender,
+    // )
+    // .await?;
 
     let server_service_handle = server_service::run_task(
         // state_receive_server_task,

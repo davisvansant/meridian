@@ -10,8 +10,11 @@ use crate::runtime::tasks::JoinHandle;
 
 use crate::channel::MembershipReceiver;
 
+use std::net::SocketAddr;
+
 pub async fn run_task(
     cluster_size: ClusterSize,
+    launch_nodes: Vec<SocketAddr>,
     server: Node,
     // membership_send_grpc_task: ChannelMembershipReceiveTask,
     // membership_receive_grpc_task: ChannelMembershipSendGrpcTask,
@@ -21,6 +24,7 @@ pub async fn run_task(
 ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
     let mut membership = Membership::init(
         cluster_size,
+        launch_nodes,
         server,
         // membership_send_grpc_task,
         // membership_receive_grpc_task,
