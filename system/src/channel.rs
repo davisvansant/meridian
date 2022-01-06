@@ -10,5 +10,5 @@ pub use server::{ServerReceiver, ServerSender, ServerState};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
 pub use client::{join_cluster, peer_nodes, peer_status, send_heartbeat, start_election};
-pub use membership::{add_member, cluster_members, get_node, status};
+pub use membership::{add_member, cluster_members, get_node, launch_nodes, status};
 pub use state::{append_entries, candidate, heartbeat, leader, request_vote};
