@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -39,6 +40,7 @@ impl ClusterSize {
 pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
+    launch_nodes: Vec<SocketAddr>,
     members: HashMap<Uuid, Node>,
     // receive_task: ChannelMembershipReceiveTask,
     // send_grpc_task: ChannelMembershipSendGrpcTask,
@@ -50,6 +52,7 @@ pub struct Membership {
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
+        launch_nodes: Vec<SocketAddr>,
         server: Node,
         // receive_task: ChannelMembershipReceiveTask,
         // send_grpc_task: ChannelMembershipSendGrpcTask,
@@ -61,6 +64,7 @@ impl Membership {
 
         Ok(Membership {
             cluster_size,
+            launch_nodes,
             server,
             members,
             // send_grpc_task,
@@ -87,6 +91,20 @@ impl Membership {
                     }
 
                     if let Err(error) = response.send(MembershipResponse::Ok) {
+                        println!("error sending membership response -> {:?}", error);
+                    }
+                }
+                MembershipRequest::LaunchNodes => {
+                    println!("retrieving initial launch nodes...");
+
+                    let mut launch_nodes = Vec::with_capacity(self.launch_nodes.len());
+
+                    for node in &self.launch_nodes {
+                        launch_nodes.push(node.to_owned());
+                    }
+
+                    if let Err(error) = response.send(MembershipResponse::LaunchNodes(launch_nodes))
+                    {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
