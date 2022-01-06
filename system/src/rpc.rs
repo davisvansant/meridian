@@ -1,7 +1,8 @@
-use flexbuffers::{Builder, BuilderOptions, FlexbufferSerializer, MapBuilder};
+use flexbuffers::{Builder, BuilderOptions};
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpSocket};
+
+use tokio::net::TcpSocket;
 
 pub mod append_entries;
 pub mod install_snapshot;
@@ -47,9 +48,6 @@ impl Data {
 
         match self {
             Data::AppendEntriesArguments(append_entries_arguments) => {
-                // let append_entries_arguments =
-                //     append_entries::AppendEntriesArguments::build().await?;
-
                 flexbuffers_data.push("data", "append_entries_arguments");
 
                 let mut details = flexbuffers_data.start_map("details");
@@ -67,8 +65,6 @@ impl Data {
                 Ok(flexbuffers_builder.take_buffer())
             }
             Data::AppendEntriesResults(append_entries_results) => {
-                // let append_entries_results = append_entries::AppendEntriesResults::build().await?;
-
                 flexbuffers_data.push("data", "append_entries_results");
 
                 let mut details = flexbuffers_data.start_map("details");
@@ -82,10 +78,7 @@ impl Data {
                 Ok(flexbuffers_builder.take_buffer())
             }
             Data::ConnectedRequest => {
-                // let connected = membership::Connected::build().await?;
                 flexbuffers_data.push("data", "connected");
-                // let mut details = flexbuffers_data.start_map("details");
-                // details.end_map();
 
                 flexbuffers_data.end_map();
 
@@ -123,16 +116,8 @@ impl Data {
 
                 let mut details = flexbuffers_data.start_map("details");
                 let mut nodes = details.start_vector("nodes");
-                // details.start_vector("nodes");
-                // nodes.push(connected.nodes);
-                for node in connected.nodes {
-                    // let membership_node = membership::MembershipNode::build(&node).await?;
-                    // let connected_node = Data::JoinClusterRequest(node).build().await?;
-                    // flexbuffers_data.push("data", "join_cluster_request");
 
-                    // let mut details = flexbuffers_data.start_vector("details");
-                    // let mut flexbuffers_builder = Builder::new(flexbuffer_options);
-                    // let mut connected_nodes = flexbuffers_builder.start_map();
+                for node in connected.nodes {
                     let mut connected_nodes = nodes.start_map();
 
                     connected_nodes.push("id", node.id.to_string().as_str());
@@ -142,15 +127,9 @@ impl Data {
                     connected_nodes
                         .push("membership_port", node.membership_port.to_string().as_str());
                     connected_nodes.end_map();
-
-                    // flexbuffers_data.end_map();
-                    // details.end_map(
-
-                    // nodes.push(&flexbuffers_builder.take_buffer());
-                    // details.push(&flexbuffers_builder.take_buffer());
                 }
+
                 nodes.end_vector();
-                // details.end_vector();
                 details.end_map();
 
                 flexbuffers_data.end_map();
@@ -176,8 +155,6 @@ impl Data {
                 Ok(flexbuffers_builder.take_buffer())
             }
             Data::JoinClusterResponse(node) => {
-                // let membership_node = membership::MembershipNode::build(node).await?;
-
                 flexbuffers_data.push("data", "join_cluster_response");
 
                 let mut details = flexbuffers_data.start_map("details");
@@ -197,8 +174,6 @@ impl Data {
                 unimplemented!();
             }
             Data::RequestVoteArguments(request_vote_arguments) => {
-                // let request_vote_arguments = request_vote::RequestVoteArguments::build().await?;
-
                 flexbuffers_data.push("data", "request_vote_arguments");
 
                 let mut details = flexbuffers_data.start_map("details");
@@ -214,8 +189,6 @@ impl Data {
                 Ok(flexbuffers_builder.take_buffer())
             }
             Data::RequestVoteResults(request_vote_results) => {
-                // let request_vote_results = request_vote::RequestVoteResults::build().await?;
-
                 flexbuffers_data.push("data", "request_vote_results");
 
                 let mut details = flexbuffers_data.start_map("details");
