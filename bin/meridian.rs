@@ -1,5 +1,6 @@
 use clap::{App, Arg, SubCommand};
 use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use system::node::Node;
 use system::runtime::launch;
@@ -81,7 +82,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if let Some(join) = run.values_of("join") {
                 for node in join {
-                    peers.push(node.to_string());
+                    let socket_address = SocketAddr::from_str(node)?;
+
+                    peers.push(socket_address);
                 }
             }
 
