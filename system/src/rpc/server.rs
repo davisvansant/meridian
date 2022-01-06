@@ -1,38 +1,19 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
-use crate::rpc::build_ip_address;
-use crate::rpc::build_socket_address;
-use crate::rpc::build_tcp_socket;
-use crate::rpc::Data;
-use crate::rpc::Interface;
-
 use std::str::FromStr;
 
-use crate::rpc::Node;
-
-use crate::rpc::membership::MembershipNode;
-
-use crate::channel::MembershipSender;
-
-use crate::channel::{get_node, request_vote};
-
-use crate::channel::StateSender;
-
-use crate::rpc::RequestVoteArguments;
-
-use crate::rpc::AppendEntriesArguments;
-
-use crate::channel::{add_member, append_entries};
-
-use crate::channel::{ServerSender, ServerState};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use uuid::Uuid;
 
-use crate::channel::cluster_members;
+use crate::rpc::{build_ip_address, build_socket_address, build_tcp_socket};
+use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
+use crate::rpc::{Data, Interface, Node};
 
-use crate::channel::status;
+use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
+use crate::channel::{MembershipSender, StateSender};
+use crate::channel::{ServerSender, ServerState};
 
 pub struct Server {
     ip_address: IpAddr,
