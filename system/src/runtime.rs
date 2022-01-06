@@ -214,7 +214,7 @@ pub async fn launch(
 
     let client_handle = tokio::spawn(async move {
         if let Err(error) = client.run().await {
-            println!("error running client...");
+            println!("error running client... {:?}", error);
         }
     });
 

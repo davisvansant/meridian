@@ -51,7 +51,7 @@ pub async fn run_task(
         // }
 
         if let Err(error) = server.run().await {
-            println!("error with running {:?}", error);
+            println!("error with running server {:?}", error);
         };
     });
 
