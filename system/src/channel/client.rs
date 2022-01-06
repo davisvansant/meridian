@@ -51,14 +51,20 @@ pub async fn send_heartbeat(client: &ClientSender) -> Result<(), Box<dyn std::er
 pub async fn join_cluster(
     client: &ClientSender,
     address: SocketAddr,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let (_request, _response) = oneshot::channel();
+) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
 
     client
-        .send((ClientRequest::JoinCluster(address), _request))
+        .send((ClientRequest::JoinCluster(address), request))
         .await?;
 
-    Ok(())
+    match response.await {
+        Ok(ClientResponse::JoinCluster(connected_node)) => Ok(connected_node),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
+
+    // Ok(())
 }
 
 pub async fn peer_nodes(
