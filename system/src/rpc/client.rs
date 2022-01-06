@@ -8,13 +8,12 @@ use tokio::net::TcpStream;
 
 use uuid::Uuid;
 
+use crate::channel::MembershipSender;
+use crate::channel::StateSender;
 use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
-use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
 use crate::channel::{ServerSender, ServerState};
-use crate::channel::{StateReceiver, StateRequest, StateResponse, StateSender};
 
-use crate::rpc::membership::{Connected, MembershipNode};
 use crate::rpc::{build_ip_address, build_socket_address};
 use crate::rpc::{Data, Interface, Node, RequestVoteResults};
 
