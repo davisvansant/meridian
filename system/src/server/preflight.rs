@@ -1,4 +1,8 @@
-use crate::channel::{get_node, join_cluster, launch_nodes, peer_nodes, peer_status};
+use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
+
+use crate::channel::{
+    cluster_members, get_node, join_cluster, launch_nodes, peer_nodes, peer_status,
+};
 use crate::channel::{ClientSender, MembershipSender};
 
 pub async fn run(
@@ -6,51 +10,67 @@ pub async fn run(
     membership: &MembershipSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let local_node = get_node(membership).await?;
-    let local_address = local_node.build_address(local_node.membership_port).await;
+    let local_address = local_node.build_address(local_node.cluster_port).await;
+
+    let mut cluster_candidates = Vec::with_capacity(5);
+
     let launch_nodes = launch_nodes(membership).await?;
 
     for node in &launch_nodes {
         join_cluster(client, *node).await?;
+
+        let peers = peer_nodes(client, *node).await?;
+
+        for peer in peers {
+            cluster_candidates.push(peer);
+        }
     }
 
     let mut attempts = 0;
-    let mut launch_status = Vec::with_capacity(2);
 
-    while attempts <= 5 {
-        let mut cluster_candidates = Vec::with_capacity(5);
+    while attempts <= 3 {
+        let mut additional_candidates = Vec::with_capacity(5);
 
-        for node in &launch_nodes {
-            let candidates = peer_nodes(client, *node).await?;
+        for candidate in &mut cluster_candidates {
+            let peer_nodes = peer_nodes(client, *candidate).await?;
 
-            for candidate in candidates {
-                cluster_candidates.push(candidate);
-            }
-
-            cluster_candidates.dedup();
-        }
-
-        if let Ok(local_address) = cluster_candidates.binary_search(&local_address) {
-            cluster_candidates.remove(local_address);
-        }
-
-        for candidate in cluster_candidates {
-            join_cluster(client, candidate).await?;
-
-            let peer_status = peer_status(client, candidate).await?;
-
-            if peer_status == 2 {
-                launch_status.push(1);
+            for peer in peer_nodes {
+                println!("peer -> {:?}", &peer);
+                additional_candidates.push(peer);
             }
         }
 
-        if launch_status.len() == 2 {
-            println!("preparing to launch...");
-
-            break;
+        for candidate in additional_candidates {
+            cluster_candidates.push(candidate)
         }
 
         attempts += 1;
     }
+
+    cluster_candidates.sort();
+    cluster_candidates.dedup();
+
+    if let Ok(local_address) = cluster_candidates.binary_search(&local_address) {
+        println!("removing local address from candidates...");
+        cluster_candidates.remove(local_address);
+    }
+
+    cluster_candidates.sort();
+    cluster_candidates.dedup();
+
+    for candidate in &cluster_candidates {
+        join_cluster(client, *candidate).await?;
+
+        let peer_nodes = peer_nodes(client, *candidate).await?;
+
+        for peer in peer_nodes {
+            join_cluster(client, peer).await?;
+        }
+    }
+
+    sleep(Duration::from_secs(5)).await;
+
+    println!("launching...");
 
     Ok(())
 }
