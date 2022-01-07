@@ -15,6 +15,7 @@ use std::net::SocketAddr;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
+use crate::channel::CandidateTransition;
 use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
@@ -59,6 +60,9 @@ pub async fn launch(
     let rpc_communications_server_transition_sender = tx.clone();
     let rpc_membership_server_transition_sender = tx.clone();
 
+    let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
+    let server_candidate_sender = candidate_sender.clone();
+
     let membership_service_handle =
         membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
 
@@ -68,6 +72,8 @@ pub async fn launch(
         state_sender,
         tx,
         rx,
+        server_candidate_sender,
+        candidate_receiver,
     )
     .await?;
 
@@ -108,6 +114,7 @@ pub async fn launch(
         membership_sender,
         client_state_sender,
         client_transition_sender,
+        candidate_sender,
     )
     .await?;
 
