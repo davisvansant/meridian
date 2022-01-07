@@ -10,7 +10,7 @@ pub mod follower;
 pub mod leader;
 mod preflight;
 
-use crate::channel::CandidateTransition;
+use crate::channel::{CandidateReceiver, CandidateSender, CandidateTransition};
 use crate::channel::{ClientSender, MembershipSender, StateSender};
 use crate::channel::{ServerReceiver, ServerSender, ServerState};
 
@@ -22,6 +22,8 @@ pub struct Server {
     state: StateSender,
     tx: ServerSender,
     rx: ServerReceiver,
+    candidate_sender: CandidateSender,
+    candidate_receiver: CandidateReceiver,
 }
 
 impl Server {
@@ -32,6 +34,8 @@ impl Server {
         state: StateSender,
         tx: ServerSender,
         rx: ServerReceiver,
+        candidate_sender: CandidateSender,
+        candidate_receiver: CandidateReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -43,6 +47,8 @@ impl Server {
             state,
             tx,
             rx,
+            candidate_sender,
+            candidate_receiver,
         })
     }
 
@@ -51,7 +57,7 @@ impl Server {
 
         let (sender, mut receiver) = broadcast::channel::<ServerState>(64);
 
-        let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
+        // let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
 
         let launch = sender.clone();
         // let mut follower_receiver = sender.subscribe();
@@ -61,6 +67,7 @@ impl Server {
         let mut follower_receiver = self.tx.to_owned().subscribe();
         let mut rx = self.tx.to_owned().subscribe();
         // let mut candidate_receiver = tx.subscribe();
+        let candidate_sender = self.candidate_sender.to_owned();
 
         tokio::spawn(async move {
             while let Ok(transition) = rx.recv().await {
@@ -141,7 +148,7 @@ impl Server {
 
                     let mut candidate = Candidate::init().await?;
                     candidate
-                        .run(&self.client, &mut candidate_receiver, &self.tx)
+                        .run(&self.client, &mut self.candidate_receiver, &self.tx)
                         .await?;
                 }
                 ServerState::Leader => {
