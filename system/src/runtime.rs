@@ -73,25 +73,27 @@ pub async fn launch(
 
     let state_service_handle = state_service::run_task(state_receiver).await?;
 
-    let mut rpc_membership_server = Server::init(
-        Interface::Membership,
-        rpc_membership_server_membership_sender,
-        rpc_membership_server_state_sender,
-        rpc_membership_server_transition_sender,
-    )
-    .await?;
+    // let mut rpc_membership_server = Server::init(
+    //     Interface::Membership,
+    //     rpc_membership_server_membership_sender,
+    //     rpc_membership_server_state_sender,
+    //     rpc_membership_server_transition_sender,
+    // )
+    // .await?;
 
-    let rpc_membership_server_handle = tokio::spawn(async move {
-        if let Err(error) = rpc_membership_server.run().await {
-            println!("error with rpc server {:?}", error);
-        }
-    });
+    // let rpc_membership_server_handle = tokio::spawn(async move {
+    //     if let Err(error) = rpc_membership_server.run().await {
+    //         println!("error with rpc server {:?}", error);
+    //     }
+    // });
+    let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
         Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
         rpc_communications_server_transition_sender,
+        node_socket_address,
     )
     .await?;
     let rpc_communications_server_handle = tokio::spawn(async move {
@@ -119,7 +121,7 @@ pub async fn launch(
         client_handle,
         state_service_handle,
         server_service_handle,
-        rpc_membership_server_handle,
+        // rpc_membership_server_handle,
         rpc_communications_server_handle,
     )?;
 
