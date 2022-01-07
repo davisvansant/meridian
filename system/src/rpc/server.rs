@@ -30,6 +30,7 @@ impl Server {
         membership_sender: MembershipSender,
         state_sender: StateSender,
         heartbeat: ServerSender,
+        socket_address: SocketAddr,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
         let port = match interface {
@@ -37,7 +38,7 @@ impl Server {
             Interface::Membership => 1246,
         };
 
-        let socket_address = build_socket_address(ip_address, port).await;
+        // let socket_address = build_socket_address(ip_address, port).await;
 
         Ok(Server {
             ip_address,
@@ -53,6 +54,7 @@ impl Server {
         let owned_membership_sender = self.membership_sender.to_owned();
         let tcp_socket = build_tcp_socket(self.socket_address).await?;
 
+        tcp_socket.set_reuseaddr(true)?;
         tcp_socket.set_reuseport(true)?;
         tcp_socket.bind(self.socket_address)?;
 
@@ -61,7 +63,7 @@ impl Server {
 
         let mut connections = 0;
 
-        while connections <= 0 {
+        while connections >= 0 {
             let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
 
             println!("running on {:?}", socket_address);
