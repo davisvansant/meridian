@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
 use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
+use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
 use crate::channel::{ServerSender, ServerState};
 
@@ -25,6 +26,7 @@ pub struct Client {
     membership_sender: MembershipSender,
     state_sender: StateSender,
     state_transition: ServerSender,
+    candidate_sender: CandidateSender,
 }
 
 impl Client {
@@ -34,6 +36,7 @@ impl Client {
         membership_sender: MembershipSender,
         state_sender: StateSender,
         state_transition: ServerSender,
+        candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
         let port = match interface {
@@ -51,6 +54,7 @@ impl Client {
             membership_sender,
             state_sender,
             state_transition,
+            candidate_sender,
         })
     }
 
@@ -97,9 +101,21 @@ impl Client {
                             let socket_address = peer.build_address(peer.cluster_port).await;
                             let result = self.request_vote(socket_address).await?;
 
+                            println!("results -> {:?}", &result);
+
                             if result.vote_granted {
                                 vote.push(1);
                             }
+                        }
+
+                        if vote.len() == 2 {
+                            self.candidate_sender
+                                .send(CandidateTransition::Leader)
+                                .await?;
+                        } else {
+                            self.candidate_sender
+                                .send(CandidateTransition::Follower)
+                                .await?;
                         }
                     }
                 }
