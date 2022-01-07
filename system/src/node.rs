@@ -1,7 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Node {
     pub id: Uuid,
     pub address: IpAddr,
