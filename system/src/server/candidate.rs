@@ -2,7 +2,7 @@ use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::start_election;
 use crate::channel::{CandidateReceiver, CandidateTransition, ClientSender};
-use crate::server::ServerSender;
+use crate::server::{ServerSender, ServerState};
 
 pub struct Candidate {
     pub election_timeout: Duration,
@@ -24,27 +24,27 @@ impl Candidate {
 
         loop {
             match timeout_at(Instant::now() + self.election_timeout, transition.recv()).await {
-                Ok(state) => {
-                    match state {
-                        Some(CandidateTransition::Follower) => {
-                            println!("received heartbeat...stepping down");
+                Ok(state) => match state {
+                    Some(CandidateTransition::Follower) => {
+                        println!("received heartbeat...stepping down");
 
-                            // if let Err(error) = tx.send(ServerState::Follower) {
-                            //     println!("error sending server state {:?}", error);
-                            // }
+                        if let Err(error) = tx.send(ServerState::Follower) {
+                            println!("error sending server state {:?}", error);
+                        }
 
-                            break;
-                        }
-                        Some(CandidateTransition::Leader) => {
-                            // if let Err(error) = tx.send(ServerState::Leader) {
-                            //     println!("error sending server state {:?}", error);
-                            // }
-                            println!("transitioning server to leader...");
-                            break;
-                        }
-                        None => break,
+                        break;
                     }
-                }
+                    Some(CandidateTransition::Leader) => {
+                        println!("transitioning server to leader...");
+
+                        if let Err(error) = tx.send(ServerState::Leader) {
+                            println!("error sending server state {:?}", error);
+                        }
+
+                        break;
+                    }
+                    None => break,
+                },
                 Err(error) => println!(
                     "candidate election timeout lapsed...trying again...{:?}",
                     error,
