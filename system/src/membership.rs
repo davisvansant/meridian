@@ -58,9 +58,13 @@ impl Membership {
                 MembershipRequest::AddMember(node) => {
                     println!("adding new member...");
 
-                    match self.members.insert(node.id, node) {
-                        Some(value) => println!("updated node! {:?}", value),
-                        None => println!("added node !"),
+                    if self.server == node {
+                        println!("not adding self to members");
+                    } else {
+                        match self.members.insert(node.id, node) {
+                            Some(value) => println!("updated node! {:?}", value),
+                            None => println!("added node !"),
+                        }
                     }
 
                     if let Err(error) = response.send(MembershipResponse::Ok) {
