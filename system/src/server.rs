@@ -1,5 +1,5 @@
-// use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 use tokio::sync::{broadcast, mpsc};
+use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -110,6 +110,8 @@ impl Server {
                 }
             }
         });
+
+        sleep(Duration::from_secs(5)).await;
 
         self.tx.send(ServerState::Preflight)?;
 
