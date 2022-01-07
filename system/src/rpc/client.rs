@@ -61,8 +61,7 @@ impl Client {
                     println!("received join cluster request!");
 
                     let joined_node = self.join_cluster(address).await?;
-                    let socket_address =
-                        joined_node.build_address(joined_node.membership_port).await;
+                    let socket_address = joined_node.build_address(joined_node.cluster_port).await;
 
                     if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
                         println!("error sending client response -> {:?}", error);
@@ -80,7 +79,11 @@ impl Client {
                 ClientRequest::PeerStatus(socket_address) => {
                     println!("received get peer status");
 
-                    self.status(socket_address).await?;
+                    let status = self.status(socket_address).await?;
+
+                    if let Err(error) = response.send(ClientResponse::Status(status)) {
+                        println!("error sending client peer status response -> {:?}", error);
+                    }
                 }
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
@@ -157,13 +160,21 @@ impl Client {
         let request = Data::ConnectedRequest.build().await?;
         let response = Client::transmit(socket_address, &request).await?;
 
-        let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        let root = flexbuffers::Reader::get_root(&*response)?;
 
-        response.push_to_builder(&mut flexbuffers_builder);
+        // let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
+        // response.push_to_builder(&mut flexbuffers_builder);
 
-        let response_details = flexbuffer_root
+        // let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
+
+        // let response_details = flexbuffer_root
+        //     .as_map()
+        //     .idx("details")
+        //     .as_map()
+        //     .idx("nodes")
+        //     .as_vector();
+        let response_details = root
             .as_map()
             .idx("details")
             .as_map()
@@ -188,7 +199,7 @@ impl Client {
             };
 
             let socket_address = connected_node
-                .build_address(connected_node.membership_port)
+                .build_address(connected_node.cluster_port)
                 .await;
 
             // connected_nodes.push(connected_node)
