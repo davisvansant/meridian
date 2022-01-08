@@ -25,6 +25,8 @@ use crate::channel::Leader;
 
 use crate::rpc::Client;
 
+use crate::membership::Membership;
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<SocketAddr>,
@@ -67,8 +69,16 @@ pub async fn launch(
 
     let (leader_sender, mut leader_receiver) = mpsc::channel::<Leader>(64);
 
-    let membership_service_handle =
-        membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
+    let mut membership = Membership::init(cluster_size, peers, node, membership_receiver).await?;
+
+    let membership_handle = tokio::spawn(async move {
+        if let Err(error) = membership.run().await {
+            println!("error running membership -> {:?}", error);
+        }
+    });
+
+    // let membership_service_handle =
+    //     membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
 
     let server_service_handle = server_service::run_task(
         rpc_client_sender,
@@ -131,6 +141,7 @@ pub async fn launch(
     });
 
     tokio::try_join!(
+        membership_handle,
         client_handle,
         state_service_handle,
         server_service_handle,
