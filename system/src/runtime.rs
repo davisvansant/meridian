@@ -1,31 +1,19 @@
-// pub mod sync;
-pub mod tasks;
-
-use self::tasks::membership_service;
-// use self::tasks::preflight;
-use self::tasks::server_service;
-use self::tasks::state_service;
-
-use crate::membership::ClusterSize;
-use crate::node::Node;
-
-use crate::rpc::{Data, Interface, Server};
-
 use std::net::SocketAddr;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::CandidateTransition;
+use crate::channel::Leader;
 use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
 
-use crate::channel::Leader;
+use crate::membership::{ClusterSize, Membership};
 
-use crate::rpc::Client;
+use crate::node::Node;
 
-use crate::membership::Membership;
+use crate::rpc::{Client, Data, Interface, Server};
 
 use crate::server::Server as SystemServer;
 
@@ -81,9 +69,6 @@ pub async fn launch(
         }
     });
 
-    // let membership_service_handle =
-    //     membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
-
     let mut system_server = SystemServer::init(
         rpc_client_sender,
         server_membership_sender,
@@ -102,19 +87,6 @@ pub async fn launch(
         }
     });
 
-    // let server_service_handle = server_service::run_task(
-    //     rpc_client_sender,
-    //     server_membership_sender,
-    //     state_sender,
-    //     tx,
-    //     rx,
-    //     server_candidate_sender,
-    //     candidate_receiver,
-    //     leader_receiver,
-    // )
-    // .await?;
-
-    // let state_service_handle = state_service::run_task(state_receiver).await?;
     let mut state = State::init(state_receiver).await?;
 
     let state_handle = tokio::spawn(async move {
@@ -123,26 +95,12 @@ pub async fn launch(
         }
     });
 
-    // let mut rpc_membership_server = Server::init(
-    //     Interface::Membership,
-    //     rpc_membership_server_membership_sender,
-    //     rpc_membership_server_state_sender,
-    //     rpc_membership_server_transition_sender,
-    // )
-    // .await?;
-
-    // let rpc_membership_server_handle = tokio::spawn(async move {
-    //     if let Err(error) = rpc_membership_server.run().await {
-    //         println!("error with rpc server {:?}", error);
-    //     }
-    // });
     let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
         Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
-        // rpc_communications_server_transition_sender,
         leader_sender,
         node_socket_address,
     )
@@ -174,9 +132,6 @@ pub async fn launch(
         membership_handle,
         system_server_handle,
         client_handle,
-        // state_service_handle,
-        // server_service_handle,
-        // rpc_membership_server_handle,
         rpc_communications_server_handle,
     )?;
 
