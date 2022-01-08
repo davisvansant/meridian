@@ -29,6 +29,8 @@ use crate::membership::Membership;
 
 use crate::server::Server as SystemServer;
 
+use crate::state::State;
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<SocketAddr>,
@@ -112,7 +114,14 @@ pub async fn launch(
     // )
     // .await?;
 
-    let state_service_handle = state_service::run_task(state_receiver).await?;
+    // let state_service_handle = state_service::run_task(state_receiver).await?;
+    let mut state = State::init(state_receiver).await?;
+
+    let state_handle = tokio::spawn(async move {
+        if let Err(error) = state.run().await {
+            println!("error with state -> {:?}", error);
+        }
+    });
 
     // let mut rpc_membership_server = Server::init(
     //     Interface::Membership,
@@ -161,10 +170,11 @@ pub async fn launch(
     });
 
     tokio::try_join!(
+        state_handle,
         membership_handle,
         system_server_handle,
         client_handle,
-        state_service_handle,
+        // state_service_handle,
         // server_service_handle,
         // rpc_membership_server_handle,
         rpc_communications_server_handle,
