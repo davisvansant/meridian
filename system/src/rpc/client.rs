@@ -62,7 +62,7 @@ impl Client {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 ClientRequest::JoinCluster(address) => {
-                    println!("received join cluster request!");
+                    println!("joining cluster node at {:?}", &address);
 
                     let joined_node = self.join_cluster(address).await?;
                     let socket_address = joined_node.build_address(joined_node.cluster_port).await;
@@ -117,6 +117,13 @@ impl Client {
                                 .send(CandidateTransition::Follower)
                                 .await?;
                         }
+                    }
+
+                    if let Err(error) = response.send(ClientResponse::EndElection(())) {
+                        println!(
+                            "error sending client start election response -> {:?}",
+                            error,
+                        );
                     }
                 }
                 ClientRequest::SendHeartbeat => {
