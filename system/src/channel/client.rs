@@ -23,16 +23,21 @@ pub enum ClientResponse {
     Status(u8),
     MemberNodes,
     MemberStatus,
+    EndElection(()),
 }
 
 pub async fn start_election(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
-    let (_request, _response) = oneshot::channel();
+    let (request, response) = oneshot::channel();
 
-    client
-        .send((ClientRequest::StartElection, _request))
-        .await?;
+    client.send((ClientRequest::StartElection, request)).await?;
 
-    Ok(())
+    match response.await {
+        Ok(ClientResponse::EndElection(())) => Ok(()),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
+
+    // Ok(())
 }
 
 pub async fn send_heartbeat(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
