@@ -14,7 +14,10 @@ impl Leader {
         state: &StateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         leader(state).await?;
-        send_heartbeat(client).await?;
+
+        loop {
+            send_heartbeat(client).await?;
+        }
 
         Ok(())
     }
