@@ -20,7 +20,13 @@ impl Candidate {
         transition: &mut CandidateReceiver,
         tx: &ServerSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        start_election(client).await?;
+        // start_election(client).await?;
+        let client_owner = client.to_owned();
+        tokio::spawn(async move {
+            if let Err(error) = start_election(&client_owner).await {
+                println!("election error -> {:?}", error);
+            }
+        });
 
         loop {
             match timeout_at(Instant::now() + self.election_timeout, transition.recv()).await {
