@@ -15,13 +15,16 @@ use crate::channel::{add_member, append_entries, cluster_members, get_node, requ
 use crate::channel::{MembershipSender, StateSender};
 use crate::channel::{ServerSender, ServerState};
 
+use crate::channel::{Leader, LeaderSender};
+
 pub struct Server {
     ip_address: IpAddr,
     port: u16,
     socket_address: SocketAddr,
     membership_sender: MembershipSender,
     state_sender: StateSender,
-    heartbeat: ServerSender,
+    // heartbeat: ServerSender,
+    heartbeat: LeaderSender,
 }
 
 impl Server {
@@ -29,7 +32,8 @@ impl Server {
         interface: Interface,
         membership_sender: MembershipSender,
         state_sender: StateSender,
-        heartbeat: ServerSender,
+        // heartbeat: ServerSender,
+        heartbeat: LeaderSender,
         socket_address: SocketAddr,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
@@ -79,7 +83,8 @@ impl Server {
                     Ok(data_length) => {
                         let send_result = match Self::route_incoming(
                             &buffer[0..data_length],
-                            &membership_sender.to_owned(),
+                            // &membership_sender.to_owned(),
+                            &membership_sender,
                             &state_sender,
                             &heartbeat,
                         )
@@ -119,7 +124,8 @@ impl Server {
         data: &[u8],
         membership_sender: &MembershipSender,
         state_sender: &StateSender,
-        heartbeat: &ServerSender,
+        // heartbeat: &ServerSender,
+        heartbeat: &LeaderSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -147,7 +153,8 @@ impl Server {
                 let leader_commit = request_details.idx("leader_commit").as_u32();
 
                 if entries.is_empty() {
-                    heartbeat.send(ServerState::Follower)?;
+                    println!("sending heartbeat from server ...");
+                    heartbeat.send(Leader::Heartbeat).await?;
                 }
 
                 let arguments = AppendEntriesArguments {
