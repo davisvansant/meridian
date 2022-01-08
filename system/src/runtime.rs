@@ -27,6 +27,8 @@ use crate::rpc::Client;
 
 use crate::membership::Membership;
 
+use crate::server::Server as SystemServer;
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<SocketAddr>,
@@ -80,7 +82,7 @@ pub async fn launch(
     // let membership_service_handle =
     //     membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
 
-    let server_service_handle = server_service::run_task(
+    let mut system_server = SystemServer::init(
         rpc_client_sender,
         server_membership_sender,
         state_sender,
@@ -91,6 +93,24 @@ pub async fn launch(
         leader_receiver,
     )
     .await?;
+
+    let system_server_handle = tokio::spawn(async move {
+        if let Err(error) = system_server.run().await {
+            println!("error running server -> {:?}", error);
+        }
+    });
+
+    // let server_service_handle = server_service::run_task(
+    //     rpc_client_sender,
+    //     server_membership_sender,
+    //     state_sender,
+    //     tx,
+    //     rx,
+    //     server_candidate_sender,
+    //     candidate_receiver,
+    //     leader_receiver,
+    // )
+    // .await?;
 
     let state_service_handle = state_service::run_task(state_receiver).await?;
 
@@ -142,9 +162,10 @@ pub async fn launch(
 
     tokio::try_join!(
         membership_handle,
+        system_server_handle,
         client_handle,
         state_service_handle,
-        server_service_handle,
+        // server_service_handle,
         // rpc_membership_server_handle,
         rpc_communications_server_handle,
     )?;
