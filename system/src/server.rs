@@ -10,6 +10,7 @@ pub mod follower;
 pub mod leader;
 mod preflight;
 
+use crate::channel::LeaderReceiver;
 use crate::channel::{CandidateReceiver, CandidateSender, CandidateTransition};
 use crate::channel::{ClientSender, MembershipSender, StateSender};
 use crate::channel::{ServerReceiver, ServerSender, ServerState};
@@ -24,6 +25,7 @@ pub struct Server {
     rx: ServerReceiver,
     candidate_sender: CandidateSender,
     candidate_receiver: CandidateReceiver,
+    heartbeat: LeaderReceiver,
 }
 
 impl Server {
@@ -36,6 +38,7 @@ impl Server {
         rx: ServerReceiver,
         candidate_sender: CandidateSender,
         candidate_receiver: CandidateReceiver,
+        heartbeat: LeaderReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
 
@@ -49,6 +52,7 @@ impl Server {
             rx,
             candidate_sender,
             candidate_receiver,
+            heartbeat,
         })
     }
 
@@ -137,7 +141,8 @@ impl Server {
                     println!("server > follower!");
 
                     let mut follower = Follower::init().await?;
-                    follower.run(&mut follower_receiver).await?;
+                    // follower.run(&mut follower_receiver).await?;
+                    follower.run(&mut self.heartbeat).await?;
 
                     if let Err(error) = self.tx.send(ServerState::Candidate) {
                         println!("error sending server state {:?}", error);

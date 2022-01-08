@@ -6,6 +6,7 @@ mod state;
 pub use client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
 pub use membership::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
+pub use server::{Leader, LeaderReceiver, LeaderSender};
 pub use server::{ServerReceiver, ServerSender, ServerState};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
