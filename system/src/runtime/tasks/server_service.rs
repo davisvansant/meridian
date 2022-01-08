@@ -15,6 +15,8 @@ use crate::channel::{ServerReceiver, ServerSender};
 
 use crate::channel::{CandidateReceiver, CandidateSender};
 
+use crate::channel::LeaderReceiver;
+
 pub async fn run_task(
     // state_receive_server_task: ChannelStateSendServerTask,
     // server_send_task: ChannelStateReceiveTask,
@@ -29,6 +31,7 @@ pub async fn run_task(
     rx: ServerReceiver,
     candidate_sender: CandidateSender,
     candidate_receiver: CandidateReceiver,
+    heartbeat: LeaderReceiver,
 ) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
     let mut server = Server::init(
         // state_receive_server_task,
@@ -43,6 +46,7 @@ pub async fn run_task(
         rx,
         candidate_sender,
         candidate_receiver,
+        heartbeat,
     )
     .await?;
 

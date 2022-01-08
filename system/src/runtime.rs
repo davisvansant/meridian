@@ -21,6 +21,8 @@ use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
 
+use crate::channel::Leader;
+
 use crate::rpc::Client;
 
 pub async fn launch(
@@ -63,6 +65,8 @@ pub async fn launch(
     let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
 
+    let (leader_sender, mut leader_receiver) = mpsc::channel::<Leader>(64);
+
     let membership_service_handle =
         membership_service::run_task(cluster_size, peers, node, membership_receiver).await?;
 
@@ -74,6 +78,7 @@ pub async fn launch(
         rx,
         server_candidate_sender,
         candidate_receiver,
+        leader_receiver,
     )
     .await?;
 
@@ -98,7 +103,8 @@ pub async fn launch(
         Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
-        rpc_communications_server_transition_sender,
+        // rpc_communications_server_transition_sender,
+        leader_sender,
         node_socket_address,
     )
     .await?;
