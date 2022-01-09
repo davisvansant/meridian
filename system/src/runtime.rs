@@ -31,18 +31,34 @@ pub async fn launch(
         _ => panic!("Expected a cluster size of 1, 3, or 5"),
     };
 
+    // -------------------------------------------------------------------------------------------
+    // |         init internal rpc client channel
+    // -------------------------------------------------------------------------------------------
+
     let (rpc_client_sender, mut rpc_client_receiver) =
         mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
 
+    // -------------------------------------------------------------------------------------------
+    // |        init membership channel
+    // -------------------------------------------------------------------------------------------
+
     let (membership_sender, mut membership_receiver) =
         mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+
     let preflight_membership_sender = membership_sender.to_owned();
     let server_membership_sender = membership_sender.to_owned();
-
     let rpc_communications_server_membership_sender = membership_sender.to_owned();
     let rpc_membership_server_membership_sender = membership_sender.to_owned();
 
+    // -------------------------------------------------------------------------------------------
+    // |        init system server channel
+    // -------------------------------------------------------------------------------------------
+
     let (server_sender, server_receiver) = mpsc::channel::<ServerState>(64);
+
+    // -------------------------------------------------------------------------------------------
+    // |        init state channel
+    // -------------------------------------------------------------------------------------------
 
     let (state_sender, state_receiver) =
         mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
@@ -51,15 +67,32 @@ pub async fn launch(
     let rpc_membership_server_state_sender = state_sender.clone();
     let client_state_sender = state_sender.clone();
 
+    // -------------------------------------------------------------------------------------------
+    // |        init state transition channel
+    // -------------------------------------------------------------------------------------------
+
     let (tx, mut rx) = broadcast::channel::<ServerState>(64);
+
     let client_transition_sender = tx.clone();
     let rpc_communications_server_transition_sender = tx.clone();
     let rpc_membership_server_transition_sender = tx.clone();
 
+    // -------------------------------------------------------------------------------------------
+    // |        init server candidate transition channel
+    // -------------------------------------------------------------------------------------------
+
     let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
 
+    // -------------------------------------------------------------------------------------------
+    // |        init server leader heartbeat channel
+    // -------------------------------------------------------------------------------------------
+
     let (leader_sender, mut leader_receiver) = mpsc::channel::<Leader>(64);
+
+    // -------------------------------------------------------------------------------------------
+    // |        init membership
+    // -------------------------------------------------------------------------------------------
 
     let mut membership = Membership::init(cluster_size, peers, node, membership_receiver).await?;
 
@@ -68,6 +101,10 @@ pub async fn launch(
             println!("error running membership -> {:?}", error);
         }
     });
+
+    // -------------------------------------------------------------------------------------------
+    // |        init system server
+    // -------------------------------------------------------------------------------------------
 
     let mut system_server = SystemServer::init(
         rpc_client_sender,
@@ -87,6 +124,10 @@ pub async fn launch(
         }
     });
 
+    // -------------------------------------------------------------------------------------------
+    // |        init state
+    // -------------------------------------------------------------------------------------------
+
     let mut state = State::init(state_receiver).await?;
 
     let state_handle = tokio::spawn(async move {
@@ -94,6 +135,10 @@ pub async fn launch(
             println!("error with state -> {:?}", error);
         }
     });
+
+    // -------------------------------------------------------------------------------------------
+    // |        init internal rpc server channel
+    // -------------------------------------------------------------------------------------------
 
     let node_socket_address = node.build_address(node.cluster_port).await;
 
@@ -105,11 +150,16 @@ pub async fn launch(
         node_socket_address,
     )
     .await?;
+
     let rpc_communications_server_handle = tokio::spawn(async move {
         if let Err(error) = rpc_communications_server.run().await {
             println!("error with rpc communications server {:?}", error);
         }
     });
+
+    // -------------------------------------------------------------------------------------------
+    // |        init internal rpc client
+    // -------------------------------------------------------------------------------------------
 
     let mut client = Client::init(
         Interface::Communications,
@@ -126,6 +176,10 @@ pub async fn launch(
             println!("error running client... {:?}", error);
         }
     });
+
+    // -------------------------------------------------------------------------------------------
+    // |        launch!!!
+    // -------------------------------------------------------------------------------------------
 
     tokio::try_join!(
         state_handle,
