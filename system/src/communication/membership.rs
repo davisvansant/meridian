@@ -60,7 +60,7 @@ impl MembershipCommunication {
             println!("incoming bytes - {:?}", bytes);
             println!("origin - {:?}", origin);
 
-            let len = socket.send_to(&mut self.buffer[..bytes], origin).await?;
+            let len = socket.send_to(&self.buffer[..bytes], origin).await?;
             println!("{:?} bytes sent", len);
 
             println!(
