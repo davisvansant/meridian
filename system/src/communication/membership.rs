@@ -8,10 +8,22 @@ use std::str::FromStr;
 
 use tokio::net::UdpSocket;
 
-pub enum Messages {
+pub enum Message {
+    Ack,
     Ping,
     PingReq,
-    Ack,
+}
+
+impl Message {
+    pub async fn build(&self) -> Result<&[u8], Box<dyn std::error::Error>> {
+        let message = match self {
+            Message::Ack => "ack".as_bytes(),
+            Message::Ping => "ping".as_bytes(),
+            Message::PingReq => "ping-req".as_bytes(),
+        };
+
+        Ok(message)
+    }
 }
 
 pub struct MembershipCommunication {
@@ -64,6 +76,36 @@ impl MembershipCommunication {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_ack() -> Result<(), Box<dyn std::error::Error>> {
+        let test_message_ack = Message::Ack.build().await?;
+
+        assert_eq!(test_message_ack, b"ack");
+        assert_eq!(test_message_ack.len(), 3);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_ping() -> Result<(), Box<dyn std::error::Error>> {
+        let test_message_ping = Message::Ping.build().await?;
+
+        assert_eq!(test_message_ping, b"ping");
+        assert_eq!(test_message_ping.len(), 4);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_ping_req() -> Result<(), Box<dyn std::error::Error>> {
+        let test_message_ping_req = Message::PingReq.build().await?;
+
+        assert_eq!(test_message_ping_req, b"ping-req");
+        assert_eq!(test_message_ping_req.len(), 8);
+
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
