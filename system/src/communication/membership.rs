@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 use tokio::net::UdpSocket;
 
+#[derive(Debug, PartialEq)]
 pub enum Message {
     Ack,
     Ping,
@@ -20,6 +21,16 @@ impl Message {
             Message::Ack => "ack".as_bytes(),
             Message::Ping => "ping".as_bytes(),
             Message::PingReq => "ping-req".as_bytes(),
+        };
+
+        Ok(message)
+    }
+    pub async fn from_bytes(bytes: &[u8]) -> Result<Message, Box<dyn std::error::Error>> {
+        let message = match bytes {
+            b"ack" => Message::Ack,
+            b"ping" => Message::Ping,
+            b"ping-req" => Message::PingReq,
+            _ => panic!("cannot build requested bytes into message"),
         };
 
         Ok(message)
@@ -56,6 +67,14 @@ impl MembershipCommunication {
 
         loop {
             let (bytes, origin) = socket.recv_from(&mut self.buffer).await?;
+
+            let message = Message::from_bytes(&self.buffer[..bytes]).await?;
+
+            match message {
+                Message::Ack => println!("received ack!"),
+                Message::Ping => println!("received ping!"),
+                Message::PingReq => println!(" received ping req!"),
+            }
 
             println!("incoming bytes - {:?}", bytes);
             println!("origin - {:?}", origin);
@@ -103,6 +122,36 @@ mod tests {
 
         assert_eq!(test_message_ping_req, b"ping-req");
         assert_eq!(test_message_ping_req.len(), 8);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_from_ack_bytes() -> Result<(), Box<dyn std::error::Error>> {
+        let test_ack_bytes = b"ack"; //bar
+        let test_message_ack = Message::from_bytes(test_ack_bytes).await?;
+
+        assert_eq!(test_message_ack, Message::Ack);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_from_ping_bytes() -> Result<(), Box<dyn std::error::Error>> {
+        let test_ping_bytes = b"ping";
+        let test_message_ping = Message::from_bytes(test_ping_bytes).await?;
+
+        assert_eq!(test_message_ping, Message::Ping);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn message_from_ping_req_bytes() -> Result<(), Box<dyn std::error::Error>> {
+        let test_ping_req_bytes = b"ping-req";
+        let test_message_ping_req = Message::from_bytes(test_ping_req_bytes).await?;
+
+        assert_eq!(test_message_ping_req, Message::PingReq);
 
         Ok(())
     }
