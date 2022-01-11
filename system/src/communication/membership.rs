@@ -90,6 +90,22 @@ impl MembershipCommunication {
 
         Ok(())
     }
+
+    async fn send_message(
+        &self,
+        message: Message,
+        socket: &UdpSocket,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let data = message.build().await?;
+        let target = SocketAddr::new(
+            IpAddr::from(self.multicast_address),
+            self.socket_address.port(),
+        );
+
+        socket.send_to(data, target).await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
