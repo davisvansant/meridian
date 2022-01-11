@@ -19,6 +19,8 @@ use crate::server::Server as SystemServer;
 
 use crate::state::State;
 
+use crate::communication::membership::MembershipCommunication;
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<SocketAddr>,
@@ -178,6 +180,21 @@ pub async fn launch(
     });
 
     // -------------------------------------------------------------------------------------------
+    // |        init cluster membership communication
+    // -------------------------------------------------------------------------------------------
+
+    let membership_socket_address = node.build_address(node.membership_port).await;
+
+    let mut membership_communication =
+        MembershipCommunication::init(membership_socket_address).await?;
+
+    let membership_communication_handle = tokio::spawn(async move {
+        if let Err(error) = membership_communication.run().await {
+            println!("erroe with membership communication -> {:?}", error);
+        }
+    });
+
+    // -------------------------------------------------------------------------------------------
     // |        launch!!!
     // -------------------------------------------------------------------------------------------
 
@@ -187,6 +204,7 @@ pub async fn launch(
         system_server_handle,
         client_handle,
         rpc_communications_server_handle,
+        membership_communication_handle,
     )?;
 
     Ok(())
