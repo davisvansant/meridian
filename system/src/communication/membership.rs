@@ -8,6 +8,10 @@ use std::str::FromStr;
 
 use tokio::net::UdpSocket;
 
+use tokio::sync::mpsc;
+
+use std::sync::Arc;
+
 #[derive(Debug, PartialEq)]
 pub enum Message {
     Ack,
@@ -65,8 +69,26 @@ impl MembershipCommunication {
 
         socket.join_multicast_v4(self.multicast_address, self.multicast_interface)?;
 
+        let socket_receiver = Arc::new(socket);
+        let socket_sender = socket_receiver.clone();
+
+        let (sender, mut receiver) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
+
+        let target = SocketAddr::new(
+            IpAddr::from(self.multicast_address),
+            self.socket_address.port(),
+        );
+
+        tokio::spawn(async move {
+            while let Some((bytes, origin)) = receiver.recv().await {
+                // let data = message.build().await.unwrap();
+
+                socket_sender.send_to(&bytes, target).await.unwrap();
+            }
+        });
+
         loop {
-            let (bytes, origin) = socket.recv_from(&mut self.buffer).await?;
+            let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
 
             let message = Message::from_bytes(&self.buffer[..bytes]).await?;
 
@@ -79,13 +101,18 @@ impl MembershipCommunication {
             println!("incoming bytes - {:?}", bytes);
             println!("origin - {:?}", origin);
 
-            let len = socket.send_to(&self.buffer[..bytes], origin).await?;
-            println!("{:?} bytes sent", len);
+            sender
+                .send((self.buffer[..bytes].to_vec(), origin))
+                .await
+                .unwrap();
 
-            println!(
-                "received {:?}",
-                String::from_utf8(self.buffer[..bytes].to_vec())?,
-            );
+            // let len = socket.send_to(&self.buffer[..bytes], origin).await?;
+            // println!("{:?} bytes sent", len);
+
+            // println!(
+            //     "received {:?}",
+            //     String::from_utf8(self.buffer[..bytes].to_vec())?,
+            // );
         }
 
         Ok(())
