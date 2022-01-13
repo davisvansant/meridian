@@ -1,21 +1,13 @@
-use std::net::SocketAddr;
-
-use std::net::Ipv4Addr;
-
-use std::net::IpAddr;
-
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use tokio::net::UdpSocket;
-
 use tokio::sync::mpsc;
-
-use std::sync::Arc;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
     Ack,
-    Failed,
     Ping,
     PingReq,
 }
@@ -24,7 +16,6 @@ impl Message {
     pub async fn build(&self) -> Result<&[u8], Box<dyn std::error::Error>> {
         let message = match self {
             Message::Ack => "ack".as_bytes(),
-            Message::Failed => "failed".as_bytes(),
             Message::Ping => "ping".as_bytes(),
             Message::PingReq => "ping-req".as_bytes(),
         };
@@ -34,7 +25,6 @@ impl Message {
     pub async fn from_bytes(bytes: &[u8]) -> Result<Message, Box<dyn std::error::Error>> {
         let message = match bytes {
             b"ack" => Message::Ack,
-            b"failed" => Message::Failed,
             b"ping" => Message::Ping,
             b"ping-req" => Message::PingReq,
             _ => panic!("cannot build requested bytes into message"),
@@ -91,7 +81,6 @@ impl MembershipDissemination {
 
             match message {
                 Message::Ack => println!("received ack!"),
-                Message::Failed => println!("received a failed member..."),
                 Message::Ping => println!("received ping!"),
                 Message::PingReq => println!(" received ping req!"),
             }
@@ -133,16 +122,6 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn message_failed() -> Result<(), Box<dyn std::error::Error>> {
-        let test_message_failed = Message::Failed.build().await?;
-
-        assert_eq!(test_message_failed, b"failed");
-        assert_eq!(test_message_failed.len(), 6);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
     async fn message_ping() -> Result<(), Box<dyn std::error::Error>> {
         let test_message_ping = Message::Ping.build().await?;
 
@@ -168,16 +147,6 @@ mod tests {
         let test_message_ack = Message::from_bytes(test_ack_bytes).await?;
 
         assert_eq!(test_message_ack, Message::Ack);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn message_from_failed_bytes() -> Result<(), Box<dyn std::error::Error>> {
-        let test_failed_bytes = b"failed";
-        let test_message_failed = Message::from_bytes(test_failed_bytes).await?;
-
-        assert_eq!(test_message_failed, Message::Failed);
 
         Ok(())
     }
