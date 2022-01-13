@@ -45,98 +45,104 @@ impl Message {
 }
 
 pub struct MembershipCommunication {
-    socket_address: SocketAddr,
-    buffer: [u8; 1024],
-    multicast_address: Ipv4Addr,
-    multicast_interface: Ipv4Addr,
+    // socket_address: SocketAddr,
+// buffer: [u8; 1024],
+// multicast_address: Ipv4Addr,
+// multicast_interface: Ipv4Addr,
+// dynamic_join: MembershipDynamicJoin,
 }
 
 impl MembershipCommunication {
     pub async fn init(
         socket_address: SocketAddr,
     ) -> Result<MembershipCommunication, Box<dyn std::error::Error>> {
-        let buffer = [0; 1024];
-        let multicast_address = Ipv4Addr::new(239, 0, 0, 1);
-        let multicast_interface = Ipv4Addr::from_str(socket_address.ip().to_string().as_str())?;
+        // let buffer = [0; 1024];
+        // let multicast_address = Ipv4Addr::new(239, 0, 0, 1);
+        // let multicast_interface = Ipv4Addr::from_str(socket_address.ip().to_string().as_str())?;
+        // let dynamic_join = MembershipDynamicJoin::init(socket_address).await?;
 
         Ok(MembershipCommunication {
-            socket_address,
-            buffer,
-            multicast_address,
-            multicast_interface,
+            // socket_address,
+            // buffer,
+            // multicast_address,
+            // multicast_interface,
+            // dynamic_join,
         })
     }
 
+    // pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    //     let socket = UdpSocket::bind(self.socket_address).await?;
+
+    //     socket.join_multicast_v4(self.multicast_address, self.multicast_interface)?;
+
+    //     let socket_receiver = Arc::new(socket);
+    //     let socket_sender = socket_receiver.clone();
+
+    //     let (sender, mut receiver) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
+
+    //     let target = SocketAddr::new(
+    //         IpAddr::from(self.multicast_address),
+    //         self.socket_address.port(),
+    //     );
+
+    //     tokio::spawn(async move {
+    //         while let Some((bytes, origin)) = receiver.recv().await {
+    //             // let data = message.build().await.unwrap();
+
+    //             socket_sender.send_to(&bytes, target).await.unwrap();
+    //         }
+    //     });
+
+    //     loop {
+    //         let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
+
+    //         let message = Message::from_bytes(&self.buffer[..bytes]).await?;
+
+    //         match message {
+    //             Message::Ack => println!("received ack!"),
+    //             Message::Failed => println!("received a failed member..."),
+    //             Message::Ping => println!("received ping!"),
+    //             Message::PingReq => println!(" received ping req!"),
+    //         }
+
+    //         println!("incoming bytes - {:?}", bytes);
+    //         println!("origin - {:?}", origin);
+
+    //         sender
+    //             .send((self.buffer[..bytes].to_vec(), origin))
+    //             .await
+    //             .unwrap();
+
+    //         // let len = socket.send_to(&self.buffer[..bytes], origin).await?;
+    //         // println!("{:?} bytes sent", len);
+
+    //         // println!(
+    //         //     "received {:?}",
+    //         //     String::from_utf8(self.buffer[..bytes].to_vec())?,
+    //         // );
+    //     }
+
+    //     Ok(())
+    // }
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let socket = UdpSocket::bind(self.socket_address).await?;
-
-        socket.join_multicast_v4(self.multicast_address, self.multicast_interface)?;
-
-        let socket_receiver = Arc::new(socket);
-        let socket_sender = socket_receiver.clone();
-
-        let (sender, mut receiver) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
-
-        let target = SocketAddr::new(
-            IpAddr::from(self.multicast_address),
-            self.socket_address.port(),
-        );
-
-        tokio::spawn(async move {
-            while let Some((bytes, origin)) = receiver.recv().await {
-                // let data = message.build().await.unwrap();
-
-                socket_sender.send_to(&bytes, target).await.unwrap();
-            }
-        });
-
-        loop {
-            let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
-
-            let message = Message::from_bytes(&self.buffer[..bytes]).await?;
-
-            match message {
-                Message::Ack => println!("received ack!"),
-                Message::Failed => println!("received a failed member..."),
-                Message::Ping => println!("received ping!"),
-                Message::PingReq => println!(" received ping req!"),
-            }
-
-            println!("incoming bytes - {:?}", bytes);
-            println!("origin - {:?}", origin);
-
-            sender
-                .send((self.buffer[..bytes].to_vec(), origin))
-                .await
-                .unwrap();
-
-            // let len = socket.send_to(&self.buffer[..bytes], origin).await?;
-            // println!("{:?} bytes sent", len);
-
-            // println!(
-            //     "received {:?}",
-            //     String::from_utf8(self.buffer[..bytes].to_vec())?,
-            // );
-        }
-
         Ok(())
     }
 
-    async fn send_message(
-        &self,
-        message: Message,
-        socket: &UdpSocket,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let data = message.build().await?;
-        let target = SocketAddr::new(
-            IpAddr::from(self.multicast_address),
-            self.socket_address.port(),
-        );
+    // async fn send_message(
+    //     &self,
+    //     message: Message,
+    //     socket: &UdpSocket,
+    // ) -> Result<(), Box<dyn std::error::Error>> {
+    //     let data = message.build().await?;
+    //     let target = SocketAddr::new(
+    //         IpAddr::from(self.multicast_address),
+    //         self.socket_address.port(),
+    //     );
 
-        socket.send_to(data, target).await?;
+    //     socket.send_to(data, target).await?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]
@@ -223,22 +229,22 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let test_membership_communication =
-            MembershipCommunication::init(test_socket_address).await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn init() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+    //     let test_membership_communication =
+    //         MembershipCommunication::init(test_socket_address).await?;
 
-        assert!(test_membership_communication.socket_address.ip().is_ipv4());
-        assert_eq!(test_membership_communication.buffer, [0_u8; 1024]);
-        assert!(test_membership_communication
-            .multicast_address
-            .is_multicast());
-        assert_eq!(
-            test_membership_communication.multicast_interface,
-            Ipv4Addr::UNSPECIFIED,
-        );
+    //     assert!(test_membership_communication.socket_address.ip().is_ipv4());
+    //     assert_eq!(test_membership_communication.buffer, [0_u8; 1024]);
+    //     assert!(test_membership_communication
+    //         .multicast_address
+    //         .is_multicast());
+    //     assert_eq!(
+    //         test_membership_communication.multicast_interface,
+    //         Ipv4Addr::UNSPECIFIED,
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
