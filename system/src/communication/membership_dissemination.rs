@@ -44,7 +44,7 @@ impl Message {
     }
 }
 
-pub struct MembershipCommunication {
+pub struct MembershipDissemination {
     // socket_address: SocketAddr,
 // buffer: [u8; 1024],
 // multicast_address: Ipv4Addr,
@@ -52,16 +52,16 @@ pub struct MembershipCommunication {
 // dynamic_join: MembershipDynamicJoin,
 }
 
-impl MembershipCommunication {
+impl MembershipDissemination {
     pub async fn init(
         socket_address: SocketAddr,
-    ) -> Result<MembershipCommunication, Box<dyn std::error::Error>> {
+    ) -> Result<MembershipDissemination, Box<dyn std::error::Error>> {
         // let buffer = [0; 1024];
         // let multicast_address = Ipv4Addr::new(239, 0, 0, 1);
         // let multicast_interface = Ipv4Addr::from_str(socket_address.ip().to_string().as_str())?;
         // let dynamic_join = MembershipDynamicJoin::init(socket_address).await?;
 
-        Ok(MembershipCommunication {
+        Ok(MembershipDissemination {
             // socket_address,
             // buffer,
             // multicast_address,
