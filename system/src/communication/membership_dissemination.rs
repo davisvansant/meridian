@@ -85,7 +85,10 @@ impl MembershipDissemination {
                 Message::Ping => {
                     println!("received ping!");
 
-                    sender.send((Message::Ack, origin)).await?;
+                    // sender.send((Message::Ack, origin)).await?;
+                    let ack = Message::Ack.build().await?;
+
+                    socket_receiver.send_to(ack, origin).await?;
                 }
                 Message::PingReq => {
                     println!("received ping req!");
@@ -93,6 +96,10 @@ impl MembershipDissemination {
                     let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
 
                     sender.send((Message::Ping, suspected)).await?;
+
+                    let received_ack = Message::Ack.build().await?; // for now...
+
+                    socket_receiver.send_to(received_ack, origin).await?;
                 }
             }
         }
