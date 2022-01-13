@@ -82,8 +82,18 @@ impl MembershipDissemination {
 
             match message {
                 Message::Ack => println!("received ack!"),
-                Message::Ping => println!("received ping!"),
-                Message::PingReq => println!(" received ping req!"),
+                Message::Ping => {
+                    println!("received ping!");
+
+                    sender.send((Message::Ack, origin)).await?;
+                }
+                Message::PingReq => {
+                    println!("received ping req!");
+
+                    let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
+
+                    sender.send((Message::Ping, suspected)).await?;
+                }
             }
         }
 
@@ -99,10 +109,10 @@ impl MembershipDissemination {
         println!("socket -> {:?}", &socket);
         println!("remote address -> {:?}", &address);
 
-        let buffer = message.build().await?;
+        let data = message.build().await?;
 
         socket.connect(address).await?;
-        socket.send(buffer).await?;
+        socket.send(data).await?;
 
         Ok(())
     }
