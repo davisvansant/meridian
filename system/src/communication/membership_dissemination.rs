@@ -50,24 +50,25 @@ impl MembershipDissemination {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind(self.socket_address).await?;
 
-        let socket_receiver = Arc::new(socket);
-        let socket_sender = socket_receiver.clone();
+        let incoming_udp_message = Arc::new(socket);
+        let failure_detector_sender = incoming_udp_message.clone();
+        // let socket_sender = incoming_udp_message.clone();
 
-        let (sender, mut receiver) = mpsc::channel::<(Message, SocketAddr)>(64);
-        let failure_detector_sender = sender.clone();
+        // let (sender, mut receiver) = mpsc::channel::<(Message, SocketAddr)>(64);
+        // let failure_detector_sender = sender.clone();
 
-        tokio::spawn(async move {
-            while let Some((message, address)) = receiver.recv().await {
-                if let Err(error) =
-                    MembershipDissemination::send_message(message, &socket_sender, address).await
-                {
-                    println!(
-                        "error sending membership dissemination message -> {:?}",
-                        error,
-                    );
-                }
-            }
-        });
+        // tokio::spawn(async move {
+        //     while let Some((message, address)) = receiver.recv().await {
+        //         if let Err(error) =
+        //             MembershipDissemination::send_message(message, &socket_sender, address).await
+        //         {
+        //             println!(
+        //                 "error sending membership dissemination message -> {:?}",
+        //                 error,
+        //             );
+        //         }
+        //     }
+        // });
 
         tokio::spawn(async move {
             // set timer
@@ -76,13 +77,19 @@ impl MembershipDissemination {
             let random_member = SocketAddr::from_str("0.0.0.0:250200").unwrap(); //for now
             let ping = Message::Ping;
 
-            if let Err(error) = failure_detector_sender.send((ping, random_member)).await {
-                println!("error sending ping to random member...");
+            // if let Err(error) = failure_detector_sender.send((ping, random_member)).await {
+            //     println!("error sending ping to random member...");
+            // }
+            if let Err(error) =
+                MembershipDissemination::send_message(ping, &failure_detector_sender, random_member)
+                    .await
+            {
+                println!("error sending udp message {:?}", error);
             }
         });
 
         loop {
-            let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
+            let (bytes, origin) = incoming_udp_message.recv_from(&mut self.buffer).await?;
 
             println!("incoming bytes - {:?}", bytes);
             println!("origin - {:?}", origin);
@@ -97,18 +104,24 @@ impl MembershipDissemination {
                     // sender.send((Message::Ack, origin)).await?;
                     let ack = Message::Ack.build().await;
 
-                    socket_receiver.send_to(ack, origin).await?;
+                    incoming_udp_message.send_to(ack, origin).await?;
                 }
                 Message::PingReq => {
                     println!("received ping req!");
 
                     let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
 
-                    sender.send((Message::Ping, suspected)).await?;
+                    // sender.send((Message::Ping, suspected)).await?;
+                    MembershipDissemination::send_message(
+                        Message::Ping,
+                        &incoming_udp_message,
+                        suspected,
+                    )
+                    .await?;
 
                     let received_ack = Message::Ack.build().await; // for now...
 
-                    socket_receiver.send_to(received_ack, origin).await?;
+                    incoming_udp_message.send_to(received_ack, origin).await?;
                 }
             }
         }
