@@ -21,6 +21,8 @@ use crate::state::State;
 
 use crate::communication::membership::MembershipCommunication;
 
+use crate::communication::membership_dynamic_join::MembershipDynamicJoin;
+
 pub async fn launch(
     cluster_size: &str,
     peers: Vec<SocketAddr>,
@@ -180,6 +182,20 @@ pub async fn launch(
     });
 
     // -------------------------------------------------------------------------------------------
+    // |        init membership dynamic join
+    // -------------------------------------------------------------------------------------------
+    let membership_dynamic_join_socket_address = node.build_address(node.membership_port).await;
+
+    let mut membership_dynamic_join =
+        MembershipDynamicJoin::init(membership_dynamic_join_socket_address).await?;
+
+    let membership_dynamic_join_handle = tokio::spawn(async move {
+        if let Err(error) = membership_dynamic_join.run().await {
+            println!("error running membership dynamic join -> {:?}", error);
+        }
+    });
+
+    // -------------------------------------------------------------------------------------------
     // |        init cluster membership communication
     // -------------------------------------------------------------------------------------------
 
@@ -205,6 +221,7 @@ pub async fn launch(
         client_handle,
         rpc_communications_server_handle,
         membership_communication_handle,
+        membership_dynamic_join_handle,
     )?;
 
     Ok(())
