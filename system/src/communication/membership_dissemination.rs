@@ -13,24 +13,20 @@ pub enum Message {
 }
 
 impl Message {
-    pub async fn build(&self) -> Result<&[u8], Box<dyn std::error::Error>> {
-        let message = match self {
+    pub async fn build(&self) -> &[u8] {
+        match self {
             Message::Ack => "ack".as_bytes(),
             Message::Ping => "ping".as_bytes(),
             Message::PingReq => "ping-req".as_bytes(),
-        };
-
-        Ok(message)
+        }
     }
-    pub async fn from_bytes(bytes: &[u8]) -> Result<Message, Box<dyn std::error::Error>> {
-        let message = match bytes {
+    pub async fn from_bytes(bytes: &[u8]) -> Message {
+        match bytes {
             b"ack" => Message::Ack,
             b"ping" => Message::Ping,
             b"ping-req" => Message::PingReq,
             _ => panic!("cannot build requested bytes into message"),
-        };
-
-        Ok(message)
+        }
     }
 }
 
@@ -58,6 +54,7 @@ impl MembershipDissemination {
         let socket_sender = socket_receiver.clone();
 
         let (sender, mut receiver) = mpsc::channel::<(Message, SocketAddr)>(64);
+        let failure_detector_sender = sender.clone();
 
         tokio::spawn(async move {
             while let Some((message, address)) = receiver.recv().await {
@@ -72,13 +69,25 @@ impl MembershipDissemination {
             }
         });
 
+        tokio::spawn(async move {
+            // set timer
+            // choose random member
+
+            let random_member = SocketAddr::from_str("0.0.0.0:250200").unwrap(); //for now
+            let ping = Message::Ping;
+
+            if let Err(error) = failure_detector_sender.send((ping, random_member)).await {
+                println!("error sending ping to random member...");
+            }
+        });
+
         loop {
             let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
 
             println!("incoming bytes - {:?}", bytes);
             println!("origin - {:?}", origin);
 
-            let message = Message::from_bytes(&self.buffer[..bytes]).await?;
+            let message = Message::from_bytes(&self.buffer[..bytes]).await;
 
             match message {
                 Message::Ack => println!("received ack!"),
@@ -86,7 +95,7 @@ impl MembershipDissemination {
                     println!("received ping!");
 
                     // sender.send((Message::Ack, origin)).await?;
-                    let ack = Message::Ack.build().await?;
+                    let ack = Message::Ack.build().await;
 
                     socket_receiver.send_to(ack, origin).await?;
                 }
@@ -97,7 +106,7 @@ impl MembershipDissemination {
 
                     sender.send((Message::Ping, suspected)).await?;
 
-                    let received_ack = Message::Ack.build().await?; // for now...
+                    let received_ack = Message::Ack.build().await; // for now...
 
                     socket_receiver.send_to(received_ack, origin).await?;
                 }
@@ -116,7 +125,7 @@ impl MembershipDissemination {
         println!("socket -> {:?}", &socket);
         println!("remote address -> {:?}", &address);
 
-        let data = message.build().await?;
+        let data = message.build().await;
 
         socket.connect(address).await?;
         socket.send(data).await?;
@@ -131,7 +140,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_ack() -> Result<(), Box<dyn std::error::Error>> {
-        let test_message_ack = Message::Ack.build().await?;
+        let test_message_ack = Message::Ack.build().await;
 
         assert_eq!(test_message_ack, b"ack");
         assert_eq!(test_message_ack.len(), 3);
@@ -141,7 +150,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_ping() -> Result<(), Box<dyn std::error::Error>> {
-        let test_message_ping = Message::Ping.build().await?;
+        let test_message_ping = Message::Ping.build().await;
 
         assert_eq!(test_message_ping, b"ping");
         assert_eq!(test_message_ping.len(), 4);
@@ -151,7 +160,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_ping_req() -> Result<(), Box<dyn std::error::Error>> {
-        let test_message_ping_req = Message::PingReq.build().await?;
+        let test_message_ping_req = Message::PingReq.build().await;
 
         assert_eq!(test_message_ping_req, b"ping-req");
         assert_eq!(test_message_ping_req.len(), 8);
@@ -162,7 +171,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn message_from_ack_bytes() -> Result<(), Box<dyn std::error::Error>> {
         let test_ack_bytes = b"ack"; //bar
-        let test_message_ack = Message::from_bytes(test_ack_bytes).await?;
+        let test_message_ack = Message::from_bytes(test_ack_bytes).await;
 
         assert_eq!(test_message_ack, Message::Ack);
 
@@ -172,7 +181,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn message_from_ping_bytes() -> Result<(), Box<dyn std::error::Error>> {
         let test_ping_bytes = b"ping";
-        let test_message_ping = Message::from_bytes(test_ping_bytes).await?;
+        let test_message_ping = Message::from_bytes(test_ping_bytes).await;
 
         assert_eq!(test_message_ping, Message::Ping);
 
@@ -182,7 +191,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn message_from_ping_req_bytes() -> Result<(), Box<dyn std::error::Error>> {
         let test_ping_req_bytes = b"ping-req";
-        let test_message_ping_req = Message::from_bytes(test_ping_req_bytes).await?;
+        let test_message_ping_req = Message::from_bytes(test_ping_req_bytes).await;
 
         assert_eq!(test_message_ping_req, Message::PingReq);
 
