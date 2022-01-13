@@ -73,9 +73,10 @@ impl MembershipDissemination {
         });
 
         loop {
-            let bytes = socket_receiver.recv(&mut self.buffer).await?;
+            let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
 
             println!("incoming bytes - {:?}", bytes);
+            println!("origin - {:?}", origin);
 
             let message = Message::from_bytes(&self.buffer[..bytes]).await?;
 
