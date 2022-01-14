@@ -162,8 +162,7 @@ impl MembershipDissemination {
 
         let data = message.build().await;
 
-        socket.connect(address).await?;
-        socket.send(data).await?;
+        socket.send_to(data, address).await?;
 
         Ok(())
     }
