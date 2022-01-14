@@ -30,6 +30,35 @@ impl Message {
     }
 }
 
+enum Suspicion {
+    Alive,
+    Confirm,
+    Suspect,
+}
+
+struct GroupMember {
+    suspicion: Suspicion,
+    incarnation: u32,
+}
+
+impl GroupMember {
+    async fn init() -> GroupMember {
+        let suspicion = Suspicion::Alive;
+        let incarnation = 0;
+
+        GroupMember {
+            suspicion,
+            incarnation,
+        }
+    }
+
+    async fn mark_suspicison(&mut self, suspicion: Suspicion) {
+        self.suspicion = suspicion;
+
+        self.incarnation += 1
+    }
+}
+
 pub struct MembershipDissemination {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
