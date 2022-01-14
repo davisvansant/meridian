@@ -51,7 +51,7 @@ impl MembershipDissemination {
         let socket = UdpSocket::bind(self.socket_address).await?;
 
         let incoming_udp_message = Arc::new(socket);
-        let failure_detector_sender = incoming_udp_message.clone();
+        let failure_detector = incoming_udp_message.clone();
         // let socket_sender = incoming_udp_message.clone();
 
         // let (sender, mut receiver) = mpsc::channel::<(Message, SocketAddr)>(64);
@@ -73,18 +73,40 @@ impl MembershipDissemination {
         tokio::spawn(async move {
             // set timer
             // choose random member
+            let mut attemps = 0;
 
-            let random_member = SocketAddr::from_str("0.0.0.0:250200").unwrap(); //for now
-            let ping = Message::Ping;
+            while attemps <= 2 {
+                let random_member = SocketAddr::from_str("0.0.0.0:250200").unwrap(); //for now
+                let ping = Message::Ping;
 
-            // if let Err(error) = failure_detector_sender.send((ping, random_member)).await {
-            //     println!("error sending ping to random member...");
-            // }
-            if let Err(error) =
-                MembershipDissemination::send_message(ping, &failure_detector_sender, random_member)
+                match MembershipDissemination::send_message(ping, &failure_detector, random_member)
                     .await
-            {
-                println!("error sending udp message {:?}", error);
+                {
+                    Ok(()) => {
+                        println!("member is alive!");
+
+                        break;
+                    }
+                    Err(error) => {
+                        println!("error receiving ping from member -> {:?}", error);
+                        println!("sending ping-req to another member to check...");
+                    }
+                }
+
+                let another_member = SocketAddr::from_str("0.0.0.0:250202").unwrap(); //for now
+                let ping_req = Message::PingReq;
+
+                if let Err(error) = MembershipDissemination::send_message(
+                    ping_req,
+                    &failure_detector,
+                    another_member,
+                )
+                .await
+                {
+                    println!("error sening ping-req to {:}, {:?}", another_member, error);
+                }
+
+                attemps += 1;
             }
         });
 
