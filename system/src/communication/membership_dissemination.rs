@@ -52,23 +52,6 @@ impl MembershipDissemination {
 
         let incoming_udp_message = Arc::new(socket);
         let failure_detector = incoming_udp_message.clone();
-        // let socket_sender = incoming_udp_message.clone();
-
-        // let (sender, mut receiver) = mpsc::channel::<(Message, SocketAddr)>(64);
-        // let failure_detector_sender = sender.clone();
-
-        // tokio::spawn(async move {
-        //     while let Some((message, address)) = receiver.recv().await {
-        //         if let Err(error) =
-        //             MembershipDissemination::send_message(message, &socket_sender, address).await
-        //         {
-        //             println!(
-        //                 "error sending membership dissemination message -> {:?}",
-        //                 error,
-        //             );
-        //         }
-        //     }
-        // });
 
         tokio::spawn(async move {
             // set timer
