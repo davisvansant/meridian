@@ -243,4 +243,41 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn send_message() -> Result<(), Box<dyn std::error::Error>> {
+        let test_message = Message::Ping;
+        let test_local_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+        let test_remote_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8889);
+
+        let test_receiver = tokio::spawn(async move {
+            let test_remote_socket = UdpSocket::bind(test_remote_socket_address).await.unwrap();
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_remote_socket
+                .recv_from(&mut test_buffer)
+                .await
+                .unwrap();
+
+            let test_data = Message::from_bytes(&test_buffer[..test_bytes]).await;
+
+            assert_eq!(test_data, Message::Ping);
+            assert_eq!(test_origin.to_string().as_str(), "127.0.0.1:8888");
+        });
+
+        let test_local_socket = UdpSocket::bind(test_local_socket_address).await?;
+
+        MembershipDissemination::send_message(
+            Message::Ping,
+            &test_local_socket,
+            test_remote_socket_address,
+        )
+        .await?;
+
+        assert!(test_receiver.await.is_ok());
+
+        Ok(())
+    }
 }
