@@ -62,6 +62,8 @@ impl GroupMember {
 pub struct MembershipDissemination {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
+    suspected: Vec<SocketAddr>,
+    confirmed: Vec<SocketAddr>,
 }
 
 impl MembershipDissemination {
@@ -69,10 +71,14 @@ impl MembershipDissemination {
         socket_address: SocketAddr,
     ) -> Result<MembershipDissemination, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
+        let suspected = Vec::with_capacity(10);
+        let confirmed = Vec::with_capacity(10);
 
         Ok(MembershipDissemination {
             socket_address,
             buffer,
+            suspected,
+            confirmed,
         })
     }
 
@@ -252,6 +258,8 @@ mod tests {
 
         assert!(test_membership_dissemination.socket_address.ip().is_ipv4());
         assert_eq!(test_membership_dissemination.buffer, [0_u8; 1024]);
+        assert!(test_membership_dissemination.suspected.is_empty());
+        assert!(test_membership_dissemination.confirmed.is_empty());
 
         Ok(())
     }
