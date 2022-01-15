@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -62,8 +63,8 @@ impl GroupMember {
 pub struct MembershipDissemination {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
-    suspected: Vec<SocketAddr>,
-    confirmed: Vec<SocketAddr>,
+    suspected: HashMap<SocketAddr, GroupMember>,
+    confirmed: HashMap<SocketAddr, GroupMember>,
 }
 
 impl MembershipDissemination {
@@ -71,8 +72,8 @@ impl MembershipDissemination {
         socket_address: SocketAddr,
     ) -> Result<MembershipDissemination, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
-        let suspected = Vec::with_capacity(10);
-        let confirmed = Vec::with_capacity(10);
+        let suspected = HashMap::with_capacity(10);
+        let confirmed = HashMap::with_capacity(10);
 
         Ok(MembershipDissemination {
             socket_address,
