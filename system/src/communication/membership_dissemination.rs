@@ -31,12 +31,14 @@ impl Message {
     }
 }
 
+#[derive(Debug)]
 enum Suspicion {
     Alive,
     Confirm,
     Suspect,
 }
 
+#[derive(Debug)]
 struct GroupMember {
     suspicion: Suspicion,
     incarnation: u32,
@@ -53,8 +55,16 @@ impl GroupMember {
         }
     }
 
-    async fn mark_suspicison(&mut self, suspicion: Suspicion) {
-        self.suspicion = suspicion;
+    async fn alive(&mut self) {
+        self.suspicion = Suspicion::Alive
+    }
+
+    async fn confirm(&mut self) {
+        self.suspicion = Suspicion::Confirm
+    }
+
+    async fn suspect(&mut self) {
+        self.suspicion = Suspicion::Suspect;
 
         self.incarnation += 1
     }
@@ -168,6 +178,32 @@ impl MembershipDissemination {
         }
 
         Ok(())
+    }
+
+    async fn add_confirmed(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
+        println!(
+            "adding socket address {:?} as suspect {:?}",
+            &socket_address, &group_member,
+        );
+
+        if let Some(new_confirmed) = self.confirmed.insert(socket_address, group_member) {
+            println!("already marked as confirmed!");
+        } else {
+            println!("suspected confirmed!");
+        }
+    }
+
+    async fn add_suspect(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
+        println!(
+            "adding socket address {:?} as suspect {:?}",
+            &socket_address, &group_member,
+        );
+
+        if let Some(new_suspect) = self.suspected.insert(socket_address, group_member) {
+            println!("already marked as suspect!");
+        } else {
+            println!("suspected updated!");
+        }
     }
 
     async fn send_message(
