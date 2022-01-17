@@ -221,6 +221,18 @@ impl MembershipDissemination {
 
         Ok(())
     }
+
+    async fn remove_confirmed(&mut self, socket_address: &SocketAddr) {
+        if let Some(remove_confirmed) = self.confirmed.remove(socket_address) {
+            println!("removed from confirmed group - > {:?}", remove_confirmed);
+        }
+    }
+
+    async fn remove_suspected(&mut self, socket_address: &SocketAddr) {
+        if let Some(remove_suspected) = self.suspected.remove(socket_address) {
+            println!("removed from suspected group - > {:?}", remove_suspected);
+        }
+    }
 }
 
 #[cfg(test)]
