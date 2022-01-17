@@ -96,85 +96,47 @@ impl MembershipDissemination {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind(self.socket_address).await?;
 
-        let incoming_udp_message = Arc::new(socket);
-        let failure_detector = incoming_udp_message.clone();
+        // let incoming_udp_message = Arc::new(socket);
+        let incoming_udp_socket = Arc::new(socket);
+        let failure_detector = incoming_udp_socket.clone();
+        // let failure_detector = incoming_udp_message.clone();
+
+        let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
 
         tokio::spawn(async move {
-            // set timer
-            // choose random member
             let mut attemps = 0;
 
             while attemps <= 2 {
-                let random_member = SocketAddr::from_str("0.0.0.0:250200").unwrap(); //for now
-                let ping = Message::Ping;
-
-                match MembershipDissemination::send_message(ping, &failure_detector, random_member)
-                    .await
+                if let Err(error) =
+                    MembershipDissemination::send_udp_message(&failure_detector).await
                 {
-                    Ok(()) => {
-                        println!("member is alive!");
-
-                        break;
-                    }
-                    Err(error) => {
-                        println!("error receiving ping from member -> {:?}", error);
-                        println!("sending ping-req to another member to check...");
-                    }
-                }
-
-                let another_member = SocketAddr::from_str("0.0.0.0:250202").unwrap(); //for now
-                let ping_req = Message::PingReq;
-
-                if let Err(error) = MembershipDissemination::send_message(
-                    ping_req,
-                    &failure_detector,
-                    another_member,
-                )
-                .await
-                {
-                    println!("error sening ping-req to {:}, {:?}", another_member, error);
+                    println!("error sending udp message -> {:?}", error);
                 }
 
                 attemps += 1;
             }
         });
 
-        loop {
-            let (bytes, origin) = incoming_udp_message.recv_from(&mut self.buffer).await?;
+        let mut buffer = self.buffer;
 
-            println!("incoming bytes - {:?}", bytes);
-            println!("origin - {:?}", origin);
+        tokio::spawn(async move {
+            let mut attemps = 0;
 
-            let message = Message::from_bytes(&self.buffer[..bytes]).await;
-
-            match message {
-                Message::Ack => println!("received ack!"),
-                Message::Ping => {
-                    println!("received ping!");
-
-                    // sender.send((Message::Ack, origin)).await?;
-                    let ack = Message::Ack.build().await;
-
-                    incoming_udp_message.send_to(ack, origin).await?;
+            while attemps <= 5 {
+                if let Err(error) =
+                    MembershipDissemination::receive_udp_message(&incoming_udp_socket, &mut buffer)
+                        .await
+                {
+                    println!("error receiving udp message -> {:?}", error);
                 }
-                Message::PingReq => {
-                    println!("received ping req!");
 
-                    let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
-
-                    // sender.send((Message::Ping, suspected)).await?;
-                    MembershipDissemination::send_message(
-                        Message::Ping,
-                        &incoming_udp_message,
-                        suspected,
-                    )
-                    .await?;
-
-                    let received_ack = Message::Ack.build().await; // for now...
-
-                    incoming_udp_message.send_to(received_ack, origin).await?;
-                }
+                attemps += 1;
             }
+        });
+
+        while let Some((bytes, origin)) = rx.recv().await {
+            println!("do stuff with bytes");
+            println!("do stuff with origin");
         }
 
         Ok(())
@@ -232,6 +194,70 @@ impl MembershipDissemination {
         if let Some(remove_suspected) = self.suspected.remove(socket_address) {
             println!("removed from suspected group - > {:?}", remove_suspected);
         }
+    }
+
+    async fn receive_udp_message(
+        incoming: &UdpSocket,
+        buffer: &mut [u8; 1024],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (bytes, origin) = incoming.recv_from(buffer).await?;
+
+        println!("incoming bytes - {:?}", bytes);
+        println!("origin - {:?}", origin);
+
+        let message = Message::from_bytes(&buffer[..bytes]).await;
+
+        match message {
+            Message::Ack => println!("received ack!"),
+            Message::Ping => {
+                println!("received ping!");
+
+                // sender.send((Message::Ack, origin)).await?;
+                let ack = Message::Ack.build().await;
+
+                incoming.send_to(ack, origin).await?;
+            }
+            Message::PingReq => {
+                println!("received ping req!");
+
+                let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
+
+                // sender.send((Message::Ping, suspected)).await?;
+                MembershipDissemination::send_message(Message::Ping, &incoming, suspected).await?;
+
+                let received_ack = Message::Ack.build().await; // for now...
+
+                incoming.send_to(received_ack, origin).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn send_udp_message(
+        failure_detector: &UdpSocket,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let random_member = SocketAddr::from_str("0.0.0.0:250200")?;
+        let ping = Message::Ping;
+
+        match MembershipDissemination::send_message(ping, &failure_detector, random_member).await {
+            Ok(()) => {
+                println!("member is alive!");
+
+                return Ok(());
+            }
+            Err(error) => {
+                println!("error receiving ping from member -> {:?}", error);
+                println!("sending ping-req to another member...");
+            }
+        }
+
+        let another_member = SocketAddr::from_str("0.0.0.0:250202")?; //for now
+        let ping_req = Message::PingReq;
+
+        MembershipDissemination::send_message(ping_req, &failure_detector, another_member).await?;
+
+        Ok(())
     }
 }
 
