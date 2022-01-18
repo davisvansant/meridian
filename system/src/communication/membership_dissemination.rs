@@ -31,7 +31,7 @@ impl Message {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Suspicion {
     Alive,
     Confirm,
@@ -321,6 +321,16 @@ mod tests {
         let test_message_ping_req = Message::from_bytes(test_ping_req_bytes).await;
 
         assert_eq!(test_message_ping_req, Message::PingReq);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn group_member_init() -> Result<(), Box<dyn std::error::Error>> {
+        let test_group_member = GroupMember::init().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
+        assert_eq!(test_group_member.incarnation, 0);
 
         Ok(())
     }
