@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
+use tokio::time::timeout_at;
+use tokio::time::Instant;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
@@ -108,7 +111,7 @@ impl MembershipDissemination {
 
             while attemps <= 2 {
                 if let Err(error) =
-                    MembershipDissemination::send_udp_message(&failure_detector).await
+                    MembershipDissemination::failure_detector(&failure_detector).await
                 {
                     println!("error sending udp message -> {:?}", error);
                 }
@@ -234,25 +237,35 @@ impl MembershipDissemination {
         Ok(())
     }
 
-    async fn send_udp_message(
+    async fn failure_detector(
         failure_detector: &UdpSocket,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let random_member = SocketAddr::from_str("0.0.0.0:250200")?;
-        let ping = Message::Ping;
+        let random_member = SocketAddr::from_str("127.0.0.1:25200")?;
+        // let ping = Message::Ping;
+        let ping = Message::Ping.build().await;
 
-        match MembershipDissemination::send_message(ping, &failure_detector, random_member).await {
-            Ok(()) => {
+        let mut buffer = [0; 1024];
+
+        failure_detector.send_to(ping, random_member).await?;
+
+        let receive_ack = failure_detector.recv_from(&mut buffer);
+
+        match timeout_at(Instant::now() + Duration::from_secs(2), receive_ack).await {
+            Ok(Ok((bytes, remote_origin))) => {
                 println!("member is alive!");
+                println!("received bytes -> {:?}", bytes);
+                println!("origin -> {:?}", remote_origin);
 
                 return Ok(());
             }
+            Ok(Err(error)) => println!("error sending ping -> {:?}", error),
             Err(error) => {
-                println!("error receiving ping from member -> {:?}", error);
+                println!("error receiving ack -> {:?}", error);
                 println!("sending ping-req to another member...");
             }
         }
 
-        let another_member = SocketAddr::from_str("0.0.0.0:250202")?; //for now
+        let another_member = SocketAddr::from_str("127.0.0.1:25202")?; //for now
         let ping_req = Message::PingReq;
 
         MembershipDissemination::send_message(ping_req, &failure_detector, another_member).await?;
@@ -428,6 +441,91 @@ mod tests {
             .await;
 
         assert_eq!(test_membership_dissemination.suspected.len(), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failure_detector_ack() -> Result<(), Box<dyn std::error::Error>> {
+        let test_remote_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25200);
+
+        let test_receiver = tokio::spawn(async move {
+            let test_remote_socket = UdpSocket::bind(test_remote_socket_address).await.unwrap();
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_remote_socket
+                .recv_from(&mut test_buffer)
+                .await
+                .unwrap();
+
+            let test_ack = Message::Ack.build().await;
+
+            test_remote_socket
+                .send_to(test_ack, test_origin)
+                .await
+                .unwrap();
+
+            let test_data = Message::from_bytes(&test_buffer[..test_bytes]).await;
+
+            assert_eq!(test_data, Message::Ping);
+            assert_eq!(test_origin.to_string().as_str(), "127.0.0.1:8888");
+        });
+
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        let test_socket = UdpSocket::bind(test_membership_dissemination.socket_address).await?;
+        let test_failure_detector = MembershipDissemination::failure_detector(&test_socket).await;
+
+        assert!(test_receiver.await.is_ok());
+        assert!(test_failure_detector.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failure_detector_ping_req() -> Result<(), Box<dyn std::error::Error>> {
+        let test_remote_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25202);
+
+        let test_receiver = tokio::spawn(async move {
+            let test_remote_socket = UdpSocket::bind(test_remote_socket_address).await.unwrap();
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_remote_socket
+                .recv_from(&mut test_buffer)
+                .await
+                .unwrap();
+
+            let test_ping = Message::Ping.build().await;
+
+            let test_failed_remote_socket_address =
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25200);
+
+            test_remote_socket
+                .send_to(test_ping, test_failed_remote_socket_address)
+                .await
+                .unwrap();
+
+            let test_receive_ack = test_remote_socket.recv_from(&mut test_buffer);
+            let test_timeout =
+                timeout_at(Instant::now() + Duration::from_secs(2), test_receive_ack).await;
+
+            assert!(test_timeout.is_err());
+        });
+
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        let test_socket = UdpSocket::bind(test_membership_dissemination.socket_address).await?;
+
+        let test_failure_detector = MembershipDissemination::failure_detector(&test_socket).await;
+
+        assert!(test_receiver.await.is_ok());
+        assert!(test_failure_detector.is_ok());
 
         Ok(())
     }
