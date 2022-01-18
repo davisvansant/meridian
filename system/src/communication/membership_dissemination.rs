@@ -250,7 +250,7 @@ impl MembershipDissemination {
 
         let receive_ack = failure_detector.recv_from(&mut buffer);
 
-        match timeout_at(Instant::now() + Duration::from_secs(2), receive_ack).await {
+        match timeout_at(Instant::now() + Duration::from_secs(1), receive_ack).await {
             Ok(Ok((bytes, remote_origin))) => {
                 println!("member is alive!");
                 println!("received bytes -> {:?}", bytes);
@@ -269,6 +269,28 @@ impl MembershipDissemination {
         let ping_req = Message::PingReq;
 
         MembershipDissemination::send_message(ping_req, &failure_detector, another_member).await?;
+
+        let receive_ping_req_ack = failure_detector.recv_from(&mut buffer);
+
+        match timeout_at(
+            Instant::now() + Duration::from_secs(1),
+            receive_ping_req_ack,
+        )
+        .await
+        {
+            Ok(Ok((bytes, remote_origin))) => {
+                println!("member is alive!");
+                println!("received bytes -> {:?}", bytes);
+                println!("origin -> {:?}", remote_origin);
+
+                return Ok(());
+            }
+            Ok(Err(error)) => println!("error sending ping-req -> {:?}", error),
+            Err(error) => {
+                println!("error receiving ack -> {:?}", error);
+                println!("no ack received from member -> {:?}", &another_member);
+            }
+        }
 
         Ok(())
     }
