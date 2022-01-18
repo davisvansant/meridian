@@ -393,6 +393,46 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn add_confirmed() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+        let mut test_group_member = GroupMember::init().await;
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        assert!(test_membership_dissemination.confirmed.is_empty());
+
+        test_group_member.confirm().await;
+
+        test_membership_dissemination
+            .add_confirmed(test_socket_address, test_group_member)
+            .await;
+
+        assert_eq!(test_membership_dissemination.confirmed.len(), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn add_suspected() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+        let mut test_group_member = GroupMember::init().await;
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        assert!(test_membership_dissemination.suspected.is_empty());
+
+        test_group_member.suspect().await;
+
+        test_membership_dissemination
+            .add_suspect(test_socket_address, test_group_member)
+            .await;
+
+        assert_eq!(test_membership_dissemination.suspected.len(), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn send_message() -> Result<(), Box<dyn std::error::Error>> {
         let test_message = Message::Ping;
         let test_local_socket_address =
@@ -425,6 +465,58 @@ mod tests {
         .await?;
 
         assert!(test_receiver.await.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn remove_confirmed() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+        let mut test_group_member = GroupMember::init().await;
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        assert!(test_membership_dissemination.confirmed.is_empty());
+
+        test_group_member.confirm().await;
+
+        test_membership_dissemination
+            .add_confirmed(test_socket_address, test_group_member)
+            .await;
+
+        assert_eq!(test_membership_dissemination.confirmed.len(), 1);
+
+        test_membership_dissemination
+            .remove_confirmed(&test_socket_address)
+            .await;
+
+        assert_eq!(test_membership_dissemination.confirmed.len(), 0);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn remove_suspect() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+        let mut test_group_member = GroupMember::init().await;
+        let mut test_membership_dissemination =
+            MembershipDissemination::init(test_socket_address).await?;
+
+        assert!(test_membership_dissemination.suspected.is_empty());
+
+        test_group_member.suspect().await;
+
+        test_membership_dissemination
+            .add_suspect(test_socket_address, test_group_member)
+            .await;
+
+        assert_eq!(test_membership_dissemination.suspected.len(), 1);
+
+        test_membership_dissemination
+            .remove_suspected(&test_socket_address)
+            .await;
+
+        assert_eq!(test_membership_dissemination.suspected.len(), 0);
 
         Ok(())
     }
