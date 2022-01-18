@@ -336,6 +336,49 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn group_member_alive() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_group_member = GroupMember::init().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
+
+        test_group_member.suspicion = Suspicion::Confirm;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Confirm);
+
+        test_group_member.alive().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn group_member_confirm() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_group_member = GroupMember::init().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
+
+        test_group_member.confirm().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Confirm);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn group_member_suspect() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_group_member = GroupMember::init().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
+
+        test_group_member.suspect().await;
+
+        assert_eq!(test_group_member.suspicion, Suspicion::Suspect);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let test_membership_dissemination =
