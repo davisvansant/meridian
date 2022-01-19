@@ -9,6 +9,10 @@ use tokio::sync::mpsc;
 use tokio::time::timeout_at;
 use tokio::time::Instant;
 
+mod suspicion;
+
+use suspicion::GroupMember;
+
 #[derive(Debug, PartialEq)]
 pub enum Message {
     Ack,
@@ -31,45 +35,6 @@ impl Message {
             b"ping-req" => Message::PingReq,
             _ => panic!("cannot build requested bytes into message"),
         }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum Suspicion {
-    Alive,
-    Confirm,
-    Suspect,
-}
-
-#[derive(Debug)]
-struct GroupMember {
-    suspicion: Suspicion,
-    incarnation: u32,
-}
-
-impl GroupMember {
-    async fn init() -> GroupMember {
-        let suspicion = Suspicion::Alive;
-        let incarnation = 0;
-
-        GroupMember {
-            suspicion,
-            incarnation,
-        }
-    }
-
-    async fn alive(&mut self) {
-        self.suspicion = Suspicion::Alive
-    }
-
-    async fn confirm(&mut self) {
-        self.suspicion = Suspicion::Confirm
-    }
-
-    async fn suspect(&mut self) {
-        self.suspicion = Suspicion::Suspect;
-
-        self.incarnation += 1
     }
 }
 
@@ -99,10 +64,8 @@ impl MembershipMaintenance {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind(self.socket_address).await?;
 
-        // let incoming_udp_message = Arc::new(socket);
         let incoming_udp_socket = Arc::new(socket);
         let failure_detector = incoming_udp_socket.clone();
-        // let failure_detector = incoming_udp_message.clone();
 
         let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
 
@@ -150,8 +113,8 @@ impl MembershipMaintenance {
             &socket_address, &group_member,
         );
 
-        if let Some(new_confirmed) = self.confirmed.insert(socket_address, group_member) {
-            println!("already marked as confirmed!");
+        if let Some(value) = self.confirmed.insert(socket_address, group_member) {
+            println!("updated confirmed group member -> {:?}", value);
         } else {
             println!("suspected confirmed!");
         }
@@ -163,8 +126,8 @@ impl MembershipMaintenance {
             &socket_address, &group_member,
         );
 
-        if let Some(new_suspect) = self.suspected.insert(socket_address, group_member) {
-            println!("already marked as suspect!");
+        if let Some(value) = self.suspected.insert(socket_address, group_member) {
+            println!("updated suspected member group -> {:?}", value);
         } else {
             println!("suspected updated!");
         }
@@ -360,59 +323,6 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn group_member_init() -> Result<(), Box<dyn std::error::Error>> {
-        let test_group_member = GroupMember::init().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
-        assert_eq!(test_group_member.incarnation, 0);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn group_member_alive() -> Result<(), Box<dyn std::error::Error>> {
-        let mut test_group_member = GroupMember::init().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
-
-        test_group_member.suspicion = Suspicion::Confirm;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Confirm);
-
-        test_group_member.alive().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn group_member_confirm() -> Result<(), Box<dyn std::error::Error>> {
-        let mut test_group_member = GroupMember::init().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
-
-        test_group_member.confirm().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Confirm);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn group_member_suspect() -> Result<(), Box<dyn std::error::Error>> {
-        let mut test_group_member = GroupMember::init().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Alive);
-
-        test_group_member.suspect().await;
-
-        assert_eq!(test_group_member.suspicion, Suspicion::Suspect);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
@@ -493,8 +403,7 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
+        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
 
         let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
         let test_failure_detector = MembershipMaintenance::failure_detector(&test_socket).await;
@@ -514,7 +423,7 @@ mod tests {
             let test_remote_socket = UdpSocket::bind(test_remote_socket_address).await.unwrap();
             let mut test_buffer = [0; 1024];
 
-            let (test_bytes, test_origin) = test_remote_socket
+            let (_test_bytes, _test_origin) = test_remote_socket
                 .recv_from(&mut test_buffer)
                 .await
                 .unwrap();
@@ -537,8 +446,7 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
+        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
 
         let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
 
@@ -552,7 +460,6 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn send_message() -> Result<(), Box<dyn std::error::Error>> {
-        let test_message = Message::Ping;
         let test_local_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
         let test_remote_socket_address =
