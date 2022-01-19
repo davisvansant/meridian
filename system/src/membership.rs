@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use uuid::Uuid;
 
-use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
+use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
 
 #[derive(Clone, Debug, PartialEq)]

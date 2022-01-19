@@ -13,7 +13,7 @@ use crate::membership::{ClusterSize, Membership};
 
 use crate::node::Node;
 
-use crate::rpc::{Client, Data, Interface, Server};
+use crate::rpc::{Client, Interface, Server};
 
 use crate::server::Server as SystemServer;
 
@@ -39,14 +39,14 @@ pub async fn launch(
     // |         init internal rpc client channel
     // -------------------------------------------------------------------------------------------
 
-    let (rpc_client_sender, mut rpc_client_receiver) =
+    let (rpc_client_sender, rpc_client_receiver) =
         mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
 
     // -------------------------------------------------------------------------------------------
     // |        init membership channel
     // -------------------------------------------------------------------------------------------
 
-    let (membership_sender, mut membership_receiver) =
+    let (membership_sender, membership_receiver) =
         mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
 
     let preflight_membership_sender = membership_sender.to_owned();
@@ -75,7 +75,7 @@ pub async fn launch(
     // |        init state transition channel
     // -------------------------------------------------------------------------------------------
 
-    let (tx, mut rx) = broadcast::channel::<ServerState>(64);
+    let (tx, rx) = broadcast::channel::<ServerState>(64);
 
     let client_transition_sender = tx.clone();
     let rpc_communications_server_transition_sender = tx.clone();
@@ -85,14 +85,14 @@ pub async fn launch(
     // |        init server candidate transition channel
     // -------------------------------------------------------------------------------------------
 
-    let (candidate_sender, mut candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
+    let (candidate_sender, candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init server leader heartbeat channel
     // -------------------------------------------------------------------------------------------
 
-    let (leader_sender, mut leader_receiver) = mpsc::channel::<Leader>(64);
+    let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
 
     // -------------------------------------------------------------------------------------------
     // |        init membership

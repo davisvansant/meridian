@@ -1,19 +1,19 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use uuid::Uuid;
 
-use crate::rpc::{build_ip_address, build_socket_address, build_tcp_socket};
+use crate::rpc::{build_ip_address, build_tcp_socket};
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
 use crate::rpc::{Data, Interface, Node};
 
 use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
 use crate::channel::{MembershipSender, StateSender};
-use crate::channel::{ServerSender, ServerState};
+// use crate::channel::{ServerSender, ServerState};
 
 use crate::channel::{Leader, LeaderSender};
 

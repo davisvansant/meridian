@@ -204,7 +204,7 @@ impl Data {
             Data::StatusRequest => {
                 flexbuffers_data.push("data", "status");
 
-                let mut details = flexbuffers_data.start_map("details");
+                let details = flexbuffers_data.start_map("details");
 
                 details.end_map();
 

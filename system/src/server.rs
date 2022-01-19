@@ -1,5 +1,7 @@
-use tokio::sync::{broadcast, mpsc};
-use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
+// use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
+// use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
+use tokio::time::{sleep, Duration};
 
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -68,7 +70,7 @@ impl Server {
         // let mut candidate_receiver = sender.subscribe();
         // let mut follower_receiver = tx.clone();
         // let mut candidate_receiver = tx.clone();
-        let mut follower_receiver = self.tx.to_owned().subscribe();
+        let follower_receiver = self.tx.to_owned().subscribe();
         let mut rx = self.tx.to_owned().subscribe();
         // let mut candidate_receiver = tx.subscribe();
         let candidate_sender = self.candidate_sender.to_owned();
@@ -102,7 +104,7 @@ impl Server {
 
                         if let Err(error) = candidate_sender.send(CandidateTransition::Leader).await
                         {
-                            println!("error sending transition...");
+                            println!("error sending transition... {:?}", error);
                         }
 
                         if let Err(error) = sender.send(ServerState::Leader) {

@@ -1,8 +1,8 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::ServerReceiver;
+// use crate::channel::ServerReceiver;
 use crate::channel::{Leader, LeaderReceiver};
-use crate::server::ServerState;
+// use crate::server::ServerState;
 
 pub struct Follower {
     pub election_timeout: Duration,

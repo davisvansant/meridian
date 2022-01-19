@@ -69,7 +69,7 @@ impl MembershipDynamicJoin {
             while attempts <= 2 {
                 println!("sending join request to target -> {:?}", target);
                 if let Err(error) = socket_sender.send_to(join, target).await {
-                    println!("error sending join UDP multicast request!");
+                    println!("error sending join UDP multicast request -> {:?}", error);
                 }
 
                 attempts += 1;

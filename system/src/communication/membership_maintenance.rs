@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -188,7 +189,7 @@ impl MembershipMaintenance {
                 let suspected = SocketAddr::from_str("127.0.0.1:25055")?;
 
                 // sender.send((Message::Ping, suspected)).await?;
-                MembershipMaintenance::send_message(Message::Ping, &incoming, suspected).await?;
+                MembershipMaintenance::send_message(Message::Ping, incoming, suspected).await?;
 
                 let received_ack = Message::Ack.build().await; // for now...
 
@@ -230,7 +231,7 @@ impl MembershipMaintenance {
         let another_member = SocketAddr::from_str("127.0.0.1:25202")?; //for now
         let ping_req = Message::PingReq;
 
-        MembershipMaintenance::send_message(ping_req, &failure_detector, another_member).await?;
+        MembershipMaintenance::send_message(ping_req, failure_detector, another_member).await?;
 
         let receive_ping_req_ack = failure_detector.recv_from(&mut buffer);
 
@@ -261,6 +262,7 @@ impl MembershipMaintenance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_ack() -> Result<(), Box<dyn std::error::Error>> {
@@ -550,7 +552,7 @@ mod tests {
     async fn receive_udp_message_ping() -> Result<(), Box<dyn std::error::Error>> {
         let test_receiver_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let mut test_receiver_membership_maintenance =
+        let test_receiver_membership_maintenance =
             MembershipMaintenance::init(test_receiver_socket_address).await?;
 
         let test_receiver = tokio::spawn(async move {

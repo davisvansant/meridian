@@ -1,7 +1,5 @@
 use tokio::sync::{mpsc, oneshot};
 
-use crate::node::Node;
-
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
 use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
 
