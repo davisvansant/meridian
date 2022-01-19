@@ -545,4 +545,51 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn receive_udp_message_ping() -> Result<(), Box<dyn std::error::Error>> {
+        let test_receiver_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+        let mut test_receiver_membership_maintenance =
+            MembershipMaintenance::init(test_receiver_socket_address).await?;
+
+        let test_receiver = tokio::spawn(async move {
+            let test_receiver_socket = UdpSocket::bind(test_receiver_socket_address).await.unwrap();
+            let mut test_receiver_buffer = test_receiver_membership_maintenance.buffer;
+
+            let test_receive_ack = MembershipMaintenance::receive_udp_message(
+                &test_receiver_socket,
+                &mut test_receiver_buffer,
+            )
+            .await;
+
+            assert!(test_receive_ack.is_ok());
+        });
+
+        let test_sender_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8889);
+        let mut test_sender_membership_maintenance =
+            MembershipMaintenance::init(test_sender_socket_address).await?;
+
+        let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
+        let test_ping = Message::Ping.build().await;
+
+        test_sender_socket
+            .send_to(test_ping, &test_receiver_socket_address)
+            .await?;
+
+        let (test_bytes, test_origin) = test_sender_socket
+            .recv_from(&mut test_sender_membership_maintenance.buffer)
+            .await?;
+
+        let test_receive_ack =
+            Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+
+        assert!(test_receiver.await.is_ok());
+        // assert!(test_send_ping.is_ok());
+        assert_eq!(test_origin.to_string().as_str(), "127.0.0.1:8888");
+        assert_eq!(test_receive_ack, Message::Ack);
+
+        Ok(())
+    }
 }
