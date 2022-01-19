@@ -185,7 +185,7 @@ impl MembershipMaintenance {
             Message::PingReq => {
                 println!("received ping req!");
 
-                let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
+                let suspected = SocketAddr::from_str("127.0.0.1:25055")?;
 
                 // sender.send((Message::Ping, suspected)).await?;
                 MembershipMaintenance::send_message(Message::Ping, &incoming, suspected).await?;
@@ -587,6 +587,74 @@ mod tests {
 
         assert!(test_receiver.await.is_ok());
         // assert!(test_send_ping.is_ok());
+        assert_eq!(test_origin.to_string().as_str(), "127.0.0.1:8888");
+        assert_eq!(test_receive_ack, Message::Ack);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn receive_udp_message_ping_req() -> Result<(), Box<dyn std::error::Error>> {
+        let test_ping_req_receiver_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
+        let test_ping_req_receiver_membership_maintenance =
+            MembershipMaintenance::init(test_ping_req_receiver_socket_address).await?;
+
+        let test_ping_req_receiver = tokio::spawn(async move {
+            let test_receiver_socket = UdpSocket::bind(test_ping_req_receiver_socket_address)
+                .await
+                .unwrap();
+            let mut test_receiver_buffer = test_ping_req_receiver_membership_maintenance.buffer;
+
+            let test_receive_ping_req = MembershipMaintenance::receive_udp_message(
+                &test_receiver_socket,
+                &mut test_receiver_buffer,
+            )
+            .await;
+
+            assert!(test_receive_ping_req.is_ok());
+        });
+
+        let test_suspected_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25055);
+        let test_suspected_membership_maintenance =
+            MembershipMaintenance::init(test_suspected_socket_address).await?;
+
+        let test_suspected_receiver = tokio::spawn(async move {
+            let test_receiver_socket = UdpSocket::bind(test_suspected_socket_address)
+                .await
+                .unwrap();
+            let mut test_receiver_buffer = test_suspected_membership_maintenance.buffer;
+            let test_receive_ping = test_receiver_socket
+                .recv_from(&mut test_receiver_buffer)
+                .await
+                .unwrap();
+            let test_ping = Message::from_bytes(&test_receiver_buffer[..test_receive_ping.0]).await;
+
+            assert_eq!(test_ping, Message::Ping);
+        });
+
+        let test_sender_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8889);
+        let mut test_sender_membership_maintenance =
+            MembershipMaintenance::init(test_sender_socket_address).await?;
+
+        let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
+        let test_ping_req = Message::PingReq.build().await;
+
+        test_sender_socket
+            .send_to(test_ping_req, &test_ping_req_receiver_socket_address)
+            .await?;
+
+        let (test_bytes, test_origin) = test_sender_socket
+            .recv_from(&mut test_sender_membership_maintenance.buffer)
+            .await?;
+
+        let test_receive_ack =
+            Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+
+        assert!(test_ping_req_receiver.await.is_ok());
+        assert!(test_suspected_receiver.await.is_ok());
         assert_eq!(test_origin.to_string().as_str(), "127.0.0.1:8888");
         assert_eq!(test_receive_ack, Message::Ack);
 
