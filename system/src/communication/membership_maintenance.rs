@@ -73,22 +73,22 @@ impl GroupMember {
     }
 }
 
-pub struct MembershipDissemination {
+pub struct MembershipMaintenance {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
     suspected: HashMap<SocketAddr, GroupMember>,
     confirmed: HashMap<SocketAddr, GroupMember>,
 }
 
-impl MembershipDissemination {
+impl MembershipMaintenance {
     pub async fn init(
         socket_address: SocketAddr,
-    ) -> Result<MembershipDissemination, Box<dyn std::error::Error>> {
+    ) -> Result<MembershipMaintenance, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
         let suspected = HashMap::with_capacity(10);
         let confirmed = HashMap::with_capacity(10);
 
-        Ok(MembershipDissemination {
+        Ok(MembershipMaintenance {
             socket_address,
             buffer,
             suspected,
@@ -110,8 +110,7 @@ impl MembershipDissemination {
             let mut attemps = 0;
 
             while attemps <= 2 {
-                if let Err(error) =
-                    MembershipDissemination::failure_detector(&failure_detector).await
+                if let Err(error) = MembershipMaintenance::failure_detector(&failure_detector).await
                 {
                     println!("error sending udp message -> {:?}", error);
                 }
@@ -127,7 +126,7 @@ impl MembershipDissemination {
 
             while attemps <= 5 {
                 if let Err(error) =
-                    MembershipDissemination::receive_udp_message(&incoming_udp_socket, &mut buffer)
+                    MembershipMaintenance::receive_udp_message(&incoming_udp_socket, &mut buffer)
                         .await
                 {
                     println!("error receiving udp message -> {:?}", error);
@@ -226,7 +225,7 @@ impl MembershipDissemination {
                 let suspected = SocketAddr::from_str("0.0.0.0:25055")?;
 
                 // sender.send((Message::Ping, suspected)).await?;
-                MembershipDissemination::send_message(Message::Ping, &incoming, suspected).await?;
+                MembershipMaintenance::send_message(Message::Ping, &incoming, suspected).await?;
 
                 let received_ack = Message::Ack.build().await; // for now...
 
@@ -268,7 +267,7 @@ impl MembershipDissemination {
         let another_member = SocketAddr::from_str("127.0.0.1:25202")?; //for now
         let ping_req = Message::PingReq;
 
-        MembershipDissemination::send_message(ping_req, &failure_detector, another_member).await?;
+        MembershipMaintenance::send_message(ping_req, &failure_detector, another_member).await?;
 
         let receive_ping_req_ack = failure_detector.recv_from(&mut buffer);
 
@@ -416,13 +415,12 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
 
-        assert!(test_membership_dissemination.socket_address.ip().is_ipv4());
-        assert_eq!(test_membership_dissemination.buffer, [0_u8; 1024]);
-        assert!(test_membership_dissemination.suspected.is_empty());
-        assert!(test_membership_dissemination.confirmed.is_empty());
+        assert!(test_membership_maintenance.socket_address.ip().is_ipv4());
+        assert_eq!(test_membership_maintenance.buffer, [0_u8; 1024]);
+        assert!(test_membership_maintenance.suspected.is_empty());
+        assert!(test_membership_maintenance.confirmed.is_empty());
 
         Ok(())
     }
@@ -431,18 +429,18 @@ mod tests {
     async fn add_confirmed() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        assert!(test_membership_dissemination.confirmed.is_empty());
+        assert!(test_membership_maintenance.confirmed.is_empty());
 
         test_group_member.confirm().await;
 
-        test_membership_dissemination
+        test_membership_maintenance
             .add_confirmed(test_socket_address, test_group_member)
             .await;
 
-        assert_eq!(test_membership_dissemination.confirmed.len(), 1);
+        assert_eq!(test_membership_maintenance.confirmed.len(), 1);
 
         Ok(())
     }
@@ -451,18 +449,18 @@ mod tests {
     async fn add_suspected() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        assert!(test_membership_dissemination.suspected.is_empty());
+        assert!(test_membership_maintenance.suspected.is_empty());
 
         test_group_member.suspect().await;
 
-        test_membership_dissemination
+        test_membership_maintenance
             .add_suspect(test_socket_address, test_group_member)
             .await;
 
-        assert_eq!(test_membership_dissemination.suspected.len(), 1);
+        assert_eq!(test_membership_maintenance.suspected.len(), 1);
 
         Ok(())
     }
@@ -495,11 +493,11 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        let test_socket = UdpSocket::bind(test_membership_dissemination.socket_address).await?;
-        let test_failure_detector = MembershipDissemination::failure_detector(&test_socket).await;
+        let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
+        let test_failure_detector = MembershipMaintenance::failure_detector(&test_socket).await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_failure_detector.is_ok());
@@ -539,12 +537,12 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        let test_socket = UdpSocket::bind(test_membership_dissemination.socket_address).await?;
+        let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
 
-        let test_failure_detector = MembershipDissemination::failure_detector(&test_socket).await;
+        let test_failure_detector = MembershipMaintenance::failure_detector(&test_socket).await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_failure_detector.is_ok());
@@ -577,7 +575,7 @@ mod tests {
 
         let test_local_socket = UdpSocket::bind(test_local_socket_address).await?;
 
-        MembershipDissemination::send_message(
+        MembershipMaintenance::send_message(
             Message::Ping,
             &test_local_socket,
             test_remote_socket_address,
@@ -593,24 +591,24 @@ mod tests {
     async fn remove_confirmed() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        assert!(test_membership_dissemination.confirmed.is_empty());
+        assert!(test_membership_maintenance.confirmed.is_empty());
 
         test_group_member.confirm().await;
 
-        test_membership_dissemination
+        test_membership_maintenance
             .add_confirmed(test_socket_address, test_group_member)
             .await;
 
-        assert_eq!(test_membership_dissemination.confirmed.len(), 1);
+        assert_eq!(test_membership_maintenance.confirmed.len(), 1);
 
-        test_membership_dissemination
+        test_membership_maintenance
             .remove_confirmed(&test_socket_address)
             .await;
 
-        assert_eq!(test_membership_dissemination.confirmed.len(), 0);
+        assert_eq!(test_membership_maintenance.confirmed.len(), 0);
 
         Ok(())
     }
@@ -619,24 +617,24 @@ mod tests {
     async fn remove_suspect() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_dissemination =
-            MembershipDissemination::init(test_socket_address).await?;
+        let mut test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address).await?;
 
-        assert!(test_membership_dissemination.suspected.is_empty());
+        assert!(test_membership_maintenance.suspected.is_empty());
 
         test_group_member.suspect().await;
 
-        test_membership_dissemination
+        test_membership_maintenance
             .add_suspect(test_socket_address, test_group_member)
             .await;
 
-        assert_eq!(test_membership_dissemination.suspected.len(), 1);
+        assert_eq!(test_membership_maintenance.suspected.len(), 1);
 
-        test_membership_dissemination
+        test_membership_maintenance
             .remove_suspected(&test_socket_address)
             .await;
 
-        assert_eq!(test_membership_dissemination.suspected.len(), 0);
+        assert_eq!(test_membership_maintenance.suspected.len(), 0);
 
         Ok(())
     }

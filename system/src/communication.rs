@@ -1,2 +1,2 @@
-pub mod membership_dissemination;
 pub mod membership_dynamic_join;
+pub mod membership_maintenance;

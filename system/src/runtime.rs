@@ -19,7 +19,7 @@ use crate::server::Server as SystemServer;
 
 use crate::state::State;
 
-use crate::communication::membership_dissemination::MembershipDissemination;
+use crate::communication::membership_maintenance::MembershipMaintenance;
 
 use crate::communication::membership_dynamic_join::MembershipDynamicJoin;
 
@@ -196,17 +196,16 @@ pub async fn launch(
     });
 
     // -------------------------------------------------------------------------------------------
-    // |        init membership dissemination
+    // |        init membership maintenance
     // -------------------------------------------------------------------------------------------
 
     let membership_socket_address = node.build_address(node.membership_port).await;
 
-    let mut membership_dissemination =
-        MembershipDissemination::init(membership_socket_address).await?;
+    let mut membership_maintenance = MembershipMaintenance::init(membership_socket_address).await?;
 
-    let membership_dissemination_handle = tokio::spawn(async move {
-        if let Err(error) = membership_dissemination.run().await {
-            println!("erroe with membership dissemination -> {:?}", error);
+    let membership_maintenance_handle = tokio::spawn(async move {
+        if let Err(error) = membership_maintenance.run().await {
+            println!("erroe with membership maintenance -> {:?}", error);
         }
     });
 
@@ -220,7 +219,7 @@ pub async fn launch(
         system_server_handle,
         client_handle,
         rpc_communications_server_handle,
-        membership_dissemination_handle,
+        membership_maintenance_handle,
         membership_dynamic_join_handle,
     )?;
 
