@@ -77,16 +77,25 @@ impl MembershipDynamicJoin {
         });
 
         loop {
-            let (bytes, origin) = socket_receiver.recv_from(&mut self.buffer).await?;
+            MembershipDynamicJoin::receive_request(&socket_receiver, &mut self.buffer).await?;
+        }
 
-            let message = Message::from_bytes(&self.buffer[..bytes]).await;
+        Ok(())
+    }
 
-            match message {
-                Message::Join => {
-                    println!("incoming joing request from the following...{:?}", origin);
+    async fn receive_request(
+        socket_receiver: &UdpSocket,
+        buffer: &mut [u8; 1024],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (bytes, origin) = socket_receiver.recv_from(buffer).await?;
 
-                    //add membership send request and join node to cluster...
-                }
+        let message = Message::from_bytes(&buffer[..bytes]).await;
+
+        match message {
+            Message::Join => {
+                println!("incoming joing request from the following...{:?}", origin);
+
+                //add membership send request and join node to cluster...
             }
         }
 
@@ -132,6 +141,54 @@ mod tests {
             test_membership_dynamic_join.multicast_interface,
             Ipv4Addr::UNSPECIFIED,
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn receive_request() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
+        let mut test_membership_dynamic_join =
+            MembershipDynamicJoin::init(test_socket_address).await?;
+
+        let test_receive_multicast = tokio::spawn(async move {
+            let test_socket = UdpSocket::bind(test_membership_dynamic_join.socket_address)
+                .await
+                .unwrap();
+
+            test_socket
+                .join_multicast_v4(
+                    test_membership_dynamic_join.multicast_address,
+                    test_membership_dynamic_join.multicast_interface,
+                )
+                .unwrap();
+
+            let test_receive_join_request = MembershipDynamicJoin::receive_request(
+                &test_socket,
+                &mut test_membership_dynamic_join.buffer,
+            )
+            .await;
+
+            assert!(test_receive_join_request.is_ok());
+        });
+
+        let test_sender_socket_address =
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8889);
+        let test_sender_membership_dynamic_join =
+            MembershipDynamicJoin::init(test_socket_address).await?;
+        let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
+        let test_message = Message::Join.build().await;
+        let test_target = SocketAddr::new(
+            IpAddr::from(test_sender_membership_dynamic_join.multicast_address),
+            test_sender_membership_dynamic_join.socket_address.port(),
+        );
+
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+        let test_send_multicast = test_sender_socket.send_to(test_message, test_target).await;
+
+        assert!(test_receive_multicast.await.is_ok());
+        assert!(test_send_multicast.is_ok());
 
         Ok(())
     }
