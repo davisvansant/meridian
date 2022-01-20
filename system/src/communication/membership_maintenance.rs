@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -10,6 +8,7 @@ use tokio::sync::mpsc;
 use tokio::time::timeout_at;
 use tokio::time::Instant;
 
+mod dissemination;
 mod suspicion;
 
 use suspicion::GroupMember;
@@ -42,8 +41,6 @@ impl Message {
 pub struct MembershipMaintenance {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
-    suspected: HashMap<SocketAddr, GroupMember>,
-    confirmed: HashMap<SocketAddr, GroupMember>,
 }
 
 impl MembershipMaintenance {
@@ -51,14 +48,10 @@ impl MembershipMaintenance {
         socket_address: SocketAddr,
     ) -> Result<MembershipMaintenance, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
-        let suspected = HashMap::with_capacity(10);
-        let confirmed = HashMap::with_capacity(10);
 
         Ok(MembershipMaintenance {
             socket_address,
             buffer,
-            suspected,
-            confirmed,
         })
     }
 
@@ -108,32 +101,6 @@ impl MembershipMaintenance {
         Ok(())
     }
 
-    async fn add_confirmed(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
-        println!(
-            "adding socket address {:?} as suspect {:?}",
-            &socket_address, &group_member,
-        );
-
-        if let Some(value) = self.confirmed.insert(socket_address, group_member) {
-            println!("updated confirmed group member -> {:?}", value);
-        } else {
-            println!("suspected confirmed!");
-        }
-    }
-
-    async fn add_suspect(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
-        println!(
-            "adding socket address {:?} as suspect {:?}",
-            &socket_address, &group_member,
-        );
-
-        if let Some(value) = self.suspected.insert(socket_address, group_member) {
-            println!("updated suspected member group -> {:?}", value);
-        } else {
-            println!("suspected updated!");
-        }
-    }
-
     async fn send_message(
         message: Message,
         socket: &UdpSocket,
@@ -148,18 +115,6 @@ impl MembershipMaintenance {
         socket.send_to(data, address).await?;
 
         Ok(())
-    }
-
-    async fn remove_confirmed(&mut self, socket_address: &SocketAddr) {
-        if let Some(remove_confirmed) = self.confirmed.remove(socket_address) {
-            println!("removed from confirmed group - > {:?}", remove_confirmed);
-        }
-    }
-
-    async fn remove_suspected(&mut self, socket_address: &SocketAddr) {
-        if let Some(remove_suspected) = self.suspected.remove(socket_address) {
-            println!("removed from suspected group - > {:?}", remove_suspected);
-        }
     }
 
     async fn receive_udp_message(
@@ -331,48 +286,6 @@ mod tests {
 
         assert!(test_membership_maintenance.socket_address.ip().is_ipv4());
         assert_eq!(test_membership_maintenance.buffer, [0_u8; 1024]);
-        assert!(test_membership_maintenance.suspected.is_empty());
-        assert!(test_membership_maintenance.confirmed.is_empty());
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn add_confirmed() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
-
-        assert!(test_membership_maintenance.confirmed.is_empty());
-
-        test_group_member.confirm().await;
-
-        test_membership_maintenance
-            .add_confirmed(test_socket_address, test_group_member)
-            .await;
-
-        assert_eq!(test_membership_maintenance.confirmed.len(), 1);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn add_suspected() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
-
-        assert!(test_membership_maintenance.suspected.is_empty());
-
-        test_group_member.suspect().await;
-
-        test_membership_maintenance
-            .add_suspect(test_socket_address, test_group_member)
-            .await;
-
-        assert_eq!(test_membership_maintenance.suspected.len(), 1);
 
         Ok(())
     }
@@ -492,58 +405,6 @@ mod tests {
         .await?;
 
         assert!(test_receiver.await.is_ok());
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn remove_confirmed() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
-
-        assert!(test_membership_maintenance.confirmed.is_empty());
-
-        test_group_member.confirm().await;
-
-        test_membership_maintenance
-            .add_confirmed(test_socket_address, test_group_member)
-            .await;
-
-        assert_eq!(test_membership_maintenance.confirmed.len(), 1);
-
-        test_membership_maintenance
-            .remove_confirmed(&test_socket_address)
-            .await;
-
-        assert_eq!(test_membership_maintenance.confirmed.len(), 0);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn remove_suspect() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let mut test_group_member = GroupMember::init().await;
-        let mut test_membership_maintenance =
-            MembershipMaintenance::init(test_socket_address).await?;
-
-        assert!(test_membership_maintenance.suspected.is_empty());
-
-        test_group_member.suspect().await;
-
-        test_membership_maintenance
-            .add_suspect(test_socket_address, test_group_member)
-            .await;
-
-        assert_eq!(test_membership_maintenance.suspected.len(), 1);
-
-        test_membership_maintenance
-            .remove_suspected(&test_socket_address)
-            .await;
-
-        assert_eq!(test_membership_maintenance.suspected.len(), 0);
 
         Ok(())
     }
