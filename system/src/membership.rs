@@ -134,34 +134,57 @@ impl Membership {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init_one() -> Result<(), Box<dyn std::error::Error>> {
-//         let test_membership = Membership::init(ClusterSize::One).await?;
-//         assert_eq!(test_membership.cluster_size, ClusterSize::One);
-//         assert_eq!(test_membership.members.len(), 0);
-//         assert_eq!(test_membership.members.capacity(), 1);
-//         Ok(())
-//     }
-//
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init_three() -> Result<(), Box<dyn std::error::Error>> {
-//         let test_membership = Membership::init(ClusterSize::Three).await?;
-//         assert_eq!(test_membership.cluster_size, ClusterSize::Three);
-//         assert_eq!(test_membership.members.len(), 0);
-//         assert_eq!(test_membership.members.capacity(), 3);
-//         Ok(())
-//     }
-//
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init_five() -> Result<(), Box<dyn std::error::Error>> {
-//         let test_membership = Membership::init(ClusterSize::Five).await?;
-//         assert_eq!(test_membership.cluster_size, ClusterSize::Five);
-//         assert_eq!(test_membership.members.len(), 0);
-//         assert_eq!(test_membership.members.capacity(), 5);
-//         Ok(())
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+    use tokio::sync::{mpsc, oneshot};
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init_one() -> Result<(), Box<dyn std::error::Error>> {
+        let test_launch_nodes = Vec::with_capacity(0);
+        let test_ip_address = SocketAddr::from_str("0.0.0.0:0")?.ip();
+        let test_server = Node::init(test_ip_address, 1000, 2000, 3000).await?;
+        let (test_tx, test_rx) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let test_membership =
+            Membership::init(ClusterSize::One, test_launch_nodes, test_server, test_rx).await?;
+        assert_eq!(test_membership.cluster_size, ClusterSize::One);
+        assert_eq!(test_membership.members.len(), 0);
+        assert!(test_membership.members.capacity() >= 1);
+        assert!(!test_tx.is_closed());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init_three() -> Result<(), Box<dyn std::error::Error>> {
+        let test_launch_nodes = Vec::with_capacity(0);
+        let test_ip_address = SocketAddr::from_str("0.0.0.0:0")?.ip();
+        let test_server = Node::init(test_ip_address, 1000, 2000, 3000).await?;
+        let (test_tx, test_rx) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let test_membership =
+            Membership::init(ClusterSize::Three, test_launch_nodes, test_server, test_rx).await?;
+        assert_eq!(test_membership.cluster_size, ClusterSize::Three);
+        assert_eq!(test_membership.members.len(), 0);
+        assert!(test_membership.members.capacity() >= 3);
+        assert!(!test_tx.is_closed());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init_five() -> Result<(), Box<dyn std::error::Error>> {
+        let test_launch_nodes = Vec::with_capacity(0);
+        let test_ip_address = SocketAddr::from_str("0.0.0.0:0")?.ip();
+        let test_server = Node::init(test_ip_address, 1000, 2000, 3000).await?;
+        let (test_tx, test_rx) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let test_membership =
+            Membership::init(ClusterSize::Five, test_launch_nodes, test_server, test_rx).await?;
+        assert_eq!(test_membership.cluster_size, ClusterSize::Five);
+        assert_eq!(test_membership.members.len(), 0);
+        assert!(test_membership.members.capacity() >= 5);
+        assert!(!test_tx.is_closed());
+        Ok(())
+    }
+}
