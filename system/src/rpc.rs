@@ -246,79 +246,99 @@ mod tests {
     use flexbuffers::Pushable;
     use std::str::FromStr;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_append_entries_arguments() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_append_entries_arguments = Data::AppendEntriesArguments.build().await?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_append_entries_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let test_append_entries_arguments = AppendEntriesArguments {
+            term: 0,
+            leader_id: String::from("some_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        };
 
-    //     assert_eq!(test_append_entries_arguments.len(), 157);
+        let test_append_entries_arguments_data =
+            Data::AppendEntriesArguments(test_append_entries_arguments)
+                .build()
+                .await?;
 
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        assert_eq!(test_append_entries_arguments_data.len(), 157);
 
-    //     test_append_entries_arguments.push_to_builder(&mut test_flexbuffers_builder);
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        test_append_entries_arguments_data.push_to_builder(&mut test_flexbuffers_builder);
 
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "append_entries_arguments",
-    //     );
-    //     assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("leader_id").as_str(),
-    //         "some_leader_id",
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("prev_log_index").as_u8(),
-    //         0,
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("prev_log_term").as_u8(),
-    //         0,
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details
-    //             .idx("entries")
-    //             .as_vector()
-    //             .len(),
-    //         0,
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("leader_commit").as_u8(),
-    //         0,
-    //     );
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
 
-    //     Ok(())
-    // }
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_arguments",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert_eq!(
+            test_flexbuffers_root_details.idx("leader_id").as_str(),
+            "some_leader_id",
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("prev_log_index").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("prev_log_term").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details
+                .idx("entries")
+                .as_vector()
+                .len(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("leader_commit").as_u8(),
+            0,
+        );
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_append_entries_results() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_append_entries_results = Data::AppendEntriesResults.build().await?;
+        Ok(())
+    }
 
-    //     assert_eq!(test_append_entries_results.len(), 73);
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_append_entries_results() -> Result<(), Box<dyn std::error::Error>> {
+        let test_append_entries_results = AppendEntriesResults {
+            term: 0,
+            success: false,
+        };
 
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        let test_append_entries_results_data =
+            Data::AppendEntriesResults(test_append_entries_results)
+                .build()
+                .await?;
 
-    //     test_append_entries_results.push_to_builder(&mut test_flexbuffers_builder);
+        assert_eq!(test_append_entries_results_data.len(), 73);
 
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "append_entries_results",
-    //     );
-    //     assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
-    //     assert!(!test_flexbuffers_root_details.idx("success").as_bool());
+        test_append_entries_results_data.push_to_builder(&mut test_flexbuffers_builder);
 
-    //     Ok(())
-    // }
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "append_entries_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("success").as_bool());
+
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn data_connected() -> Result<(), Box<dyn std::error::Error>> {
@@ -365,7 +385,7 @@ mod tests {
         let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
         let test_flexbuffer_root_data = test_flexbuffer_root.as_map().index("data")?;
         let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-        let test_index_id = test_flexbuffers_root_details.index("id")?;
+        // let test_index_id = test_flexbuffers_root_details.index("id")?;
         let test_index_address = test_flexbuffers_root_details.index("address")?;
         let test_index_client_port = test_flexbuffers_root_details.index("client_port")?;
         let test_index_cluster_port = test_flexbuffers_root_details.index("cluster_port")?;
@@ -384,68 +404,85 @@ mod tests {
         Ok(())
     }
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_request_vote_arguments = Data::RequestVoteArguments.build().await?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let test_request_vote_arguments = RequestVoteArguments {
+            term: 0,
+            candidate_id: String::from("some_candidate_id"),
+            last_log_index: 0,
+            last_log_term: 0,
+        };
 
-    //     assert_eq!(test_request_vote_arguments.len(), 132);
+        let test_request_vote_arguments_data =
+            Data::RequestVoteArguments(test_request_vote_arguments)
+                .build()
+                .await?;
 
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        assert_eq!(test_request_vote_arguments_data.len(), 132);
 
-    //     test_request_vote_arguments.push_to_builder(&mut test_flexbuffers_builder);
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        test_request_vote_arguments_data.push_to_builder(&mut test_flexbuffers_builder);
 
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "request_vote_arguments",
-    //     );
-    //     assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("candidate_id").as_str(),
-    //         "some_candidate_id",
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("last_log_index").as_u8(),
-    //         0,
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("last_log_term").as_u8(),
-    //         0,
-    //     );
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
 
-    //     Ok(())
-    // }
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_arguments",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert_eq!(
+            test_flexbuffers_root_details.idx("candidate_id").as_str(),
+            "some_candidate_id",
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("last_log_index").as_u8(),
+            0,
+        );
+        assert_eq!(
+            test_flexbuffers_root_details.idx("last_log_term").as_u8(),
+            0,
+        );
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_request_vote_results() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_request_vote_results = Data::RequestVoteResults.build().await?;
+        Ok(())
+    }
 
-    //     assert_eq!(test_request_vote_results.len(), 76);
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_request_vote_results() -> Result<(), Box<dyn std::error::Error>> {
+        let test_request_vote_results = RequestVoteResults {
+            term: 0,
+            vote_granted: false,
+        };
 
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        let test_request_vote_results_data = Data::RequestVoteResults(test_request_vote_results)
+            .build()
+            .await?;
 
-    //     test_request_vote_results.push_to_builder(&mut test_flexbuffers_builder);
+        assert_eq!(test_request_vote_results_data.len(), 76);
 
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "request_vote_results",
-    //     );
-    //     assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
-    //     assert!(!test_flexbuffers_root_details.idx("vote_granted").as_bool());
+        test_request_vote_results_data.push_to_builder(&mut test_flexbuffers_builder);
 
-    //     Ok(())
-    // }
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "request_vote_results",
+        );
+        assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
+        assert!(!test_flexbuffers_root_details.idx("vote_granted").as_bool());
+
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn data_status_request() -> Result<(), Box<dyn std::error::Error>> {
@@ -470,34 +507,32 @@ mod tests {
         Ok(())
     }
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_status_response() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_status_response = Data::StatusResponse.build().await?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn data_status_response() -> Result<(), Box<dyn std::error::Error>> {
+        let test_status = 1;
+        let test_status_response = Data::StatusResponse(test_status).build().await?;
 
-    //     assert_eq!(test_status_response.len(), 61);
+        assert_eq!(test_status_response.len(), 43);
 
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+        let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-    //     test_status_response.push_to_builder(&mut test_flexbuffers_builder);
+        test_status_response.push_to_builder(&mut test_flexbuffers_builder);
 
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
+        let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
+        // let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
 
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "status_response",
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("details").as_str(),
-    //         "some_node_status",
-    //     );
-    //     // assert!(test_flexbuffers_root_details.is_empty());
+        assert!(test_flexbuffer_root.is_aligned());
+        assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
+        assert_eq!(test_flexbuffer_root.length(), 2);
+        assert_eq!(
+            test_flexbuffer_root.as_map().idx("data").as_str(),
+            "status_response",
+        );
+        assert_eq!(test_flexbuffer_root.as_map().idx("details").as_u8(), 1);
+        // assert!(test_flexbuffers_root_details.is_empty());
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_ip_address() -> Result<(), Box<dyn std::error::Error>> {
