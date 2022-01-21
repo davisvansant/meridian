@@ -49,4 +49,15 @@ mod tests {
         assert_eq!(test_node.membership_port, 20000);
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn build_address() -> Result<(), Box<dyn std::error::Error>> {
+        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+        let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
+        let test_socket_address = test_node.build_address(test_node.client_port).await;
+
+        assert_eq!(test_socket_address.to_string().as_str(), "0.0.0.0:10000");
+
+        Ok(())
+    }
 }
