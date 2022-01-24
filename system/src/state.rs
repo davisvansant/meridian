@@ -293,4 +293,26 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        let test_request_vote_arguments = RequestVoteArguments {
+            term: 0,
+            candidate_id: String::from("some_candidate_id"),
+            last_log_index: 0,
+            last_log_term: 0,
+        };
+
+        let test_request_vote_results =
+            test_state.request_vote(test_request_vote_arguments).await?;
+
+        assert_eq!(test_request_vote_results.term, 0);
+        assert!(!test_request_vote_results.vote_granted);
+
+        Ok(())
+    }
 }
