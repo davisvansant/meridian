@@ -337,4 +337,28 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_true() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        assert!(test_state.check_candidate_id("some_candidate_id").await);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.voted_for = Some(String::from("some_test_uuid"));
+
+        assert!(!test_state.check_candidate_id("some_candidate_id").await);
+
+        Ok(())
+    }
 }
