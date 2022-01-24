@@ -361,4 +361,27 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn build_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        let test_candidate_id = String::from("some_candidate_id");
+
+        let test_request_vote_arguments = test_state
+            .build_request_vote_arguments(&test_candidate_id)
+            .await?;
+
+        assert_eq!(test_request_vote_arguments.term, 0);
+        assert_eq!(
+            test_request_vote_arguments.candidate_id.as_str(),
+            "some_candidate_id",
+        );
+        assert_eq!(test_request_vote_arguments.last_log_index, 0);
+        assert_eq!(test_request_vote_arguments.last_log_term, 0);
+
+        Ok(())
+    }
 }
