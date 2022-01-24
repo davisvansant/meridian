@@ -214,7 +214,7 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::{broadcast, mpsc, oneshot};
+    use tokio::sync::{mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
@@ -233,7 +233,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_leader_volatile_state() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let mut test_state = State::init(test_receiver).await?;
 
@@ -248,7 +248,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -273,7 +273,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn heartbeat() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -296,7 +296,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -318,7 +318,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -329,7 +329,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -340,7 +340,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_candidate_id_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
@@ -351,7 +351,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_candidate_id_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let mut test_state = State::init(test_receiver).await?;
 
@@ -364,7 +364,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
+        let (_test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let test_state = State::init(test_receiver).await?;
 
