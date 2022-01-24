@@ -255,4 +255,27 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn heartbeat() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        let test_leader_id = String::from("some_leader_id");
+
+        let test_append_entries_arguments = test_state.heartbeat(test_leader_id).await?;
+
+        assert_eq!(test_append_entries_arguments.term, 0);
+        assert_eq!(
+            test_append_entries_arguments.leader_id.as_str(),
+            "some_leader_id",
+        );
+        assert_eq!(test_append_entries_arguments.prev_log_index, 0);
+        assert_eq!(test_append_entries_arguments.prev_log_term, 0);
+        assert!(test_append_entries_arguments.entries.is_empty());
+        assert_eq!(test_append_entries_arguments.leader_commit, 0);
+
+        Ok(())
+    }
 }
