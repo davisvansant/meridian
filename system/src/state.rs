@@ -36,10 +36,7 @@ impl State {
                 StateRequest::AppendEntries(arguments) => {
                     println!("received append entires request - {:?}", &arguments);
 
-                    let results = AppendEntriesResults {
-                        term: 0,
-                        success: false,
-                    };
+                    let results = self.append_entries(arguments).await?;
 
                     if let Err(error) = response.send(StateResponse::AppendEntries(results)) {
                         println!("state > error sending append entries response {:?}", error);
