@@ -56,7 +56,7 @@ impl Server {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let owned_membership_sender = self.membership_sender.to_owned();
-        let tcp_socket = build_tcp_socket(self.socket_address).await?;
+        let tcp_socket = build_tcp_socket().await?;
 
         tcp_socket.set_reuseaddr(true)?;
         tcp_socket.set_reuseport(true)?;

@@ -232,9 +232,7 @@ pub async fn build_socket_address(ip_address: IpAddr, port: u16) -> SocketAddr {
     SocketAddr::new(ip_address, port)
 }
 
-pub async fn build_tcp_socket(
-    socket_address: SocketAddr,
-) -> Result<TcpSocket, Box<dyn std::error::Error>> {
+pub async fn build_tcp_socket() -> Result<TcpSocket, Box<dyn std::error::Error>> {
     let tcp_socket = TcpSocket::new_v4()?;
 
     Ok(tcp_socket)
@@ -557,7 +555,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn build_tcp_socket() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::from_str("127.0.0.1:1234")?;
-        let test_tcp_socket = super::build_tcp_socket(test_socket_address).await?;
+        let test_tcp_socket = super::build_tcp_socket().await?;
 
         test_tcp_socket.bind(test_socket_address)?;
 
