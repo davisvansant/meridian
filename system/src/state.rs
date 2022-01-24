@@ -232,6 +232,21 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn init_leader_volatile_state() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let mut test_state = State::init(test_receiver).await?;
+
+        assert!(test_state.leader_volatile.is_none());
+
+        test_state.init_leader_volatile_state().await?;
+
+        assert!(test_state.leader_volatile.is_some());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
         let (test_sender, test_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
