@@ -19,8 +19,8 @@ use crate::rpc::{build_ip_address, build_socket_address};
 use crate::rpc::{Data, Interface, Node, RequestVoteResults};
 
 pub struct Client {
-    ip_address: IpAddr,
-    port: u16,
+    // ip_address: IpAddr,
+    // port: u16,
     socket_address: SocketAddr,
     receiver: ClientReceiver,
     membership_sender: MembershipSender,
@@ -47,8 +47,8 @@ impl Client {
         let socket_address = build_socket_address(ip_address, port).await;
 
         Ok(Client {
-            ip_address,
-            port,
+            // ip_address,
+            // port,
             socket_address,
             receiver,
             membership_sender,
