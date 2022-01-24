@@ -230,4 +230,29 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        let test_append_entries_arguments = AppendEntriesArguments {
+            term: 0,
+            leader_id: String::from("some_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        };
+
+        let test_append_entries_results = test_state
+            .append_entries(test_append_entries_arguments)
+            .await?;
+
+        assert_eq!(test_append_entries_results.term, 0);
+        assert!(!test_append_entries_results.success);
+
+        Ok(())
+    }
 }
