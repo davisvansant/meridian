@@ -315,4 +315,26 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        assert!(test_state.check_term(1).await);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
+
+        assert!(!test_state.check_term(0).await);
+
+        Ok(())
+    }
 }
