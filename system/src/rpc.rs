@@ -33,7 +33,7 @@ pub enum Data {
     ConnectedResponse(Vec<Node>),
     JoinClusterRequest(Node),
     JoinClusterResponse(Node),
-    InstallSnapshot,
+    _InstallSnapshot,
     RequestVoteArguments(RequestVoteArguments),
     RequestVoteResults(RequestVoteResults),
     StatusRequest,
@@ -170,7 +170,7 @@ impl Data {
 
                 Ok(flexbuffers_builder.take_buffer())
             }
-            Data::InstallSnapshot => {
+            Data::_InstallSnapshot => {
                 unimplemented!();
             }
             Data::RequestVoteArguments(request_vote_arguments) => {

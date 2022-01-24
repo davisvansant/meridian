@@ -19,7 +19,7 @@ pub enum StateRequest {
 pub enum StateResponse {
     AppendEntries(AppendEntriesResults),
     RequestVote(RequestVoteResults),
-    Follower,
+    // Follower,
     Candidate(RequestVoteArguments),
     Heartbeat(AppendEntriesArguments),
 }
@@ -93,7 +93,7 @@ pub async fn heartbeat(
 }
 
 pub async fn leader(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     state.send((StateRequest::Leader, request)).await?;
 

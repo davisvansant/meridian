@@ -21,8 +21,8 @@ pub enum ClientResponse {
     // Node,
     Nodes(Vec<SocketAddr>),
     Status(u8),
-    MemberNodes,
-    MemberStatus,
+    // MemberNodes,
+    // MemberStatus,
     EndElection(()),
 }
 
