@@ -214,27 +214,20 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::{broadcast, mpsc, oneshot};
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn log_entry() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_log_entry = LogEntry {
-    //         term: 0,
-    //         command: String::from("test_log_entry"),
-    //         committed: true,
-    //     };
-    //     assert_eq!(test_log_entry.term, 0);
-    //     assert_eq!(test_log_entry.command.as_str(), "test_log_entry");
-    //     assert!(test_log_entry.committed);
-    //     Ok(())
-    // }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_sender, test_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let test_state = State::init(test_receiver).await?;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_state = State::init().await?;
-    //     assert_eq!(test_state.persistent.current_term, 0);
-    //     assert_eq!(test_state.persistent.voted_for, None);
-    //     assert_eq!(test_state.persistent.log.len(), 0);
-    //     assert_eq!(test_state.persistent.log.capacity(), 4096);
-    //     Ok(())
-    // }
+        assert_eq!(test_state.persistent.current_term, 0);
+        assert_eq!(test_state.persistent.voted_for, None);
+        assert_eq!(test_state.persistent.log.len(), 0);
+        assert_eq!(test_state.persistent.log.capacity(), 4096);
+        assert!(!test_sender.is_closed());
+
+        Ok(())
+    }
 }
