@@ -9,7 +9,8 @@ use uuid::Uuid;
 
 use crate::rpc::{build_ip_address, build_tcp_socket};
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
-use crate::rpc::{Data, Interface, Node};
+// use crate::rpc::{Data, Interface, Node};
+use crate::rpc::{Data, Node};
 
 use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
 use crate::channel::{MembershipSender, StateSender};
@@ -18,8 +19,8 @@ use crate::channel::{MembershipSender, StateSender};
 use crate::channel::{Leader, LeaderSender};
 
 pub struct Server {
-    ip_address: IpAddr,
-    port: u16,
+    // ip_address: IpAddr,
+    // port: u16,
     socket_address: SocketAddr,
     membership_sender: MembershipSender,
     state_sender: StateSender,
@@ -29,24 +30,24 @@ pub struct Server {
 
 impl Server {
     pub async fn init(
-        interface: Interface,
+        // interface: Interface,
         membership_sender: MembershipSender,
         state_sender: StateSender,
         // heartbeat: ServerSender,
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
     ) -> Result<Server, Box<dyn std::error::Error>> {
-        let ip_address = build_ip_address().await;
-        let port = match interface {
-            Interface::Communications => 1245,
-            Interface::Membership => 1246,
-        };
+        // let ip_address = build_ip_address().await;
+        // let port = match interface {
+        //     Interface::Communications => 1245,
+        //     Interface::Membership => 1246,
+        // };
 
         // let socket_address = build_socket_address(ip_address, port).await;
 
         Ok(Server {
-            ip_address,
-            port,
+            // ip_address,
+            // port,
             socket_address,
             membership_sender,
             state_sender,

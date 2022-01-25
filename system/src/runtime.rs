@@ -13,7 +13,8 @@ use crate::membership::{ClusterSize, Membership};
 
 use crate::node::Node;
 
-use crate::rpc::{Client, Interface, Server};
+// use crate::rpc::{Client, Interface, Server};
+use crate::rpc::{Client, Server};
 
 use crate::server::Server as SystemServer;
 
@@ -147,7 +148,7 @@ pub async fn launch(
     let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
-        Interface::Communications,
+        // Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
         leader_sender,
@@ -166,7 +167,7 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     let mut client = Client::init(
-        Interface::Communications,
+        // Interface::Communications,
         rpc_client_receiver,
         membership_sender,
         client_state_sender,

@@ -36,25 +36,25 @@ pub struct Connected {
     pub nodes: Vec<MembershipNode>,
 }
 
-impl Connected {
-    pub async fn build() -> Result<Connected, Box<dyn std::error::Error>> {
-        let nodes = Vec::with_capacity(5);
+// impl Connected {
+//     pub async fn build() -> Result<Connected, Box<dyn std::error::Error>> {
+//         let nodes = Vec::with_capacity(5);
 
-        Ok(Connected { nodes })
-    }
-}
+//         Ok(Connected { nodes })
+//     }
+// }
 
 pub struct Status {
     pub details: String,
 }
 
-impl Status {
-    pub async fn build() -> Result<Status, Box<dyn std::error::Error>> {
-        let details = String::from("some_node_status");
+// impl Status {
+//     pub async fn build() -> Result<Status, Box<dyn std::error::Error>> {
+//         let details = String::from("some_node_status");
 
-        Ok(Status { details })
-    }
-}
+//         Ok(Status { details })
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -77,22 +77,22 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn connected() -> Result<(), Box<dyn std::error::Error>> {
-        let test_connected = Connected::build().await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn connected() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_connected = Connected::build().await?;
 
-        assert_eq!(test_connected.nodes.len(), 0);
-        assert_eq!(test_connected.nodes.capacity(), 5);
+    //     assert_eq!(test_connected.nodes.len(), 0);
+    //     assert_eq!(test_connected.nodes.capacity(), 5);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn status() -> Result<(), Box<dyn std::error::Error>> {
-        let test_status = Status::build().await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn status() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_status = Status::build().await?;
 
-        assert_eq!(test_status.details, "some_node_status");
+    //     assert_eq!(test_status.details, "some_node_status");
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }

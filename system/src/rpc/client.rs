@@ -16,7 +16,8 @@ use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
 use crate::channel::{ServerSender, ServerState};
 
 use crate::rpc::{build_ip_address, build_socket_address};
-use crate::rpc::{Data, Interface, Node, RequestVoteResults};
+// use crate::rpc::{Data, Interface, Node, RequestVoteResults};
+use crate::rpc::{Data, Node, RequestVoteResults};
 
 pub struct Client {
     // ip_address: IpAddr,
@@ -31,7 +32,7 @@ pub struct Client {
 
 impl Client {
     pub async fn init(
-        interface: Interface,
+        // interface: Interface,
         receiver: ClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
@@ -39,10 +40,11 @@ impl Client {
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
-        let port = match interface {
-            Interface::Communications => 1245,
-            Interface::Membership => 1246,
-        };
+        // let port = match interface {
+        //     Interface::Communications => 1245,
+        //     Interface::Membership => 1246,
+        // };
+        let port = 1245;
 
         let socket_address = build_socket_address(ip_address, port).await;
 
