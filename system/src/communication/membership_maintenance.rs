@@ -41,6 +41,7 @@ impl Message {
 pub struct MembershipMaintenance {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
+    group_member: GroupMember,
 }
 
 impl MembershipMaintenance {
@@ -48,10 +49,12 @@ impl MembershipMaintenance {
         socket_address: SocketAddr,
     ) -> Result<MembershipMaintenance, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
+        let group_member = GroupMember::init().await;
 
         Ok(MembershipMaintenance {
             socket_address,
             buffer,
+            group_member,
         })
     }
 
