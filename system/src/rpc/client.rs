@@ -314,7 +314,6 @@ mod tests {
     use super::*;
     // use crate::rpc::Server;
     use crate::channel::CandidateTransition;
-    use crate::channel::Leader;
     use crate::channel::ServerState;
     use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
