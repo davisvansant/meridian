@@ -312,86 +312,48 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::Server;
+    // use crate::rpc::Server;
+    use crate::channel::CandidateTransition;
+    use crate::channel::Leader;
+    use crate::channel::ServerState;
+    use crate::channel::{ClientRequest, ClientResponse};
+    use crate::channel::{MembershipRequest, MembershipResponse};
+    use crate::channel::{StateRequest, StateResponse};
+    use tokio::sync::{broadcast, mpsc, oneshot};
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init_communications() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_client_communications = Client::init(Interface::Communications).await?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_client_sender, test_client_receiver) =
+            mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+        let (test_membership_sender, _test_membership_receiver) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let (test_state_sender, _test_state_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (test_server_transition_sender, _test_server_transition_receiver) =
+            broadcast::channel::<ServerState>(64);
+        let (test_candidate_sender, _test_candidate_receiver) =
+            mpsc::channel::<CandidateTransition>(64);
 
-    //     assert_eq!(
-    //         test_client_communications.ip_address.to_string().as_str(),
-    //         "127.0.0.1",
-    //     );
-    //     assert_eq!(test_client_communications.port, 1245);
-    //     assert_eq!(
-    //         test_client_communications
-    //             .socket_address
-    //             .to_string()
-    //             .as_str(),
-    //         "127.0.0.1:1245",
-    //     );
+        let test_client = Client::init(
+            test_client_receiver,
+            test_membership_sender,
+            test_state_sender,
+            test_server_transition_sender,
+            test_candidate_sender,
+        )
+        .await?;
 
-    //     Ok(())
-    // }
+        assert_eq!(
+            test_client.socket_address.ip().to_string().as_str(),
+            "127.0.0.1",
+        );
+        assert_eq!(test_client.socket_address.port(), 1245);
+        assert!(!test_client_sender.is_closed());
+        assert!(!test_client.membership_sender.is_closed());
+        assert!(!test_client.state_sender.is_closed());
+        assert_eq!(test_client.state_transition.receiver_count(), 1);
+        assert!(!test_client.candidate_sender.is_closed());
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init_membership() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_client_membership = Client::init(Interface::Membership).await?;
-
-    //     assert_eq!(
-    //         test_client_membership.ip_address.to_string().as_str(),
-    //         "127.0.0.1",
-    //     );
-    //     assert_eq!(test_client_membership.port, 1246);
-    //     assert_eq!(
-    //         test_client_membership.socket_address.to_string().as_str(),
-    //         "127.0.0.1:1246",
-    //     );
-
-    //     Ok(())
-    // }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn connect_communications() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_server_communications = Server::init(Interface::Communications).await?;
-    //     let test_server_handle = tokio::spawn(async move {
-    //         if let Err(error) = test_server_communications.run().await {
-    //             println!("{:?}", error);
-    //         }
-    //     });
-    //
-    //     tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
-    //
-    //     let test_client_communications = Client::init(Interface::Communications).await?;
-    //     let test_data = test_client_communications
-    //         .transmit(b"test_client_communications")
-    //         .await?;
-    //
-    //     assert_eq!(test_data.as_str(), "test_client_communications");
-    //     assert!(test_server_handle.await.is_ok());
-    //
-    //     Ok(())
-    // }
-    //
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn connect_membership() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_server_membership = Server::init(Interface::Membership).await?;
-    //     let test_server_handle = tokio::spawn(async move {
-    //         if let Err(error) = test_server_membership.run().await {
-    //             println!("{:?}", error);
-    //         }
-    //     });
-    //
-    //     tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
-    //
-    //     let test_client_membership = Client::init(Interface::Membership).await?;
-    //     let test_data = test_client_membership
-    //         .transmit(b"test_member_communications")
-    //         .await?;
-    //
-    //     assert_eq!(test_data.as_str(), "test_member_communications");
-    //     assert!(test_server_handle.await.is_ok());
-    //
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }
