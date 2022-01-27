@@ -184,42 +184,47 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::CandidateTransition;
+    use crate::channel::Leader;
+    use crate::channel::ServerState;
+    use crate::channel::{ClientRequest, ClientResponse};
+    use crate::channel::{MembershipRequest, MembershipResponse};
+    use crate::channel::{StateRequest, StateResponse};
+    use tokio::sync::{broadcast, mpsc, oneshot};
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn server_state_candidate() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_server_state = ServerState::Candidate;
-    //     assert_eq!(test_server_state, ServerState::Candidate);
-    //     Ok(())
-    // }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_client_sender, _test_client_receiver) =
+            mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+        let (test_membership_sender, _test_membership_receiver) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let (test_state_sender, _test_state_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (test_transition_sender, test_transition_receiver) =
+            broadcast::channel::<ServerState>(64);
+        let (test_candidate_sender, test_candidate_receiver) =
+            mpsc::channel::<CandidateTransition>(64);
+        let (test_leader_sender, test_leader_receiver) = mpsc::channel::<Leader>(64);
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn server_state_follower() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_server_state = ServerState::Follower;
-    //     assert_eq!(test_server_state, ServerState::Follower);
-    //     Ok(())
-    // }
+        let test_server = Server::init(
+            test_client_sender,
+            test_membership_sender,
+            test_state_sender,
+            test_transition_sender,
+            test_transition_receiver,
+            test_candidate_sender,
+            test_candidate_receiver,
+            test_leader_receiver,
+        )
+        .await?;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn server_state_leader() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_server_state = ServerState::Leader;
-    //     assert_eq!(test_server_state, ServerState::Leader);
-    //     Ok(())
-    // }
+        assert!(!test_server.client.is_closed());
+        assert!(!test_server.membership.is_closed());
+        assert!(!test_server.state.is_closed());
+        assert_eq!(test_server.tx.receiver_count(), 1);
+        assert!(!test_server.candidate_sender.is_closed());
+        assert!(!test_leader_sender.is_closed());
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init() -> Result<(), Box<dyn std::error::Error>> {
-    //     // let (test_sender, _) = test_channel().await;
-    //     // let (test_subscriber, _) = test_channel().await;
-    //     // let test_subscriber_clone = test_subscriber.clone();
-    //     // let test_server = Server::init(test_subscriber, test_subscriber_clone).await?;
-    //     let test_server = test_server().await?;
-    //     // assert_eq!(test_server.server_state, ServerState::Follower);
-    //     assert_eq!(test_server.persistent_state.current_term, 0);
-    //     assert_eq!(test_server.persistent_state.voted_for, None);
-    //     assert_eq!(test_server.persistent_state.log.len(), 0);
-    //     assert_eq!(test_server.persistent_state.log.capacity(), 4096);
-    //     assert_eq!(test_server.volatile_state.commit_index, 0);
-    //     assert_eq!(test_server.volatile_state.last_applied, 0);
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }
