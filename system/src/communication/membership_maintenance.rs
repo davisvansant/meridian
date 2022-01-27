@@ -103,6 +103,30 @@ impl MembershipMaintenance {
         while let Some((bytes, origin)) = rx.recv().await {
             println!("do stuff with bytes - {:?}", bytes);
             println!("do stuff with origin -> {:?}", origin);
+
+            let mut group_member = GroupMember::init().await;
+
+            match bytes.len() {
+                5 => {
+                    group_member.suspect().await;
+
+                    self.dissemination.remove_confirmed(&origin).await;
+                    self.dissemination.add_suspected(origin, group_member).await;
+                }
+                6 => {
+                    group_member.confirm().await;
+
+                    self.dissemination.remove_suspected(&origin).await;
+                    self.dissemination.add_confirmed(origin, group_member).await;
+                }
+                7 => {
+                    group_member.alive().await;
+
+                    self.dissemination.remove_confirmed(&origin).await;
+                    self.dissemination.remove_suspected(&origin).await;
+                }
+                _ => panic!("this will go away...setting up initial logic..."),
+            }
         }
 
         Ok(())
