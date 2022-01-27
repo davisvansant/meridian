@@ -19,7 +19,7 @@ impl Dissemination {
         }
     }
 
-    async fn add_confirmed(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
+    pub async fn add_confirmed(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
         println!(
             "adding socket address {:?} as suspect {:?}",
             &socket_address, &group_member,
@@ -32,7 +32,7 @@ impl Dissemination {
         }
     }
 
-    async fn add_suspected(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
+    pub async fn add_suspected(&mut self, socket_address: SocketAddr, group_member: GroupMember) {
         println!(
             "adding socket address {:?} as suspected {:?}",
             &socket_address, &group_member,
@@ -45,13 +45,13 @@ impl Dissemination {
         }
     }
 
-    async fn remove_confirmed(&mut self, socket_address: &SocketAddr) {
+    pub async fn remove_confirmed(&mut self, socket_address: &SocketAddr) {
         if let Some(remove_confirmed) = self.confirmed.remove(socket_address) {
             println!("removed from confirmed group - > {:?}", remove_confirmed);
         }
     }
 
-    async fn remove_suspected(&mut self, socket_address: &SocketAddr) {
+    pub async fn remove_suspected(&mut self, socket_address: &SocketAddr) {
         if let Some(remove_suspected) = self.suspected.remove(socket_address) {
             println!("removed from suspected group - > {:?}", remove_suspected);
         }
