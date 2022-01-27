@@ -11,6 +11,7 @@ use tokio::time::Instant;
 mod dissemination;
 mod suspicion;
 
+use dissemination::Dissemination;
 use suspicion::GroupMember;
 
 #[derive(Debug, PartialEq)]
@@ -42,6 +43,7 @@ pub struct MembershipMaintenance {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
     group_member: GroupMember,
+    dissemination: Dissemination,
 }
 
 impl MembershipMaintenance {
@@ -50,11 +52,13 @@ impl MembershipMaintenance {
     ) -> Result<MembershipMaintenance, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
         let group_member = GroupMember::init().await;
+        let dissemination = Dissemination::init().await;
 
         Ok(MembershipMaintenance {
             socket_address,
             buffer,
             group_member,
+            dissemination,
         })
     }
 
@@ -97,8 +101,8 @@ impl MembershipMaintenance {
         });
 
         while let Some((bytes, origin)) = rx.recv().await {
-            println!("do stuff with bytes");
-            println!("do stuff with origin");
+            println!("do stuff with bytes - {:?}", bytes);
+            println!("do stuff with origin -> {:?}", origin);
         }
 
         Ok(())
