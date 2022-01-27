@@ -248,50 +248,40 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::Client;
+    // use crate::rpc::Client;
+    use crate::channel::Leader;
+    use crate::channel::{MembershipRequest, MembershipResponse};
+    use crate::channel::{StateRequest, StateResponse};
+    use tokio::sync::{mpsc, oneshot};
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init_communications() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_interface_communications = Server::init(Interface::Communications).await?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_membership_sender, _test_membership_receiver) =
+            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        let (test_state_sender, _test_state_receiver) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (test_leader_sender, _test_leader_receiver) = mpsc::channel::<Leader>(64);
+        let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
 
-    //     assert_eq!(
-    //         test_interface_communications
-    //             .ip_address
-    //             .to_string()
-    //             .as_str(),
-    //         "127.0.0.1",
-    //     );
-    //     assert_eq!(test_interface_communications.port, 1245);
-    //     assert_eq!(
-    //         test_interface_communications
-    //             .socket_address
-    //             .to_string()
-    //             .as_str(),
-    //         "127.0.0.1:1245",
-    //     );
+        let test_server = Server::init(
+            test_membership_sender,
+            test_state_sender,
+            test_leader_sender,
+            test_socket_address,
+        )
+        .await?;
 
-    //     Ok(())
-    // }
+        assert_eq!(
+            test_server.socket_address.ip().to_string().as_str(),
+            "0.0.0.0",
+        );
+        assert_eq!(test_server.socket_address.port(), 1245);
+        assert!(!test_server.membership_sender.is_closed());
+        assert!(!test_server.state_sender.is_closed());
+        assert!(!test_server.heartbeat.is_closed());
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn init_membership() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_interface_membership = Server::init(Interface::Membership).await?;
-
-    //     assert_eq!(
-    //         test_interface_membership.ip_address.to_string().as_str(),
-    //         "127.0.0.1",
-    //     );
-    //     assert_eq!(test_interface_membership.port, 1246);
-    //     assert_eq!(
-    //         test_interface_membership
-    //             .socket_address
-    //             .to_string()
-    //             .as_str(),
-    //         "127.0.0.1:1246",
-    //     );
-
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     // #[tokio::test(flavor = "multi_thread")]
     // async fn run_communications_append_entries() -> Result<(), Box<dyn std::error::Error>> {
