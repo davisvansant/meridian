@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use tokio::signal::ctrl_c;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::CandidateTransition;
@@ -211,6 +212,17 @@ pub async fn launch(
     });
 
     // -------------------------------------------------------------------------------------------
+    // |        init shutdown signal
+    // -------------------------------------------------------------------------------------------
+
+    let shutdown_signal = tokio::spawn(async move {
+        if let Ok(()) = ctrl_c().await {
+            println!("received shutdown signal...");
+            println!("shutting down...");
+        }
+    });
+
+    // -------------------------------------------------------------------------------------------
     // |        launch!!!
     // -------------------------------------------------------------------------------------------
 
@@ -222,6 +234,7 @@ pub async fn launch(
         rpc_communications_server_handle,
         membership_maintenance_handle,
         membership_dynamic_join_handle,
+        shutdown_signal,
     )?;
 
     Ok(())
