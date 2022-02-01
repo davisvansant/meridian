@@ -5,7 +5,10 @@ mod server;
 mod state;
 
 pub use client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
-pub use membership::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
+pub use membership::{
+    MembershipDynamicJoinShutdown, MembershipReceiver, MembershipRequest, MembershipResponse,
+    MembershipSender,
+};
 pub use rpc_server::RpcServerShutdown;
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
