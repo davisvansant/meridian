@@ -16,6 +16,7 @@ pub enum MembershipRequest {
     Node,
     RemoveMember,
     Status,
+    Shutdown,
 }
 
 #[derive(Clone, Debug)]
@@ -121,4 +122,16 @@ pub async fn status(membership: &MembershipSender) -> Result<u8, Box<dyn std::er
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
+}
+
+pub async fn shutdown_membership(
+    membership: &MembershipSender,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (request, _response) = oneshot::channel();
+
+    membership
+        .send((MembershipRequest::Shutdown, request))
+        .await?;
+
+    Ok(())
 }

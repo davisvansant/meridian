@@ -13,6 +13,7 @@ pub enum StateRequest {
     Candidate(String),
     Leader,
     Heartbeat(String),
+    Shutdown,
 }
 
 #[derive(Clone, Debug)]
@@ -96,6 +97,14 @@ pub async fn leader(state: &StateSender) -> Result<(), Box<dyn std::error::Error
     let (request, _response) = oneshot::channel();
 
     state.send((StateRequest::Leader, request)).await?;
+
+    Ok(())
+}
+
+pub async fn shutdown_state(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
+    let (request, _response) = oneshot::channel();
+
+    state.send((StateRequest::Shutdown, request)).await?;
 
     Ok(())
 }

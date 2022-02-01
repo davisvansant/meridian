@@ -13,6 +13,7 @@ pub enum ClientRequest {
     PeerStatus(SocketAddr),
     StartElection,
     SendHeartbeat,
+    Shutdown,
 }
 
 #[derive(Clone, Debug)]
@@ -104,4 +105,12 @@ pub async fn peer_status(
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
+}
+
+pub async fn shutdown_client(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
+    let (request, _response) = oneshot::channel();
+
+    client.send((ClientRequest::Shutdown, request)).await?;
+
+    Ok(())
 }
