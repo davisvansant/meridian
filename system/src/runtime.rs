@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use tokio::signal::ctrl_c;
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
@@ -43,6 +43,7 @@ pub async fn launch(
 
     let (rpc_client_sender, rpc_client_receiver) =
         mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+    let shutdown_client = rpc_client_sender.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init membership channel
@@ -55,6 +56,7 @@ pub async fn launch(
     let server_membership_sender = membership_sender.to_owned();
     let rpc_communications_server_membership_sender = membership_sender.to_owned();
     let rpc_membership_server_membership_sender = membership_sender.to_owned();
+    let shutdown_membership = membership_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
     // |        init system server channel
@@ -72,6 +74,7 @@ pub async fn launch(
     let rpc_communications_server_state_sender = state_sender.clone();
     let rpc_membership_server_state_sender = state_sender.clone();
     let client_state_sender = state_sender.clone();
+    let shutdown_state = state_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
     // |        init state transition channel
@@ -146,6 +149,9 @@ pub async fn launch(
     // |        init internal rpc server channel
     // -------------------------------------------------------------------------------------------
 
+    // let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = watch::channel(1);
+    let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = mpsc::channel::<bool>(1);
+
     let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
@@ -154,6 +160,7 @@ pub async fn launch(
         rpc_communications_server_state_sender,
         leader_sender,
         node_socket_address,
+        receive_rpc_server_shutdown,
     )
     .await?;
 
@@ -219,6 +226,22 @@ pub async fn launch(
         if let Ok(()) = ctrl_c().await {
             println!("received shutdown signal...");
             println!("shutting down...");
+
+            if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
+                println!("system state shutdown...");
+            }
+
+            if let Ok(()) = crate::channel::shutdown_client(&shutdown_client).await {
+                println!("rpc client shutdown...");
+            }
+
+            if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
+                println!("initiating membership shutdown...");
+            }
+
+            println!("shutting down rpc server interface ....");
+
+            drop(send_rpc_server_shutdown);
         }
     });
 
