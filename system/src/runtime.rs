@@ -193,10 +193,15 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
     // |        init membership dynamic join
     // -------------------------------------------------------------------------------------------
+    let (send_membership_dynamic_join_shutdown, receive_membership_dynamic_join_shutdown) =
+        mpsc::channel::<bool>(1);
     let membership_dynamic_join_socket_address = node.build_address(node.membership_port).await;
 
-    let mut membership_dynamic_join =
-        MembershipDynamicJoin::init(membership_dynamic_join_socket_address).await?;
+    let mut membership_dynamic_join = MembershipDynamicJoin::init(
+        membership_dynamic_join_socket_address,
+        receive_membership_dynamic_join_shutdown,
+    )
+    .await?;
 
     let membership_dynamic_join_handle = tokio::spawn(async move {
         if let Err(error) = membership_dynamic_join.run().await {
@@ -242,6 +247,10 @@ pub async fn launch(
             println!("shutting down rpc server interface ....");
 
             drop(send_rpc_server_shutdown);
+
+            println!("shutting down membership dynamic join interface ....");
+
+            drop(send_membership_dynamic_join_shutdown);
         }
     });
 
