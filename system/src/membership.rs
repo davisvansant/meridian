@@ -127,6 +127,11 @@ impl Membership {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
+                MembershipRequest::Shutdown => {
+                    println!("shutting down membership...");
+
+                    self.receiver.close();
+                }
             }
         }
 

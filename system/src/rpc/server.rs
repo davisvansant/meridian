@@ -13,10 +13,12 @@ use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
 use crate::rpc::{Data, Node};
 
 use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
-use crate::channel::{MembershipSender, StateSender};
+use crate::channel::{MembershipSender, RpcServerShutdown, StateSender};
 // use crate::channel::{ServerSender, ServerState};
 
 use crate::channel::{Leader, LeaderSender};
+
+use tokio::signal::unix::{signal, SignalKind};
 
 pub struct Server {
     // ip_address: IpAddr,
@@ -26,6 +28,7 @@ pub struct Server {
     state_sender: StateSender,
     // heartbeat: ServerSender,
     heartbeat: LeaderSender,
+    shutdown: RpcServerShutdown,
 }
 
 impl Server {
@@ -36,6 +39,7 @@ impl Server {
         // heartbeat: ServerSender,
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
+        shutdown: RpcServerShutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         // let ip_address = build_ip_address().await;
         // let port = match interface {
@@ -52,6 +56,7 @@ impl Server {
             membership_sender,
             state_sender,
             heartbeat,
+            shutdown,
         })
     }
 
@@ -66,9 +71,10 @@ impl Server {
         let backlog = 1024;
         let tcp_listener = tcp_socket.listen(backlog)?;
 
-        let mut connections = 0;
+        // let mut connections = 0;
 
-        while connections >= 0 {
+        // while connections >= 0 {
+        while self.shutdown.recv().await.is_some() {
             let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
 
             println!("running on {:?}", socket_address);
@@ -115,7 +121,7 @@ impl Server {
                 }
             });
 
-            connections += 1;
+            // connections += 1;
         }
 
         Ok(())
@@ -252,7 +258,7 @@ mod tests {
     use crate::channel::Leader;
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
-    use tokio::sync::{mpsc, oneshot};
+    use tokio::sync::{mpsc, oneshot, watch};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
@@ -262,12 +268,14 @@ mod tests {
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let (test_leader_sender, _test_leader_receiver) = mpsc::channel::<Leader>(64);
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
+        let (test_send_rpc_server_shutdown, test_receive_rpc_server_shutdown) = mpsc::channel(1);
 
         let test_server = Server::init(
             test_membership_sender,
             test_state_sender,
             test_leader_sender,
             test_socket_address,
+            test_receive_rpc_server_shutdown,
         )
         .await?;
 

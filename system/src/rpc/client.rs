@@ -138,6 +138,11 @@ impl Client {
                         self.send_heartbeat(socket_address).await?;
                     }
                 }
+                ClientRequest::Shutdown => {
+                    println!("shutting down client...");
+
+                    self.receiver.close();
+                }
             }
         }
 

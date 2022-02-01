@@ -71,6 +71,11 @@ impl State {
                         println!("state > error sending request vote response {:?}", error);
                     }
                 }
+                StateRequest::Shutdown => {
+                    self.receiver.close();
+
+                    println!("system state shutdown...");
+                }
             }
         }
 
