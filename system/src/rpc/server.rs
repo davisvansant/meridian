@@ -287,6 +287,7 @@ mod tests {
         assert!(!test_server.membership_sender.is_closed());
         assert!(!test_server.state_sender.is_closed());
         assert!(!test_server.heartbeat.is_closed());
+        assert!(!test_send_rpc_server_shutdown.is_closed());
 
         Ok(())
     }

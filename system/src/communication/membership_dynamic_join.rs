@@ -160,6 +160,7 @@ mod tests {
             test_membership_dynamic_join.multicast_interface,
             Ipv4Addr::UNSPECIFIED,
         );
+        assert!(!test_send_shutdown.is_closed());
 
         Ok(())
     }
@@ -168,7 +169,7 @@ mod tests {
     async fn send_and_receive_request() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
         let (
-            test_send_memberhsip_dynamic_join_shutdown,
+            _test_send_memberhsip_dynamic_join_shutdown,
             test_receive_membership_dynamic_join_shutdown,
         ) = mpsc::channel::<bool>(1);
         let mut test_membership_dynamic_join = MembershipDynamicJoin::init(
@@ -200,7 +201,7 @@ mod tests {
 
         let test_sender_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8889);
-        let (test_sender_send_dynamic_join_shutdown, test_sender_receive_dynamic_join_shutdown) =
+        let (_test_sender_send_dynamic_join_shutdown, test_sender_receive_dynamic_join_shutdown) =
             mpsc::channel::<bool>(1);
         let test_sender_membership_dynamic_join = MembershipDynamicJoin::init(
             test_socket_address,

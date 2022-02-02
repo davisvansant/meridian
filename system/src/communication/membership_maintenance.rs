@@ -77,9 +77,9 @@ impl MembershipMaintenance {
         let failure_detector = incoming_udp_socket.clone();
 
         // let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
-        let (mut send_failure_dectector_shutdown, mut receive_failure_dectector_shutdown) =
+        let (send_failure_dectector_shutdown, mut receive_failure_dectector_shutdown) =
             mpsc::channel::<MembershipMaintenanceShutdown>(1);
-        let (mut send_receive_udp_message_shutdown, mut receive_receive_udp_message_shutdown) =
+        let (send_receive_udp_message_shutdown, mut receive_receive_udp_message_shutdown) =
             mpsc::channel::<MembershipMaintenanceShutdown>(1);
 
         tokio::spawn(async move {
