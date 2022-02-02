@@ -8,11 +8,16 @@ use tokio::sync::mpsc;
 use tokio::time::timeout_at;
 use tokio::time::Instant;
 
-mod dissemination;
-mod suspicion;
-
 use dissemination::Dissemination;
 use suspicion::GroupMember;
+
+use crate::channel::{
+    MembershipMaintenanceReceiver, MembershipMaintenanceRequest, MembershipMaintenanceSender,
+    MembershipMaintenanceShutdown,
+};
+
+mod dissemination;
+mod suspicion;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
@@ -43,11 +48,15 @@ pub struct MembershipMaintenance {
     socket_address: SocketAddr,
     buffer: [u8; 1024],
     dissemination: Dissemination,
+    receiver: MembershipMaintenanceReceiver,
+    sender: MembershipMaintenanceSender,
 }
 
 impl MembershipMaintenance {
     pub async fn init(
         socket_address: SocketAddr,
+        receiver: MembershipMaintenanceReceiver,
+        sender: MembershipMaintenanceSender,
     ) -> Result<MembershipMaintenance, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
         let dissemination = Dissemination::init().await;
@@ -56,6 +65,8 @@ impl MembershipMaintenance {
             socket_address,
             buffer,
             dissemination,
+            receiver,
+            sender,
         })
     }
 
@@ -65,27 +76,33 @@ impl MembershipMaintenance {
         let incoming_udp_socket = Arc::new(socket);
         let failure_detector = incoming_udp_socket.clone();
 
-        let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
+        // let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(64);
+        let (mut send_failure_dectector_shutdown, mut receive_failure_dectector_shutdown) =
+            mpsc::channel::<MembershipMaintenanceShutdown>(1);
+        let (mut send_receive_udp_message_shutdown, mut receive_receive_udp_message_shutdown) =
+            mpsc::channel::<MembershipMaintenanceShutdown>(1);
 
         tokio::spawn(async move {
-            let mut attemps = 0;
+            // let mut attemps = 0;
 
-            while attemps <= 2 {
+            // while attemps <= 2 {
+            while receive_failure_dectector_shutdown.recv().await.is_some() {
                 if let Err(error) = MembershipMaintenance::failure_detector(&failure_detector).await
                 {
                     println!("error sending udp message -> {:?}", error);
                 }
 
-                attemps += 1;
+                // attemps += 1;
             }
         });
 
         let mut buffer = self.buffer;
 
         tokio::spawn(async move {
-            let mut attemps = 0;
+            // let mut attemps = 0;
 
-            while attemps <= 5 {
+            // while attemps <= 5 {
+            while receive_receive_udp_message_shutdown.recv().await.is_some() {
                 if let Err(error) =
                     MembershipMaintenance::receive_udp_message(&incoming_udp_socket, &mut buffer)
                         .await
@@ -93,37 +110,78 @@ impl MembershipMaintenance {
                     println!("error receiving udp message -> {:?}", error);
                 }
 
-                attemps += 1;
+                // attemps += 1;
             }
         });
 
-        while let Some((bytes, origin)) = rx.recv().await {
-            println!("do stuff with bytes - {:?}", bytes);
-            println!("do stuff with origin -> {:?}", origin);
+        // while let Some((bytes, origin)) = rx.recv().await {
+        while let Some((request, response)) = self.receiver.recv().await {
+            match request {
+                MembershipMaintenanceRequest::Message((bytes, origin)) => {
+                    println!("do stuff with bytes - {:?}", bytes);
+                    println!("do stuff with origin -> {:?}", origin);
 
-            let mut group_member = GroupMember::init().await;
+                    let mut group_member = GroupMember::init().await;
 
-            match bytes.len() {
-                5 => {
-                    group_member.suspect().await;
+                    match bytes.len() {
+                        5 => {
+                            group_member.suspect().await;
 
-                    self.dissemination.remove_confirmed(&origin).await;
-                    self.dissemination.add_suspected(origin, group_member).await;
+                            self.dissemination.remove_confirmed(&origin).await;
+                            self.dissemination.add_suspected(origin, group_member).await;
+                        }
+                        6 => {
+                            group_member.confirm().await;
+
+                            self.dissemination.remove_suspected(&origin).await;
+                            self.dissemination.add_confirmed(origin, group_member).await;
+                        }
+                        7 => {
+                            group_member.alive().await;
+
+                            self.dissemination.remove_confirmed(&origin).await;
+                            self.dissemination.remove_suspected(&origin).await;
+                        }
+                        _ => panic!("this will go away...setting up initial logic..."),
+                    }
                 }
-                6 => {
-                    group_member.confirm().await;
+                MembershipMaintenanceRequest::Shutdown => {
+                    println!("shutting down failure dectector component...");
+                    drop(send_failure_dectector_shutdown.to_owned());
 
-                    self.dissemination.remove_suspected(&origin).await;
-                    self.dissemination.add_confirmed(origin, group_member).await;
-                }
-                7 => {
-                    group_member.alive().await;
+                    println!("shutting down receive udp message component...");
+                    drop(send_receive_udp_message_shutdown.to_owned());
 
-                    self.dissemination.remove_confirmed(&origin).await;
-                    self.dissemination.remove_suspected(&origin).await;
+                    self.receiver.close();
+                    println!("membership maintenance shutdown...");
                 }
-                _ => panic!("this will go away...setting up initial logic..."),
             }
+            // println!("do stuff with bytes - {:?}", bytes);
+            // println!("do stuff with origin -> {:?}", origin);
+
+            // let mut group_member = GroupMember::init().await;
+
+            // match bytes.len() {
+            //     5 => {
+            //         group_member.suspect().await;
+
+            //         self.dissemination.remove_confirmed(&origin).await;
+            //         self.dissemination.add_suspected(origin, group_member).await;
+            //     }
+            //     6 => {
+            //         group_member.confirm().await;
+
+            //         self.dissemination.remove_suspected(&origin).await;
+            //         self.dissemination.add_confirmed(origin, group_member).await;
+            //     }
+            //     7 => {
+            //         group_member.alive().await;
+
+            //         self.dissemination.remove_confirmed(&origin).await;
+            //         self.dissemination.remove_suspected(&origin).await;
+            //     }
+            //     _ => panic!("this will go away...setting up initial logic..."),
+            // }
         }
 
         Ok(())
@@ -245,7 +303,9 @@ impl MembershipMaintenance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
     use std::net::{IpAddr, Ipv4Addr};
+    use tokio::sync::{mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_ack() -> Result<(), Box<dyn std::error::Error>> {
@@ -310,7 +370,12 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
+        let (test_sender, test_receiver) = mpsc::channel::<(
+            MembershipMaintenanceRequest,
+            oneshot::Sender<MembershipMaintenanceResponse>,
+        )>(64);
+        let test_membership_maintenance =
+            MembershipMaintenance::init(test_socket_address, test_receiver, test_sender).await?;
 
         assert!(test_membership_maintenance.socket_address.ip().is_ipv4());
         assert_eq!(test_membership_maintenance.buffer, [0_u8; 1024]);
@@ -346,9 +411,10 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
+        // let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
 
-        let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
+        // let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
+        let test_socket = UdpSocket::bind(test_socket_address).await?;
         let test_failure_detector = MembershipMaintenance::failure_detector(&test_socket).await;
 
         assert!(test_receiver.await.is_ok());
@@ -389,9 +455,10 @@ mod tests {
         });
 
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
+        // let test_membership_maintenance = MembershipMaintenance::init(test_socket_address).await?;
 
-        let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
+        // let test_socket = UdpSocket::bind(test_membership_maintenance.socket_address).await?;
+        let test_socket = UdpSocket::bind(test_socket_address).await?;
 
         let test_failure_detector = MembershipMaintenance::failure_detector(&test_socket).await;
 
@@ -441,12 +508,15 @@ mod tests {
     async fn receive_udp_message_ping() -> Result<(), Box<dyn std::error::Error>> {
         let test_receiver_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let test_receiver_membership_maintenance =
-            MembershipMaintenance::init(test_receiver_socket_address).await?;
+        // let test_receiver_membership_maintenance =
+        //     MembershipMaintenance::init(test_receiver_socket_address).await?;
 
         let test_receiver = tokio::spawn(async move {
+            // let test_receiver_socket = UdpSocket::bind(test_receiver_socket_address).await.unwrap();
+            let mut test_receiver_buffer = [0; 1024];
+            // let test_receiver_socket = UdpSocket::bind(test_receiver_socket_address).await.unwrap();
             let test_receiver_socket = UdpSocket::bind(test_receiver_socket_address).await.unwrap();
-            let mut test_receiver_buffer = test_receiver_membership_maintenance.buffer;
+            // let mut test_receiver_buffer = test_receiver_membership_maintenance.buffer;
 
             let test_receive_ack = MembershipMaintenance::receive_udp_message(
                 &test_receiver_socket,
@@ -459,22 +529,28 @@ mod tests {
 
         let test_sender_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8889);
-        let mut test_sender_membership_maintenance =
-            MembershipMaintenance::init(test_sender_socket_address).await?;
+        // let mut test_sender_membership_maintenance =
+        //     MembershipMaintenance::init(test_sender_socket_address).await?;
 
+        // let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
         let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
+        let mut test_receiver_buffer = [0; 1024];
         let test_ping = Message::Ping.build().await;
 
         test_sender_socket
             .send_to(test_ping, &test_receiver_socket_address)
             .await?;
 
+        // let (test_bytes, test_origin) = test_sender_socket
+        //     .recv_from(&mut test_sender_membership_maintenance.buffer)
+        //     .await?;
         let (test_bytes, test_origin) = test_sender_socket
-            .recv_from(&mut test_sender_membership_maintenance.buffer)
+            .recv_from(&mut test_receiver_buffer)
             .await?;
 
-        let test_receive_ack =
-            Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+        // let test_receive_ack =
+        //     Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+        let test_receive_ack = Message::from_bytes(&test_receiver_buffer[..test_bytes]).await;
 
         assert!(test_receiver.await.is_ok());
         // assert!(test_send_ping.is_ok());
@@ -488,14 +564,15 @@ mod tests {
     async fn receive_udp_message_ping_req() -> Result<(), Box<dyn std::error::Error>> {
         let test_ping_req_receiver_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8888);
-        let test_ping_req_receiver_membership_maintenance =
-            MembershipMaintenance::init(test_ping_req_receiver_socket_address).await?;
+        // let test_ping_req_receiver_membership_maintenance =
+        //     MembershipMaintenance::init(test_ping_req_receiver_socket_address).await?;
 
         let test_ping_req_receiver = tokio::spawn(async move {
             let test_receiver_socket = UdpSocket::bind(test_ping_req_receiver_socket_address)
                 .await
                 .unwrap();
-            let mut test_receiver_buffer = test_ping_req_receiver_membership_maintenance.buffer;
+            // let mut test_receiver_buffer = test_ping_req_receiver_membership_maintenance.buffer;
+            let mut test_receiver_buffer = [0; 1024];
 
             let test_receive_ping_req = MembershipMaintenance::receive_udp_message(
                 &test_receiver_socket,
@@ -508,14 +585,15 @@ mod tests {
 
         let test_suspected_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25055);
-        let test_suspected_membership_maintenance =
-            MembershipMaintenance::init(test_suspected_socket_address).await?;
+        // let test_suspected_membership_maintenance =
+        //     MembershipMaintenance::init(test_suspected_socket_address).await?;
 
         let test_suspected_receiver = tokio::spawn(async move {
             let test_receiver_socket = UdpSocket::bind(test_suspected_socket_address)
                 .await
                 .unwrap();
-            let mut test_receiver_buffer = test_suspected_membership_maintenance.buffer;
+            // let mut test_receiver_buffer = test_suspected_membership_maintenance.buffer;
+            let mut test_receiver_buffer = [0; 1024];
             let test_receive_ping = test_receiver_socket
                 .recv_from(&mut test_receiver_buffer)
                 .await
@@ -527,8 +605,9 @@ mod tests {
 
         let test_sender_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8889);
-        let mut test_sender_membership_maintenance =
-            MembershipMaintenance::init(test_sender_socket_address).await?;
+        // let mut test_sender_membership_maintenance =
+        //     MembershipMaintenance::init(test_sender_socket_address).await?;
+        let mut test_sender_buffer = [0; 1024];
 
         let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
         let test_ping_req = Message::PingReq.build().await;
@@ -537,12 +616,16 @@ mod tests {
             .send_to(test_ping_req, &test_ping_req_receiver_socket_address)
             .await?;
 
+        // let (test_bytes, test_origin) = test_sender_socket
+        //     .recv_from(&mut test_sender_membership_maintenance.buffer)
+        //     .await?;
         let (test_bytes, test_origin) = test_sender_socket
-            .recv_from(&mut test_sender_membership_maintenance.buffer)
+            .recv_from(&mut test_sender_buffer)
             .await?;
 
-        let test_receive_ack =
-            Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+        // let test_receive_ack =
+        //     Message::from_bytes(&test_sender_membership_maintenance.buffer[..test_bytes]).await;
+        let test_receive_ack = Message::from_bytes(&test_sender_buffer[..test_bytes]).await;
 
         assert!(test_ping_req_receiver.await.is_ok());
         assert!(test_suspected_receiver.await.is_ok());
