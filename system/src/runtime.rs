@@ -7,6 +7,7 @@ use crate::channel::CandidateTransition;
 use crate::channel::Leader;
 use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
+use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
 
@@ -212,10 +213,20 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
     // |        init membership maintenance
     // -------------------------------------------------------------------------------------------
+    let (membership_maintenance_sender, membership_maintenance_receiver) = mpsc::channel::<(
+        MembershipMaintenanceRequest,
+        oneshot::Sender<MembershipMaintenanceResponse>,
+    )>(64);
+    let shutdown_membership_maintenance = membership_maintenance_sender.clone();
 
     let membership_socket_address = node.build_address(node.membership_port).await;
 
-    let mut membership_maintenance = MembershipMaintenance::init(membership_socket_address).await?;
+    let mut membership_maintenance = MembershipMaintenance::init(
+        membership_socket_address,
+        membership_maintenance_receiver,
+        membership_maintenance_sender,
+    )
+    .await?;
 
     let membership_maintenance_handle = tokio::spawn(async move {
         if let Err(error) = membership_maintenance.run().await {
@@ -251,6 +262,13 @@ pub async fn launch(
             println!("shutting down membership dynamic join interface ....");
 
             drop(send_membership_dynamic_join_shutdown);
+
+            if let Ok(()) =
+                crate::channel::shutdown_membership_maintenance(&shutdown_membership_maintenance)
+                    .await
+            {
+                println!("initiating membership maintenance shutdown...");
+            }
         }
     });
 
