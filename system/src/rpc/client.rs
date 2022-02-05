@@ -97,7 +97,11 @@ impl Client {
                     let peers = cluster_members(&self.membership_sender).await?;
 
                     if peers.is_empty() {
-                        self.state_transition.send(ServerState::Leader)?;
+                        // self.state_transition.send(ServerState::Leader)?;
+                        // self.state_transition.send(ServerState::Leader).await?;
+                        self.candidate_sender
+                            .send(CandidateTransition::Leader)
+                            .await?;
                     } else {
                         for peer in peers {
                             let socket_address = peer.build_address(peer.cluster_port).await;
@@ -333,8 +337,10 @@ mod tests {
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        // let (test_server_transition_sender, _test_server_transition_receiver) =
+        //     broadcast::channel::<ServerState>(64);
         let (test_server_transition_sender, _test_server_transition_receiver) =
-            broadcast::channel::<ServerState>(64);
+            mpsc::channel::<ServerState>(64);
         let (test_candidate_sender, _test_candidate_receiver) =
             mpsc::channel::<CandidateTransition>(64);
 
@@ -355,7 +361,8 @@ mod tests {
         assert!(!test_client_sender.is_closed());
         assert!(!test_client.membership_sender.is_closed());
         assert!(!test_client.state_sender.is_closed());
-        assert_eq!(test_client.state_transition.receiver_count(), 1);
+        // assert_eq!(test_client.state_transition.receiver_count(), 1);
+        assert!(!test_client.state_transition.is_closed());
         assert!(!test_client.candidate_sender.is_closed());
 
         Ok(())
