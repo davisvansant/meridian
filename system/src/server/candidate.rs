@@ -18,8 +18,10 @@ impl Candidate {
         &mut self,
         client: &ClientSender,
         transition: &mut CandidateReceiver,
-        tx: &ServerSender,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        // tx: &ServerSender,
+        // ) -> Result<(), Box<dyn std::error::Error>> {
+        // ) -> Result<ServerState, Box<dyn std::error::Error>> {
+    ) -> Result<CandidateTransition, Box<dyn std::error::Error>> {
         // start_election(client).await?;
         let client_owner = client.to_owned();
         tokio::spawn(async move {
@@ -34,22 +36,25 @@ impl Candidate {
                     Some(CandidateTransition::Follower) => {
                         println!("received heartbeat...stepping down");
 
-                        if let Err(error) = tx.send(ServerState::Follower) {
-                            println!("error sending server state {:?}", error);
-                        }
+                        // if let Err(error) = tx.send(ServerState::Follower) {
+                        //     println!("error sending server state {:?}", error);
+                        // }
 
-                        break;
+                        // break;
+                        return Ok(CandidateTransition::Follower);
                     }
                     Some(CandidateTransition::Leader) => {
                         println!("transitioning server to leader...");
 
-                        if let Err(error) = tx.send(ServerState::Leader) {
-                            println!("error sending server state {:?}", error);
-                        }
+                        // if let Err(error) = tx.send(ServerState::Leader) {
+                        //     println!("error sending server state {:?}", error);
+                        // }
 
-                        break;
+                        // break;
+                        return Ok(CandidateTransition::Leader);
                     }
-                    None => break,
+                    // None => break,
+                    None => continue,
                 },
                 Err(error) => println!(
                     "candidate election timeout lapsed...trying again...{:?}",
@@ -58,7 +63,7 @@ impl Candidate {
             }
         }
 
-        Ok(())
+        // Ok(())
     }
 }
 
