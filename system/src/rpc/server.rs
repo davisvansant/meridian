@@ -161,7 +161,8 @@ impl Server {
 
                 if entries.is_empty() {
                     println!("sending heartbeat from server ...");
-                    heartbeat.send(Leader::Heartbeat).await?;
+                    // heartbeat.send(Leader::Heartbeat).await?;
+                    heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let arguments = AppendEntriesArguments {
@@ -258,7 +259,7 @@ mod tests {
     use crate::channel::Leader;
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
-    use tokio::sync::{mpsc, oneshot, watch};
+    use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
@@ -266,7 +267,8 @@ mod tests {
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        let (test_leader_sender, _test_leader_receiver) = mpsc::channel::<Leader>(64);
+        // let (test_leader_sender, _test_leader_receiver) = mpsc::channel::<Leader>(64);
+        let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
         let (test_send_rpc_server_shutdown, test_receive_rpc_server_shutdown) = mpsc::channel(1);
 
@@ -286,7 +288,7 @@ mod tests {
         assert_eq!(test_server.socket_address.port(), 1245);
         assert!(!test_server.membership_sender.is_closed());
         assert!(!test_server.state_sender.is_closed());
-        assert!(!test_server.heartbeat.is_closed());
+        // assert!(!test_server.heartbeat.is_closed());
         assert!(!test_send_rpc_server_shutdown.is_closed());
 
         Ok(())
