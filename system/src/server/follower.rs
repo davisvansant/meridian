@@ -23,7 +23,8 @@ impl Follower {
         while let Ok(result) =
             timeout_at(Instant::now() + self.election_timeout, heartbeat.recv()).await
         {
-            if let Some(Leader::Heartbeat) = result {
+            // if let Some(Leader::Heartbeat) = result {
+            if let Ok(Leader::Heartbeat) = result {
                 println!("receiving heartbeat...");
             }
         }

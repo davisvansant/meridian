@@ -18,7 +18,7 @@ impl Candidate {
         &mut self,
         client: &ClientSender,
         transition: &mut CandidateReceiver,
-        // tx: &ServerSender,
+        tx: &ServerSender,
         // ) -> Result<(), Box<dyn std::error::Error>> {
         // ) -> Result<ServerState, Box<dyn std::error::Error>> {
     ) -> Result<CandidateTransition, Box<dyn std::error::Error>> {
@@ -33,28 +33,22 @@ impl Candidate {
         loop {
             match timeout_at(Instant::now() + self.election_timeout, transition.recv()).await {
                 Ok(state) => match state {
-                    Some(CandidateTransition::Follower) => {
+                    // Some(CandidateTransition::Follower) => {
+                    Ok(CandidateTransition::Follower) => {
                         println!("received heartbeat...stepping down");
 
-                        // if let Err(error) = tx.send(ServerState::Follower) {
-                        //     println!("error sending server state {:?}", error);
-                        // }
-
-                        // break;
                         return Ok(CandidateTransition::Follower);
                     }
-                    Some(CandidateTransition::Leader) => {
+                    // Some(CandidateTransition::Leader) => {
+                    Ok(CandidateTransition::Leader) => {
                         println!("transitioning server to leader...");
 
-                        // if let Err(error) = tx.send(ServerState::Leader) {
-                        //     println!("error sending server state {:?}", error);
-                        // }
-
-                        // break;
                         return Ok(CandidateTransition::Leader);
                     }
-                    // None => break,
-                    None => continue,
+                    Err(error) => {
+                        println!("error receiving candidate transition... -> {:?}", error);
+                        continue;
+                    }
                 },
                 Err(error) => println!(
                     "candidate election timeout lapsed...trying again...{:?}",
