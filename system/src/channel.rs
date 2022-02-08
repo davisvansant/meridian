@@ -17,7 +17,7 @@ pub use membership_maintenance::{
 pub use rpc_server::RpcServerShutdown;
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
-pub use server::{SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState};
+// pub use server::{SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
 pub use client::{
