@@ -1,3 +1,5 @@
+use tokio::signal::unix::{signal, SignalKind};
+
 use crate::channel::{leader, send_heartbeat};
 use crate::channel::{ClientSender, StateSender};
 
@@ -15,9 +17,23 @@ impl Leader {
     ) -> Result<(), Box<dyn std::error::Error>> {
         leader(state).await?;
 
+        let mut interrupt = signal(SignalKind::interrupt())?;
+
         loop {
-            send_heartbeat(client).await?;
+            tokio::select! {
+                biased;
+                _ = interrupt.recv() => {
+                    println!("shutting down leader heartbeat...");
+
+                    break
+                }
+                _ = send_heartbeat(client) => {}
+            }
         }
+
+        // loop {
+        //     send_heartbeat(client).await?;
+        // }
 
         Ok(())
     }
