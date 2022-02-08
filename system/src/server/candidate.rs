@@ -2,7 +2,7 @@ use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::start_election;
 use crate::channel::{CandidateReceiver, CandidateTransition, ClientSender};
-use crate::server::{ServerSender, ServerState};
+// use crate::server::{ServerSender, ServerState};
 
 pub struct Candidate {
     pub election_timeout: Duration,
@@ -18,7 +18,7 @@ impl Candidate {
         &mut self,
         client: &ClientSender,
         transition: &mut CandidateReceiver,
-        tx: &ServerSender,
+        // tx: &ServerSender,
         // ) -> Result<(), Box<dyn std::error::Error>> {
         // ) -> Result<ServerState, Box<dyn std::error::Error>> {
     ) -> Result<CandidateTransition, Box<dyn std::error::Error>> {

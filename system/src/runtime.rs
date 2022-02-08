@@ -5,7 +5,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
-use crate::channel::ServerState;
+// use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
 use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
@@ -63,7 +63,7 @@ pub async fn launch(
     // |        init system server channel
     // -------------------------------------------------------------------------------------------
 
-    let (server_sender, server_receiver) = mpsc::channel::<ServerState>(64);
+    // let (server_sender, server_receiver) = mpsc::channel::<ServerState>(64);
 
     // -------------------------------------------------------------------------------------------
     // |        init state channel
@@ -82,13 +82,13 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     // let (tx, rx) = broadcast::channel::<ServerState>(64);
-    let (tx, rx) = mpsc::channel::<ServerState>(64);
+    // let (tx, rx) = mpsc::channel::<ServerState>(64);
 
-    // let client_transition_sender = tx.clone();
-    let rpc_communications_server_transition_sender = tx.clone();
-    let rpc_membership_server_transition_sender = tx.clone();
-    let shutdown_server = tx.clone();
-    let send_system_server_shutdown = tx.clone();
+    // // let client_transition_sender = tx.clone();
+    // let rpc_communications_server_transition_sender = tx.clone();
+    // let rpc_membership_server_transition_sender = tx.clone();
+    // let shutdown_server = tx.clone();
+    // let send_system_server_shutdown = tx.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init server candidate transition channel
@@ -135,8 +135,8 @@ pub async fn launch(
         rpc_client_sender,
         server_membership_sender,
         state_sender,
-        tx,
-        rx,
+        // tx,
+        // rx,
         server_candidate_sender,
         candidate_receiver,
         leader_receiver,
