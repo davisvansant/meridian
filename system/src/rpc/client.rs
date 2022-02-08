@@ -13,7 +13,7 @@ use crate::channel::StateSender;
 use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
-use crate::channel::{ServerSender, ServerState};
+// use crate::channel::{ServerSender, ServerState};
 
 use crate::rpc::{build_ip_address, build_socket_address};
 // use crate::rpc::{Data, Interface, Node, RequestVoteResults};
@@ -26,7 +26,7 @@ pub struct Client {
     receiver: ClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
-    state_transition: ServerSender,
+    // state_transition: ServerSender,
     candidate_sender: CandidateSender,
 }
 
@@ -36,7 +36,7 @@ impl Client {
         receiver: ClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
-        state_transition: ServerSender,
+        // state_transition: ServerSender,
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
@@ -55,7 +55,7 @@ impl Client {
             receiver,
             membership_sender,
             state_sender,
-            state_transition,
+            // state_transition,
             candidate_sender,
         })
     }
@@ -99,9 +99,10 @@ impl Client {
                     if peers.is_empty() {
                         // self.state_transition.send(ServerState::Leader)?;
                         // self.state_transition.send(ServerState::Leader).await?;
-                        self.candidate_sender
-                            .send(CandidateTransition::Leader)
-                            .await?;
+                        // self.candidate_sender
+                        //     .send(CandidateTransition::Leader)
+                        //     .await?;
+                        self.candidate_sender.send(CandidateTransition::Leader)?;
                     } else {
                         for peer in peers {
                             let socket_address = peer.build_address(peer.cluster_port).await;
@@ -115,13 +116,15 @@ impl Client {
                         }
 
                         if vote.len() == 2 {
-                            self.candidate_sender
-                                .send(CandidateTransition::Leader)
-                                .await?;
+                            // self.candidate_sender
+                            //     .send(CandidateTransition::Leader)
+                            //     .await?;
+                            self.candidate_sender.send(CandidateTransition::Leader)?;
                         } else {
-                            self.candidate_sender
-                                .send(CandidateTransition::Follower)
-                                .await?;
+                            // self.candidate_sender
+                            //     .send(CandidateTransition::Follower)
+                            //     .await?;
+                            self.candidate_sender.send(CandidateTransition::Follower)?;
                         }
                     }
 
@@ -339,16 +342,18 @@ mod tests {
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         // let (test_server_transition_sender, _test_server_transition_receiver) =
         //     broadcast::channel::<ServerState>(64);
-        let (test_server_transition_sender, _test_server_transition_receiver) =
-            mpsc::channel::<ServerState>(64);
+        // let (test_server_transition_sender, _test_server_transition_receiver) =
+        //     mpsc::channel::<ServerState>(64);
+        // let (test_candidate_sender, _test_candidate_receiver) =
+        //     mpsc::channel::<CandidateTransition>(64);
         let (test_candidate_sender, _test_candidate_receiver) =
-            mpsc::channel::<CandidateTransition>(64);
+            broadcast::channel::<CandidateTransition>(64);
 
         let test_client = Client::init(
             test_client_receiver,
             test_membership_sender,
             test_state_sender,
-            test_server_transition_sender,
+            // test_server_transition_sender,
             test_candidate_sender,
         )
         .await?;
@@ -362,8 +367,8 @@ mod tests {
         assert!(!test_client.membership_sender.is_closed());
         assert!(!test_client.state_sender.is_closed());
         // assert_eq!(test_client.state_transition.receiver_count(), 1);
-        assert!(!test_client.state_transition.is_closed());
-        assert!(!test_client.candidate_sender.is_closed());
+        // assert!(!test_client.state_transition.is_closed());
+        // assert!(!test_client.candidate_sender.is_closed());
 
         Ok(())
     }
