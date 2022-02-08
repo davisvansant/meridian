@@ -138,7 +138,7 @@ pub async fn launch(
         // tx,
         // rx,
         server_candidate_sender,
-        candidate_receiver,
+        // candidate_receiver,
         leader_receiver,
         // receive_system_server_shutdown,
     )
@@ -146,7 +146,8 @@ pub async fn launch(
 
     let system_server_handle = tokio::spawn(async move {
         if let Err(error) = system_server
-            .run(system_leader_sender, client_transition_sender)
+            .run()
+            // .run(system_leader_sender, client_transition_sender)
             .await
         {
             println!("error running server -> {:?}", error);

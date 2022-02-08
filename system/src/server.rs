@@ -37,7 +37,7 @@ pub struct Server {
     // tx: ServerSender,
     // rx: ServerReceiver,
     candidate_sender: CandidateSender,
-    candidate_receiver: CandidateReceiver,
+    // candidate_receiver: CandidateReceiver,
     heartbeat: LeaderReceiver,
     // shutdown: ServerShutdown,
 }
@@ -51,7 +51,7 @@ impl Server {
         // tx: ServerSender,
         // rx: ServerReceiver,
         candidate_sender: CandidateSender,
-        candidate_receiver: CandidateReceiver,
+        // candidate_receiver: CandidateReceiver,
         heartbeat: LeaderReceiver,
         // shutdown: ServerShutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
@@ -66,7 +66,7 @@ impl Server {
             // tx,
             // rx,
             candidate_sender,
-            candidate_receiver,
+            // candidate_receiver,
             heartbeat,
             // shutdown,
         })
@@ -74,8 +74,8 @@ impl Server {
 
     pub async fn run(
         &mut self,
-        test_heartbeat: LeaderSender,
-        candidate_receiver: CandidateSender,
+        // test_heartbeat: LeaderSender,
+        // candidate_receiver: CandidateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         sleep(Duration::from_secs(5)).await;
 
@@ -124,11 +124,12 @@ impl Server {
             ServerState::Candidate => {
                 println!("server > candidate!");
 
+                let mut candidate_receiver = self.candidate_sender.subscribe();
                 let mut candidate = Candidate::init().await?;
 
                 match candidate
                     // .run(&self.client, &mut self.candidate_receiver, &self.tx)
-                    .run(&self.client, &mut self.candidate_receiver)
+                    .run(&self.client, &mut candidate_receiver)
                     .await
                 {
                     Ok(CandidateTransition::Follower) => {
@@ -202,7 +203,7 @@ mod tests {
             // test_transition_sender,
             // test_transition_receiver,
             test_candidate_sender,
-            test_candidate_receiver,
+            // test_candidate_receiver,
             test_leader_receiver,
             // test_shutdown_receiver,
         )
