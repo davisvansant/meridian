@@ -14,7 +14,8 @@ use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
 use crate::rpc::{Data, Node};
 
 use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
-use crate::channel::{MembershipSender, RpcServerShutdown, StateSender};
+// use crate::channel::{MembershipSender, RpcServerShutdown, StateSender};
+use crate::channel::{MembershipSender, StateSender};
 // use crate::channel::{ServerSender, ServerState};
 
 use crate::channel::{Leader, LeaderSender};

@@ -1,7 +1,7 @@
 mod client;
 mod membership;
 mod membership_maintenance;
-mod rpc_server;
+// mod rpc_server;
 mod server;
 mod state;
 
@@ -14,7 +14,7 @@ pub use membership_maintenance::{
     MembershipMaintenanceReceiver, MembershipMaintenanceRequest, MembershipMaintenanceResponse,
     MembershipMaintenanceSender, MembershipMaintenanceShutdown,
 };
-pub use rpc_server::RpcServerShutdown;
+// pub use rpc_server::RpcServerShutdown;
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
 // pub use server::{SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState};
