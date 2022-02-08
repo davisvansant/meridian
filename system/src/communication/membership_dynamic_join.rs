@@ -3,8 +3,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use tokio::net::UdpSocket;
+use tokio::signal::unix::{signal, SignalKind};
 
-use crate::channel::MembershipDynamicJoinShutdown;
+// use crate::channel::MembershipDynamicJoinShutdown;
 
 #[derive(Debug, PartialEq)]
 enum Message {
@@ -31,13 +32,13 @@ pub struct MembershipDynamicJoin {
     buffer: [u8; 1024],
     multicast_address: Ipv4Addr,
     multicast_interface: Ipv4Addr,
-    shutdown: MembershipDynamicJoinShutdown,
+    // shutdown: MembershipDynamicJoinShutdown,
 }
 
 impl MembershipDynamicJoin {
     pub async fn init(
         socket_address: SocketAddr,
-        shutdown: MembershipDynamicJoinShutdown,
+        // shutdown: MembershipDynamicJoinShutdown,
     ) -> Result<MembershipDynamicJoin, Box<dyn std::error::Error>> {
         let buffer = [0; 1024];
         let multicast_address = Ipv4Addr::new(239, 0, 0, 1);
@@ -48,7 +49,7 @@ impl MembershipDynamicJoin {
             buffer,
             multicast_address,
             multicast_interface,
-            shutdown,
+            // shutdown,
         })
     }
 
@@ -81,8 +82,23 @@ impl MembershipDynamicJoin {
         });
 
         // loop {
-        while self.shutdown.recv().await.is_some() {
-            MembershipDynamicJoin::receive_request(&socket_receiver, &mut self.buffer).await?;
+        // while self.shutdown.recv().await.is_some() {
+        //     MembershipDynamicJoin::receive_request(&socket_receiver, &mut self.buffer).await?;
+        // }
+        let mut interrupt = signal(SignalKind::interrupt())?;
+
+        loop {
+            tokio::select! {
+                biased;
+                _ = interrupt.recv() => {
+                    println!("shutting down membership dynamic join interface...");
+
+                    break
+                }
+                _ = MembershipDynamicJoin::receive_request(&socket_receiver, &mut self.buffer) => {
+                    println!("processing incoming udp request...");
+                }
+            }
         }
 
         Ok(())
@@ -122,7 +138,7 @@ impl MembershipDynamicJoin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::mpsc;
+    // use tokio::sync::mpsc;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn message_join() -> Result<(), Box<dyn std::error::Error>> {
@@ -147,9 +163,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let (test_send_shutdown, test_receive_shutdown) = mpsc::channel::<bool>(1);
-        let test_membership_dynamic_join =
-            MembershipDynamicJoin::init(test_socket_address, test_receive_shutdown).await?;
+        // let (test_send_shutdown, test_receive_shutdown) = mpsc::channel::<bool>(1);
+        // let test_membership_dynamic_join =
+        //     MembershipDynamicJoin::init(test_socket_address, test_receive_shutdown).await?;
+        let test_membership_dynamic_join = MembershipDynamicJoin::init(test_socket_address).await?;
 
         assert!(test_membership_dynamic_join.socket_address.ip().is_ipv4());
         assert_eq!(test_membership_dynamic_join.buffer, [0_u8; 1024]);
@@ -160,7 +177,7 @@ mod tests {
             test_membership_dynamic_join.multicast_interface,
             Ipv4Addr::UNSPECIFIED,
         );
-        assert!(!test_send_shutdown.is_closed());
+        // assert!(!test_send_shutdown.is_closed());
 
         Ok(())
     }
@@ -168,15 +185,17 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn send_and_receive_request() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8888);
-        let (
-            _test_send_memberhsip_dynamic_join_shutdown,
-            test_receive_membership_dynamic_join_shutdown,
-        ) = mpsc::channel::<bool>(1);
-        let mut test_membership_dynamic_join = MembershipDynamicJoin::init(
-            test_socket_address,
-            test_receive_membership_dynamic_join_shutdown,
-        )
-        .await?;
+        // let (
+        //     _test_send_memberhsip_dynamic_join_shutdown,
+        //     test_receive_membership_dynamic_join_shutdown,
+        // ) = mpsc::channel::<bool>(1);
+        // let mut test_membership_dynamic_join = MembershipDynamicJoin::init(
+        //     test_socket_address,
+        //     test_receive_membership_dynamic_join_shutdown,
+        // )
+        // .await?;
+        let mut test_membership_dynamic_join =
+            MembershipDynamicJoin::init(test_socket_address).await?;
 
         let test_receive_multicast = tokio::spawn(async move {
             let test_socket = UdpSocket::bind(test_membership_dynamic_join.socket_address)
@@ -201,13 +220,15 @@ mod tests {
 
         let test_sender_socket_address =
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8889);
-        let (_test_sender_send_dynamic_join_shutdown, test_sender_receive_dynamic_join_shutdown) =
-            mpsc::channel::<bool>(1);
-        let test_sender_membership_dynamic_join = MembershipDynamicJoin::init(
-            test_socket_address,
-            test_sender_receive_dynamic_join_shutdown,
-        )
-        .await?;
+        // let (_test_sender_send_dynamic_join_shutdown, test_sender_receive_dynamic_join_shutdown) =
+        //     mpsc::channel::<bool>(1);
+        // let test_sender_membership_dynamic_join = MembershipDynamicJoin::init(
+        //     test_socket_address,
+        //     test_sender_receive_dynamic_join_shutdown,
+        // )
+        // .await?;
+        let test_sender_membership_dynamic_join =
+            MembershipDynamicJoin::init(test_socket_address).await?;
         let test_sender_socket = UdpSocket::bind(test_sender_socket_address).await?;
         // let test_message = Message::Join.build().await;
         let test_target = SocketAddr::new(
