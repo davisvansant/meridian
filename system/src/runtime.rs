@@ -84,23 +84,28 @@ pub async fn launch(
     // let (tx, rx) = broadcast::channel::<ServerState>(64);
     let (tx, rx) = mpsc::channel::<ServerState>(64);
 
-    let client_transition_sender = tx.clone();
+    // let client_transition_sender = tx.clone();
     let rpc_communications_server_transition_sender = tx.clone();
     let rpc_membership_server_transition_sender = tx.clone();
     let shutdown_server = tx.clone();
+    let send_system_server_shutdown = tx.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init server candidate transition channel
     // -------------------------------------------------------------------------------------------
 
-    let (candidate_sender, candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
+    // let (candidate_sender, candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
+    let (candidate_sender, candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
+    let client_transition_sender = candidate_sender.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init server leader heartbeat channel
     // -------------------------------------------------------------------------------------------
 
-    let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
+    // let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
+    let (leader_sender, leader_receiver) = broadcast::channel::<Leader>(64);
+    let system_leader_sender = leader_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
     // |        init membership
@@ -118,23 +123,32 @@ pub async fn launch(
     // |        init system server
     // -------------------------------------------------------------------------------------------
 
-    let (send_system_server_shutdown, receive_system_server_shutdown) = mpsc::channel::<()>(1);
+    // let (send_system_server_shutdown, receive_system_server_shutdown) = mpsc::channel::<()>(1);
+    // let (send_system_server_shutdown, receive_system_server_shutdown) = mpsc::channel::<bool>(1);
+    // let (send_system_server_shutdown, receive_system_server_shutdown) =
+    //     broadcast::channel::<bool>(1);
+    // let (send_system_server_shutdown, receive_system_server_shutdown) =
+    //     watch::channel::<u8>(1);
+    // let test_server_launch = send_system_server_shutdown.clone();
 
     let mut system_server = SystemServer::init(
         rpc_client_sender,
         server_membership_sender,
         state_sender,
-        // tx,
+        tx,
         rx,
         server_candidate_sender,
         candidate_receiver,
         leader_receiver,
-        receive_system_server_shutdown,
+        // receive_system_server_shutdown,
     )
     .await?;
 
     let system_server_handle = tokio::spawn(async move {
-        if let Err(error) = system_server.run().await {
+        if let Err(error) = system_server
+            .run(system_leader_sender, client_transition_sender)
+            .await
+        {
             println!("error running server -> {:?}", error);
         }
     });
@@ -185,7 +199,7 @@ pub async fn launch(
         rpc_client_receiver,
         membership_sender,
         client_state_sender,
-        client_transition_sender,
+        // client_transition_sender,
         candidate_sender,
     )
     .await?;
@@ -199,45 +213,45 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
     // |        init membership dynamic join
     // -------------------------------------------------------------------------------------------
-    let (send_membership_dynamic_join_shutdown, receive_membership_dynamic_join_shutdown) =
-        mpsc::channel::<bool>(1);
-    let membership_dynamic_join_socket_address = node.build_address(node.membership_port).await;
+    // let (send_membership_dynamic_join_shutdown, receive_membership_dynamic_join_shutdown) =
+    //     mpsc::channel::<bool>(1);
+    // let membership_dynamic_join_socket_address = node.build_address(node.membership_port).await;
 
-    let mut membership_dynamic_join = MembershipDynamicJoin::init(
-        membership_dynamic_join_socket_address,
-        receive_membership_dynamic_join_shutdown,
-    )
-    .await?;
+    // let mut membership_dynamic_join = MembershipDynamicJoin::init(
+    //     membership_dynamic_join_socket_address,
+    //     receive_membership_dynamic_join_shutdown,
+    // )
+    // .await?;
 
-    let membership_dynamic_join_handle = tokio::spawn(async move {
-        if let Err(error) = membership_dynamic_join.run().await {
-            println!("error running membership dynamic join -> {:?}", error);
-        }
-    });
+    // let membership_dynamic_join_handle = tokio::spawn(async move {
+    //     if let Err(error) = membership_dynamic_join.run().await {
+    //         println!("error running membership dynamic join -> {:?}", error);
+    //     }
+    // });
 
     // -------------------------------------------------------------------------------------------
     // |        init membership maintenance
     // -------------------------------------------------------------------------------------------
-    let (membership_maintenance_sender, membership_maintenance_receiver) = mpsc::channel::<(
-        MembershipMaintenanceRequest,
-        oneshot::Sender<MembershipMaintenanceResponse>,
-    )>(64);
-    let shutdown_membership_maintenance = membership_maintenance_sender.clone();
+    // let (membership_maintenance_sender, membership_maintenance_receiver) = mpsc::channel::<(
+    //     MembershipMaintenanceRequest,
+    //     oneshot::Sender<MembershipMaintenanceResponse>,
+    // )>(64);
+    // let shutdown_membership_maintenance = membership_maintenance_sender.clone();
 
-    let membership_socket_address = node.build_address(node.membership_port).await;
+    // let membership_socket_address = node.build_address(node.membership_port).await;
 
-    let mut membership_maintenance = MembershipMaintenance::init(
-        membership_socket_address,
-        membership_maintenance_receiver,
-        membership_maintenance_sender,
-    )
-    .await?;
+    // let mut membership_maintenance = MembershipMaintenance::init(
+    //     membership_socket_address,
+    //     membership_maintenance_receiver,
+    //     membership_maintenance_sender,
+    // )
+    // .await?;
 
-    let membership_maintenance_handle = tokio::spawn(async move {
-        if let Err(error) = membership_maintenance.run().await {
-            println!("erroe with membership maintenance -> {:?}", error);
-        }
-    });
+    // let membership_maintenance_handle = tokio::spawn(async move {
+    //     if let Err(error) = membership_maintenance.run().await {
+    //         println!("erroe with membership maintenance -> {:?}", error);
+    //     }
+    // });
 
     // -------------------------------------------------------------------------------------------
     // |        init shutdown signal
@@ -251,9 +265,6 @@ pub async fn launch(
             // if let Ok(()) = crate::channel::shutdown_server(&shutdown_server).await {
             //     println!("initiating server shutdown...");
             // }
-            println!("initiating server shutdown...");
-            drop(send_system_server_shutdown);
-
             if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
                 println!("system state shutdown...");
             }
@@ -270,16 +281,16 @@ pub async fn launch(
 
             drop(send_rpc_server_shutdown);
 
-            println!("shutting down membership dynamic join interface ....");
+            // println!("shutting down membership dynamic join interface ....");
 
-            drop(send_membership_dynamic_join_shutdown);
+            // drop(send_membership_dynamic_join_shutdown);
 
-            if let Ok(()) =
-                crate::channel::shutdown_membership_maintenance(&shutdown_membership_maintenance)
-                    .await
-            {
-                println!("initiating membership maintenance shutdown...");
-            }
+            // if let Ok(()) =
+            //     crate::channel::shutdown_membership_maintenance(&shutdown_membership_maintenance)
+            //         .await
+            // {
+            //     println!("initiating membership maintenance shutdown...");
+            // }
         }
     });
 
@@ -293,8 +304,8 @@ pub async fn launch(
         system_server_handle,
         client_handle,
         rpc_communications_server_handle,
-        membership_maintenance_handle,
-        membership_dynamic_join_handle,
+        // membership_maintenance_handle,
+        // membership_dynamic_join_handle,
         shutdown_signal,
     )?;
 
