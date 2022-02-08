@@ -174,7 +174,7 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     // let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = watch::channel(1);
-    let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = mpsc::channel::<bool>(1);
+    // let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = mpsc::channel::<bool>(1);
 
     let node_socket_address = node.build_address(node.cluster_port).await;
 
@@ -184,7 +184,7 @@ pub async fn launch(
         rpc_communications_server_state_sender,
         leader_sender,
         node_socket_address,
-        receive_rpc_server_shutdown,
+        // receive_rpc_server_shutdown,
     )
     .await?;
 
@@ -281,9 +281,9 @@ pub async fn launch(
                 println!("initiating membership shutdown...");
             }
 
-            println!("shutting down rpc server interface ....");
+            // println!("shutting down rpc server interface ....");
 
-            drop(send_rpc_server_shutdown);
+            // drop(send_rpc_server_shutdown);
 
             // println!("shutting down membership dynamic join interface ....");
 
