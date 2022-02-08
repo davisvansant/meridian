@@ -16,9 +16,17 @@ mod preflight;
 use crate::channel::{CandidateReceiver, CandidateSender, CandidateTransition};
 use crate::channel::{ClientSender, MembershipSender, StateSender};
 use crate::channel::{LeaderReceiver, LeaderSender};
-use crate::channel::{
-    SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState,
-};
+// use crate::channel::{
+//     SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState,
+// };
+
+pub enum ServerState {
+    Candidate,
+    Follower,
+    Leader,
+    Preflight,
+    Shutdown,
+}
 
 pub struct Server {
     pub server_state: ServerState,
@@ -26,8 +34,8 @@ pub struct Server {
     membership: MembershipSender,
     // receiver: ServerReceiver,
     state: StateSender,
-    tx: ServerSender,
-    rx: ServerReceiver,
+    // tx: ServerSender,
+    // rx: ServerReceiver,
     candidate_sender: CandidateSender,
     candidate_receiver: CandidateReceiver,
     heartbeat: LeaderReceiver,
@@ -40,8 +48,8 @@ impl Server {
         membership: MembershipSender,
         // receiver: ServerReceiver,
         state: StateSender,
-        tx: ServerSender,
-        rx: ServerReceiver,
+        // tx: ServerSender,
+        // rx: ServerReceiver,
         candidate_sender: CandidateSender,
         candidate_receiver: CandidateReceiver,
         heartbeat: LeaderReceiver,
@@ -55,8 +63,8 @@ impl Server {
             membership,
             // receiver,
             state,
-            tx,
-            rx,
+            // tx,
+            // rx,
             candidate_sender,
             candidate_receiver,
             heartbeat,
@@ -119,7 +127,8 @@ impl Server {
                 let mut candidate = Candidate::init().await?;
 
                 match candidate
-                    .run(&self.client, &mut self.candidate_receiver, &self.tx)
+                    // .run(&self.client, &mut self.candidate_receiver, &self.tx)
+                    .run(&self.client, &mut self.candidate_receiver)
                     .await
                 {
                     Ok(CandidateTransition::Follower) => {
@@ -161,7 +170,7 @@ mod tests {
     use super::*;
     use crate::channel::CandidateTransition;
     use crate::channel::Leader;
-    use crate::channel::ServerState;
+    // use crate::channel::ServerState;
     use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
@@ -190,8 +199,8 @@ mod tests {
             test_client_sender,
             test_membership_sender,
             test_state_sender,
-            test_transition_sender,
-            test_transition_receiver,
+            // test_transition_sender,
+            // test_transition_receiver,
             test_candidate_sender,
             test_candidate_receiver,
             test_leader_receiver,
