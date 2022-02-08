@@ -95,16 +95,18 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     // let (candidate_sender, candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
-    let (candidate_sender, candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
+    let (candidate_sender, _candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
     let client_transition_sender = candidate_sender.clone();
+
+    drop(candidate_sender);
 
     // -------------------------------------------------------------------------------------------
     // |        init server leader heartbeat channel
     // -------------------------------------------------------------------------------------------
 
     // let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
-    let (leader_sender, leader_receiver) = broadcast::channel::<Leader>(64);
+    let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
     let system_leader_sender = leader_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
@@ -139,7 +141,8 @@ pub async fn launch(
         // rx,
         server_candidate_sender,
         // candidate_receiver,
-        leader_receiver,
+        // leader_receiver,
+        system_leader_sender,
         // receive_system_server_shutdown,
     )
     .await?;
@@ -200,8 +203,8 @@ pub async fn launch(
         rpc_client_receiver,
         membership_sender,
         client_state_sender,
-        // client_transition_sender,
-        candidate_sender,
+        client_transition_sender,
+        // candidate_sender,
     )
     .await?;
 

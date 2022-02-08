@@ -13,9 +13,12 @@ pub mod follower;
 pub mod leader;
 mod preflight;
 
-use crate::channel::{CandidateReceiver, CandidateSender, CandidateTransition};
+// use crate::channel::{CandidateReceiver, CandidateSender, CandidateTransition};
+use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientSender, MembershipSender, StateSender};
-use crate::channel::{LeaderReceiver, LeaderSender};
+// use crate::channel::{LeaderReceiver, LeaderSender};
+// use crate::channel::LeaderReceiver;
+use crate::channel::LeaderSender;
 // use crate::channel::{
 //     SendServerShutdown, ServerReceiver, ServerSender, ServerShutdown, ServerState,
 // };
@@ -38,7 +41,8 @@ pub struct Server {
     // rx: ServerReceiver,
     candidate_sender: CandidateSender,
     // candidate_receiver: CandidateReceiver,
-    heartbeat: LeaderReceiver,
+    // heartbeat: LeaderReceiver,
+    heartbeat: LeaderSender,
     // shutdown: ServerShutdown,
 }
 
@@ -52,7 +56,8 @@ impl Server {
         // rx: ServerReceiver,
         candidate_sender: CandidateSender,
         // candidate_receiver: CandidateReceiver,
-        heartbeat: LeaderReceiver,
+        // heartbeat: LeaderReceiver,
+        heartbeat: LeaderSender,
         // shutdown: ServerShutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Follower;
@@ -114,8 +119,10 @@ impl Server {
             ServerState::Follower => {
                 println!("server > follower!");
 
+                let mut heartbeat = self.heartbeat.subscribe();
                 let mut follower = Follower::init().await?;
-                follower.run(&mut self.heartbeat).await?;
+
+                follower.run(&mut heartbeat).await?;
 
                 self.server_state = ServerState::Candidate;
 
@@ -187,14 +194,14 @@ mod tests {
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         // let (test_transition_sender, test_transition_receiver) =
         //     broadcast::channel::<ServerState>(64);
-        let (test_transition_sender, test_transition_receiver) = mpsc::channel::<ServerState>(64);
+        // let (test_transition_sender, test_transition_receiver) = mpsc::channel::<ServerState>(64);
         // let (test_candidate_sender, test_candidate_receiver) =
         //     mpsc::channel::<CandidateTransition>(64);
-        let (test_candidate_sender, test_candidate_receiver) =
+        let (test_candidate_sender, _test_candidate_receiver) =
             broadcast::channel::<CandidateTransition>(64);
         // let (test_leader_sender, test_leader_receiver) = mpsc::channel::<Leader>(64);
-        let (test_leader_sender, test_leader_receiver) = broadcast::channel::<Leader>(64);
-        let (test_shutdown_sender, test_shutdown_receiver) = mpsc::channel::<()>(1);
+        let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
+        // let (test_shutdown_sender, test_shutdown_receiver) = mpsc::channel::<()>(1);
 
         let test_server = Server::init(
             test_client_sender,
@@ -204,7 +211,8 @@ mod tests {
             // test_transition_receiver,
             test_candidate_sender,
             // test_candidate_receiver,
-            test_leader_receiver,
+            test_leader_sender,
+            // test_leader_receiver,
             // test_shutdown_receiver,
         )
         .await?;
