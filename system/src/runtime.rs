@@ -1,13 +1,12 @@
 use std::net::SocketAddr;
 
 use tokio::signal::ctrl_c;
-use tokio::sync::{broadcast, mpsc, oneshot, watch};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
-// use crate::channel::ServerState;
 use crate::channel::{ClientRequest, ClientResponse};
-use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
+// use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
 
@@ -15,16 +14,15 @@ use crate::membership::{ClusterSize, Membership};
 
 use crate::node::Node;
 
-// use crate::rpc::{Client, Interface, Server};
 use crate::rpc::{Client, Server};
 
 use crate::server::Server as SystemServer;
 
 use crate::state::State;
 
-use crate::communication::membership_maintenance::MembershipMaintenance;
+// use crate::communication::membership_maintenance::MembershipMaintenance;
 
-use crate::communication::membership_dynamic_join::MembershipDynamicJoin;
+// use crate::communication::membership_dynamic_join::MembershipDynamicJoin;
 
 pub async fn launch(
     cluster_size: &str,
@@ -60,12 +58,6 @@ pub async fn launch(
     let shutdown_membership = membership_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
-    // |        init system server channel
-    // -------------------------------------------------------------------------------------------
-
-    // let (server_sender, server_receiver) = mpsc::channel::<ServerState>(64);
-
-    // -------------------------------------------------------------------------------------------
     // |        init state channel
     // -------------------------------------------------------------------------------------------
 
@@ -78,23 +70,9 @@ pub async fn launch(
     let shutdown_state = state_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------
-    // |        init state transition channel
-    // -------------------------------------------------------------------------------------------
-
-    // let (tx, rx) = broadcast::channel::<ServerState>(64);
-    // let (tx, rx) = mpsc::channel::<ServerState>(64);
-
-    // // let client_transition_sender = tx.clone();
-    // let rpc_communications_server_transition_sender = tx.clone();
-    // let rpc_membership_server_transition_sender = tx.clone();
-    // let shutdown_server = tx.clone();
-    // let send_system_server_shutdown = tx.clone();
-
-    // -------------------------------------------------------------------------------------------
     // |        init server candidate transition channel
     // -------------------------------------------------------------------------------------------
 
-    // let (candidate_sender, candidate_receiver) = mpsc::channel::<CandidateTransition>(64);
     let (candidate_sender, _candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
     let server_candidate_sender = candidate_sender.clone();
     let client_transition_sender = candidate_sender.clone();
@@ -105,7 +83,6 @@ pub async fn launch(
     // |        init server leader heartbeat channel
     // -------------------------------------------------------------------------------------------
 
-    // let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
     let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
     let system_leader_sender = leader_sender.to_owned();
 
@@ -125,34 +102,17 @@ pub async fn launch(
     // |        init system server
     // -------------------------------------------------------------------------------------------
 
-    // let (send_system_server_shutdown, receive_system_server_shutdown) = mpsc::channel::<()>(1);
-    // let (send_system_server_shutdown, receive_system_server_shutdown) = mpsc::channel::<bool>(1);
-    // let (send_system_server_shutdown, receive_system_server_shutdown) =
-    //     broadcast::channel::<bool>(1);
-    // let (send_system_server_shutdown, receive_system_server_shutdown) =
-    //     watch::channel::<u8>(1);
-    // let test_server_launch = send_system_server_shutdown.clone();
-
     let mut system_server = SystemServer::init(
         rpc_client_sender,
         server_membership_sender,
         state_sender,
-        // tx,
-        // rx,
         server_candidate_sender,
-        // candidate_receiver,
-        // leader_receiver,
         system_leader_sender,
-        // receive_system_server_shutdown,
     )
     .await?;
 
     let system_server_handle = tokio::spawn(async move {
-        if let Err(error) = system_server
-            .run()
-            // .run(system_leader_sender, client_transition_sender)
-            .await
-        {
+        if let Err(error) = system_server.run().await {
             println!("error running server -> {:?}", error);
         }
     });
@@ -173,18 +133,13 @@ pub async fn launch(
     // |        init internal rpc server channel
     // -------------------------------------------------------------------------------------------
 
-    // let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = watch::channel(1);
-    // let (send_rpc_server_shutdown, receive_rpc_server_shutdown) = mpsc::channel::<bool>(1);
-
     let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
-        // Interface::Communications,
         rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
         leader_sender,
         node_socket_address,
-        // receive_rpc_server_shutdown,
     )
     .await?;
 
@@ -199,12 +154,10 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     let mut client = Client::init(
-        // Interface::Communications,
         rpc_client_receiver,
         membership_sender,
         client_state_sender,
         client_transition_sender,
-        // candidate_sender,
     )
     .await?;
 
@@ -266,9 +219,6 @@ pub async fn launch(
             println!("received shutdown signal...");
             println!("shutting down...");
 
-            // if let Ok(()) = crate::channel::shutdown_server(&shutdown_server).await {
-            //     println!("initiating server shutdown...");
-            // }
             if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
                 println!("system state shutdown...");
             }
