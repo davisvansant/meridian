@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot};
 
 pub type MembershipMaintenanceShutdown = mpsc::Receiver<bool>;
 pub type MembershipMaintenanceReceiver = mpsc::Receiver<(
