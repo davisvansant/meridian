@@ -8,9 +8,9 @@ use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
 
-pub mod candidate;
-pub mod follower;
-pub mod leader;
+mod candidate;
+mod follower;
+mod leader;
 mod preflight;
 
 pub enum ServerState {

@@ -1,8 +1,6 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
-// use crate::channel::ServerReceiver;
 use crate::channel::{Leader, LeaderReceiver};
-// use crate::server::ServerState;
 
 pub struct Follower {
     pub election_timeout: Duration,
@@ -17,13 +15,11 @@ impl Follower {
 
     pub async fn run(
         &mut self,
-        // heartbeat: &mut ServerReceiver,
         heartbeat: &mut LeaderReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
         while let Ok(result) =
             timeout_at(Instant::now() + self.election_timeout, heartbeat.recv()).await
         {
-            // if let Some(Leader::Heartbeat) = result {
             if let Ok(Leader::Heartbeat) = result {
                 println!("receiving heartbeat...");
             }
@@ -45,11 +41,4 @@ mod tests {
         assert_eq!(test_follower.election_timeout.as_millis(), 150);
         Ok(())
     }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn election_timeout() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_follower = Follower::init().await?;
-    //     assert!(test_follower.election_timeout().await.is_ok());
-    //     Ok(())
-    // }
 }
