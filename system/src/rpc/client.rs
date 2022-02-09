@@ -13,10 +13,7 @@ use crate::channel::StateSender;
 use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
-// use crate::channel::{ServerSender, ServerState};
-
 use crate::rpc::{build_ip_address, build_socket_address};
-// use crate::rpc::{Data, Interface, Node, RequestVoteResults};
 use crate::rpc::{Data, Node, RequestVoteResults};
 
 pub struct Client {
@@ -26,7 +23,6 @@ pub struct Client {
     receiver: ClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
-    // state_transition: ServerSender,
     candidate_sender: CandidateSender,
 }
 
@@ -36,7 +32,6 @@ impl Client {
         receiver: ClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
-        // state_transition: ServerSender,
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
         let ip_address = build_ip_address().await;
@@ -55,7 +50,6 @@ impl Client {
             receiver,
             membership_sender,
             state_sender,
-            // state_transition,
             candidate_sender,
         })
     }
@@ -97,11 +91,6 @@ impl Client {
                     let peers = cluster_members(&self.membership_sender).await?;
 
                     if peers.is_empty() {
-                        // self.state_transition.send(ServerState::Leader)?;
-                        // self.state_transition.send(ServerState::Leader).await?;
-                        // self.candidate_sender
-                        //     .send(CandidateTransition::Leader)
-                        //     .await?;
                         self.candidate_sender.send(CandidateTransition::Leader)?;
                     } else {
                         for peer in peers {
@@ -116,14 +105,8 @@ impl Client {
                         }
 
                         if vote.len() == 2 {
-                            // self.candidate_sender
-                            //     .send(CandidateTransition::Leader)
-                            //     .await?;
                             self.candidate_sender.send(CandidateTransition::Leader)?;
                         } else {
-                            // self.candidate_sender
-                            //     .send(CandidateTransition::Follower)
-                            //     .await?;
                             self.candidate_sender.send(CandidateTransition::Follower)?;
                         }
                     }
@@ -199,18 +182,6 @@ impl Client {
 
         let root = flexbuffers::Reader::get_root(&*response)?;
 
-        // let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-        // response.push_to_builder(&mut flexbuffers_builder);
-
-        // let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
-
-        // let response_details = flexbuffer_root
-        //     .as_map()
-        //     .idx("details")
-        //     .as_map()
-        //     .idx("nodes")
-        //     .as_vector();
         let response_details = root
             .as_map()
             .idx("details")
@@ -239,7 +210,6 @@ impl Client {
                 .build_address(connected_node.cluster_port)
                 .await;
 
-            // connected_nodes.push(connected_node)
             connected_nodes.push(socket_address)
         }
 
@@ -326,7 +296,6 @@ mod tests {
     use super::*;
     // use crate::rpc::Server;
     use crate::channel::CandidateTransition;
-    // use crate::channel::ServerState;
     use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
@@ -340,12 +309,6 @@ mod tests {
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        // let (test_server_transition_sender, _test_server_transition_receiver) =
-        //     broadcast::channel::<ServerState>(64);
-        // let (test_server_transition_sender, _test_server_transition_receiver) =
-        //     mpsc::channel::<ServerState>(64);
-        // let (test_candidate_sender, _test_candidate_receiver) =
-        //     mpsc::channel::<CandidateTransition>(64);
         let (test_candidate_sender, _test_candidate_receiver) =
             broadcast::channel::<CandidateTransition>(64);
 
@@ -353,7 +316,6 @@ mod tests {
             test_client_receiver,
             test_membership_sender,
             test_state_sender,
-            // test_server_transition_sender,
             test_candidate_sender,
         )
         .await?;
@@ -366,9 +328,6 @@ mod tests {
         assert!(!test_client_sender.is_closed());
         assert!(!test_client.membership_sender.is_closed());
         assert!(!test_client.state_sender.is_closed());
-        // assert_eq!(test_client.state_transition.receiver_count(), 1);
-        // assert!(!test_client.state_transition.is_closed());
-        // assert!(!test_client.candidate_sender.is_closed());
 
         Ok(())
     }

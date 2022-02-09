@@ -5,22 +5,17 @@ use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::signal::unix::{signal, SignalKind};
 
 use uuid::Uuid;
 
-use crate::rpc::{build_ip_address, build_tcp_socket};
-use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
-// use crate::rpc::{Data, Interface, Node};
-use crate::rpc::{Data, Node};
-
 use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
-// use crate::channel::{MembershipSender, RpcServerShutdown, StateSender};
-use crate::channel::{MembershipSender, StateSender};
-// use crate::channel::{ServerSender, ServerState};
-
 use crate::channel::{Leader, LeaderSender};
-
-use tokio::signal::unix::{signal, SignalKind};
+use crate::channel::{MembershipSender, StateSender};
+// use crate::rpc::{build_ip_address, build_tcp_socket};
+use crate::rpc::build_tcp_socket;
+use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
+use crate::rpc::{Data, Node};
 
 pub struct Server {
     // ip_address: IpAddr,
@@ -28,20 +23,15 @@ pub struct Server {
     socket_address: SocketAddr,
     membership_sender: MembershipSender,
     state_sender: StateSender,
-    // heartbeat: ServerSender,
     heartbeat: LeaderSender,
-    // shutdown: RpcServerShutdown,
 }
 
 impl Server {
     pub async fn init(
-        // interface: Interface,
         membership_sender: MembershipSender,
         state_sender: StateSender,
-        // heartbeat: ServerSender,
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
-        // shutdown: RpcServerShutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         // let ip_address = build_ip_address().await;
         // let port = match interface {
@@ -58,12 +48,10 @@ impl Server {
             membership_sender,
             state_sender,
             heartbeat,
-            // shutdown,
         })
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let owned_membership_sender = self.membership_sender.to_owned();
         let tcp_socket = build_tcp_socket().await?;
 
         tcp_socket.set_reuseaddr(true)?;
@@ -84,63 +72,10 @@ impl Server {
                     break
                 }
                 _ = self.accept_incoming(&tcp_listener) => {
-                    println!("processing incoming connection!");
+                    println!("processing incoming connection");
                 }
             }
         }
-
-        // let mut connections = 0;
-
-        // while connections >= 0 {
-        // while self.shutdown.recv().await.is_some() {
-        //     let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
-
-        //     println!("running on {:?}", socket_address);
-
-        //     let membership_sender = owned_membership_sender.to_owned();
-        //     let state_sender = self.state_sender.to_owned();
-        //     let heartbeat = self.heartbeat.to_owned();
-
-        //     tokio::spawn(async move {
-        //         let mut buffer = [0; 1024];
-
-        //         match tcp_stream.read(&mut buffer).await {
-        //             Ok(data_length) => {
-        //                 let send_result = match Self::route_incoming(
-        //                     &buffer[0..data_length],
-        //                     // &membership_sender.to_owned(),
-        //                     &membership_sender,
-        //                     &state_sender,
-        //                     &heartbeat,
-        //                 )
-        //                 .await
-        //                 {
-        //                     Ok(send_result) => send_result,
-        //                     Err(error) => {
-        //                         println!("error routing request ! {:?}", error);
-        //                         return;
-        //                     }
-        //                 };
-
-        //                 if let Err(error) = tcp_stream.write_all(&send_result).await {
-        //                     println!("tcp stream write error ! {:?}", error);
-        //                 };
-
-        //                 if let Err(error) = tcp_stream.shutdown().await {
-        //                     println!("tcp stream shutdown error! {:?}", error);
-        //                 };
-        //                 // if let Err(error) = tcp_stream.flush().await {
-        //                 //     println!("tcp stream flush error! {:?}", error);
-        //                 // };
-        //             }
-        //             Err(error) => {
-        //                 println!("{:?}", error);
-        //             }
-        //         }
-        //     });
-
-        //     // connections += 1;
-        // }
 
         Ok(())
     }
@@ -198,7 +133,6 @@ impl Server {
         data: &[u8],
         membership_sender: &MembershipSender,
         state_sender: &StateSender,
-        // heartbeat: &ServerSender,
         heartbeat: &LeaderSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
@@ -228,7 +162,7 @@ impl Server {
 
                 if entries.is_empty() {
                     println!("sending heartbeat from server ...");
-                    // heartbeat.send(Leader::Heartbeat).await?;
+
                     heartbeat.send(Leader::Heartbeat)?;
                 }
 
@@ -242,7 +176,6 @@ impl Server {
                 };
 
                 let results = append_entries(state_sender, arguments).await?;
-
                 let append_entries_results = Data::AppendEntriesResults(results).build().await?;
 
                 Ok(append_entries_results)
@@ -297,7 +230,6 @@ impl Server {
                 };
 
                 let results = request_vote(state_sender, arguments).await?;
-
                 let request_vote_results = Data::RequestVoteResults(results).build().await?;
 
                 Ok(request_vote_results)
@@ -326,7 +258,7 @@ mod tests {
     use crate::channel::Leader;
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
-    use tokio::sync::{broadcast, mpsc, oneshot, watch};
+    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
@@ -334,17 +266,14 @@ mod tests {
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        // let (test_leader_sender, _test_leader_receiver) = mpsc::channel::<Leader>(64);
         let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
-        // let (test_send_rpc_server_shutdown, test_receive_rpc_server_shutdown) = mpsc::channel(1);
 
         let test_server = Server::init(
             test_membership_sender,
             test_state_sender,
             test_leader_sender,
             test_socket_address,
-            // test_receive_rpc_server_shutdown,
         )
         .await?;
 
@@ -355,8 +284,6 @@ mod tests {
         assert_eq!(test_server.socket_address.port(), 1245);
         assert!(!test_server.membership_sender.is_closed());
         assert!(!test_server.state_sender.is_closed());
-        // assert!(!test_server.heartbeat.is_closed());
-        // assert!(!test_send_rpc_server_shutdown.is_closed());
 
         Ok(())
     }
