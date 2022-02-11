@@ -4,7 +4,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::signal::unix::{signal, SignalKind};
 
 use uuid::Uuid;
@@ -71,60 +71,55 @@ impl Server {
 
                     break
                 }
-                _ = self.accept_incoming(&tcp_listener) => {
-                    println!("processing incoming connection");
+
+                Ok((mut tcp_stream, socket_address)) = tcp_listener.accept() => {
+                    println!("processing incoming connection...");
+                    println!("stream -> {:?}", &tcp_stream);
+                    println!("socket address -> {:?}", &socket_address);
+
+                    let membership_sender = self.membership_sender.to_owned();
+                    let state_sender = self.state_sender.to_owned();
+                    let heartbeat = self.heartbeat.to_owned();
+
+                    tokio::spawn(async move {
+                        let mut buffer = [0; 1024];
+
+                        match tcp_stream.read(&mut buffer).await {
+                            Ok(data_length) => {
+                                let send_result = match Self::route_incoming(
+                                &buffer[0..data_length],
+                                &membership_sender,
+                                &state_sender,
+                                &heartbeat,
+                            )
+                            .await
+                        {
+                            Ok(send_result) => send_result,
+                            Err(error) => {
+                                println!("error routing request ! {:?}", error);
+                                return;
+                            }
+                        };
+
+                        if let Err(error) = tcp_stream.write_all(&send_result).await {
+                            println!("tcp stream write error ! {:?}", error);
+                        };
+
+                        if let Err(error) = tcp_stream.shutdown().await {
+                            println!("tcp stream shutdown error! {:?}", error);
+                        };
+                        }
+                            Err(error) => {
+                                println!("{:?}", error);
+                            }
+                        }
+                    });
+                }
+                Err(error) = tcp_listener.accept() => {
+                    println!("error with tcp listener -> {:?}", error);
                 }
             }
         }
-
-        Ok(())
-    }
-
-    async fn accept_incoming(
-        &self,
-        tcp_listener: &TcpListener,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (mut tcp_stream, socket_address) = tcp_listener.accept().await?;
-
-        println!("running on {:?}", socket_address);
-
-        let membership_sender = self.membership_sender.to_owned();
-        let state_sender = self.state_sender.to_owned();
-        let heartbeat = self.heartbeat.to_owned();
-
-        tokio::spawn(async move {
-            let mut buffer = [0; 1024];
-
-            match tcp_stream.read(&mut buffer).await {
-                Ok(data_length) => {
-                    let send_result = match Self::route_incoming(
-                        &buffer[0..data_length],
-                        &membership_sender,
-                        &state_sender,
-                        &heartbeat,
-                    )
-                    .await
-                    {
-                        Ok(send_result) => send_result,
-                        Err(error) => {
-                            println!("error routing request ! {:?}", error);
-                            return;
-                        }
-                    };
-
-                    if let Err(error) = tcp_stream.write_all(&send_result).await {
-                        println!("tcp stream write error ! {:?}", error);
-                    };
-
-                    if let Err(error) = tcp_stream.shutdown().await {
-                        println!("tcp stream shutdown error! {:?}", error);
-                    };
-                }
-                Err(error) => {
-                    println!("{:?}", error);
-                }
-            }
-        });
 
         Ok(())
     }
