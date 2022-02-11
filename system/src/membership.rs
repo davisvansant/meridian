@@ -6,6 +6,8 @@ use uuid::Uuid;
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
 
+mod server;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
     One,
