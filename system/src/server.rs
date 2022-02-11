@@ -38,7 +38,7 @@ impl Server {
         candidate_sender: CandidateSender,
         heartbeat: LeaderSender,
     ) -> Result<Server, Box<dyn std::error::Error>> {
-        let server_state = ServerState::Follower;
+        let server_state = ServerState::Shutdown;
 
         Ok(Server {
             server_state,
@@ -55,6 +55,8 @@ impl Server {
 
         let mut stream = signal(SignalKind::interrupt())?;
 
+        self.server_state = ServerState::Preflight;
+
         loop {
             tokio::select! {
                 biased;
@@ -65,8 +67,9 @@ impl Server {
 
                     break
                 }
-                _ = self.server_state() => {
-                    println!("why of why");
+                server_state = self.server_state() => {
+                    // println!("why of why");
+                    println!("output of server state -> {:?}", server_state);
                 }
             }
         }
