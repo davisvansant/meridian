@@ -4,7 +4,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 
 use uuid::Uuid;
 
@@ -280,7 +280,13 @@ impl Client {
         data: &[u8],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
-        let mut tcp_stream = TcpStream::connect(socket_address).await?;
+        // let mut tcp_stream = TcpStream::connect(socket_address).await?;
+        let tcp_socket = TcpSocket::new_v4()?;
+
+        tcp_socket.set_reuseaddr(true)?;
+        tcp_socket.set_reuseport(true)?;
+
+        let mut tcp_stream = tcp_socket.connect(socket_address).await?;
 
         tcp_stream.write_all(data).await?;
         tcp_stream.shutdown().await?;
