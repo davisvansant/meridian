@@ -13,13 +13,13 @@ use crate::channel::StateSender;
 use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
-use crate::rpc::{build_ip_address, build_socket_address};
+// use crate::rpc::{build_ip_address, build_socket_address};
 use crate::rpc::{Data, Node, RequestVoteResults};
 
 pub struct Client {
     // ip_address: IpAddr,
     // port: u16,
-    socket_address: SocketAddr,
+    // socket_address: SocketAddr,
     receiver: ClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
@@ -34,19 +34,19 @@ impl Client {
         state_sender: StateSender,
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
-        let ip_address = build_ip_address().await;
+        // let ip_address = build_ip_address().await;
         // let port = match interface {
         //     Interface::Communications => 1245,
         //     Interface::Membership => 1246,
         // };
-        let port = 1245;
+        // let port = 1245;
 
-        let socket_address = build_socket_address(ip_address, port).await;
+        // let socket_address = build_socket_address(ip_address, port).await;
 
         Ok(Client {
             // ip_address,
             // port,
-            socket_address,
+            // socket_address,
             receiver,
             membership_sender,
             state_sender,
@@ -320,11 +320,11 @@ mod tests {
         )
         .await?;
 
-        assert_eq!(
-            test_client.socket_address.ip().to_string().as_str(),
-            "127.0.0.1",
-        );
-        assert_eq!(test_client.socket_address.port(), 1245);
+        // assert_eq!(
+        //     test_client.socket_address.ip().to_string().as_str(),
+        //     "127.0.0.1",
+        // );
+        // assert_eq!(test_client.socket_address.port(), 1245);
         assert!(!test_client_sender.is_closed());
         assert!(!test_client.membership_sender.is_closed());
         assert!(!test_client.state_sender.is_closed());
