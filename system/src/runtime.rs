@@ -9,19 +9,12 @@ use crate::channel::{ClientRequest, ClientResponse};
 // use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
-
 use crate::membership::{ClusterSize, Membership};
-
 use crate::node::Node;
-
 use crate::rpc::{Client, Server};
-
 use crate::server::Server as SystemServer;
-
 use crate::state::State;
-
 // use crate::communication::membership_maintenance::MembershipMaintenance;
-
 // use crate::communication::membership_dynamic_join::MembershipDynamicJoin;
 
 pub async fn launch(
@@ -65,7 +58,7 @@ pub async fn launch(
         mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
 
     let rpc_communications_server_state_sender = state_sender.clone();
-    let rpc_membership_server_state_sender = state_sender.clone();
+    // let rpc_membership_server_state_sender = state_sender.clone();
     let client_state_sender = state_sender.clone();
     let shutdown_state = state_sender.to_owned();
 

@@ -1,34 +1,25 @@
 use flexbuffers::{Builder, BuilderOptions};
-
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-
 use tokio::net::TcpSocket;
+
+use crate::node::Node;
+use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
+use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
+
+pub use client::Client;
+pub use server::Server;
+
+mod client;
+mod server;
 
 pub mod append_entries;
 pub mod install_snapshot;
 pub mod membership;
 pub mod request_vote;
 
-mod client;
-mod server;
-
-pub use client::Client;
-pub use server::Server;
-
-use crate::node::Node;
-
-use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
-use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
-
-// pub enum Interface {
-//     Communications,
-//     Membership,
-// }
-
 pub enum Data {
     AppendEntriesArguments(AppendEntriesArguments),
     AppendEntriesResults(AppendEntriesResults),
-    // Connected,
     ConnectedRequest,
     ConnectedResponse(Vec<Node>),
     JoinClusterRequest(Node),
@@ -109,33 +100,6 @@ impl Data {
 
                 Ok(flexbuffers_builder.take_buffer())
             }
-            // Data::Connected => {
-            //     let connected = membership::Connected::build().await?;
-
-            //     flexbuffers_data.push("data", "connected");
-
-            //     let mut details = flexbuffers_data.start_map("details");
-            //     let mut nodes = details.start_vector("nodes");
-
-            //     for node in connected.nodes {
-            //         let mut connected_nodes = nodes.start_map();
-
-            //         connected_nodes.push("id", node.id.to_string().as_str());
-            //         connected_nodes.push("address", node.address.to_string().as_str());
-            //         connected_nodes.push("client_port", node.client_port.to_string().as_str());
-            //         connected_nodes.push("cluster_port", node.cluster_port.to_string().as_str());
-            //         connected_nodes
-            //             .push("membership_port", node.membership_port.to_string().as_str());
-            //         connected_nodes.end_map();
-            //     }
-
-            //     nodes.end_vector();
-            //     details.end_map();
-
-            //     flexbuffers_data.end_map();
-
-            //     Ok(flexbuffers_builder.take_buffer())
-            // }
             Data::JoinClusterRequest(node) => {
                 let membership_node = membership::MembershipNode::build(node).await?;
 
@@ -337,35 +301,6 @@ mod tests {
 
         Ok(())
     }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_connected() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_connected = Data::Connected.build().await?;
-
-    //     assert_eq!(test_connected.len(), 51);
-
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     test_connected.push_to_builder(&mut test_flexbuffers_builder);
-
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "connected",
-    //     );
-    //     assert_eq!(
-    //         test_flexbuffers_root_details.idx("nodes").as_vector().len(),
-    //         0,
-    //     );
-    //     // assert!(!test_flexbuffers_root_details.idx("success").as_bool());
-
-    //     Ok(())
-    // }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn data_join_cluster_request() -> Result<(), Box<dyn std::error::Error>> {
