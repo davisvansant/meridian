@@ -54,6 +54,16 @@ impl MembershipServer {
 
         Ok(())
     }
+
+    async fn send_bytes(
+        socket: &UdpSocket,
+        bytes: &[u8],
+        target: SocketAddr,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        socket.send_to(bytes, target).await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -107,5 +117,91 @@ mod tests {
         let test_receive_bytes = MembershipServer::receive_bytes(b"something to panic!").await;
 
         assert!(!test_receive_bytes.is_ok());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn send_bytes_ack() -> Result<(), Box<dyn std::error::Error>> {
+        let test_receiver = tokio::spawn(async move {
+            let test_socket_address = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+            let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_socket.recv_from(&mut test_buffer).await.unwrap();
+
+            assert_eq!(test_bytes, 3);
+            assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+
+        let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
+        let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+
+        let test_send_bytes = MembershipServer::send_bytes(&test_socket, b"ack", test_origin).await;
+
+        assert!(test_receiver.await.is_ok());
+        assert!(test_send_bytes.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn send_bytes_ping() -> Result<(), Box<dyn std::error::Error>> {
+        let test_receiver = tokio::spawn(async move {
+            let test_socket_address = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+            let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_socket.recv_from(&mut test_buffer).await.unwrap();
+
+            assert_eq!(test_bytes, 4);
+            assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+
+        let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
+        let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+
+        let test_send_bytes =
+            MembershipServer::send_bytes(&test_socket, b"ping", test_origin).await;
+
+        assert!(test_receiver.await.is_ok());
+        assert!(test_send_bytes.is_ok());
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn send_bytes_ping_req() -> Result<(), Box<dyn std::error::Error>> {
+        let test_receiver = tokio::spawn(async move {
+            let test_socket_address = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+            let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+
+            let mut test_buffer = [0; 1024];
+
+            let (test_bytes, test_origin) = test_socket.recv_from(&mut test_buffer).await.unwrap();
+
+            assert_eq!(test_bytes, 8);
+            assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+
+        let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
+        let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+
+        let test_send_bytes =
+            MembershipServer::send_bytes(&test_socket, b"ping-req", test_origin).await;
+
+        assert!(test_receiver.await.is_ok());
+        assert!(test_send_bytes.is_ok());
+
+        Ok(())
     }
 }
