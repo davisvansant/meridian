@@ -2,13 +2,13 @@ use std::net::SocketAddr;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
 
-pub struct MembershipServer {
+pub struct MembershipCommunications {
     socket_address: SocketAddr,
 }
 
-impl MembershipServer {
-    pub async fn init(socket_address: SocketAddr) -> MembershipServer {
-        MembershipServer { socket_address }
+impl MembershipCommunications {
+    pub async fn init(socket_address: SocketAddr) -> MembershipCommunications {
+        MembershipCommunications { socket_address }
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -31,7 +31,7 @@ impl MembershipServer {
                             println!("received bytes -> {:?}", bytes);
                             println!("received from origin -> {:?}", origin);
 
-                            MembershipServer::receive_bytes(&buffer[..bytes]).await?;
+                            MembershipCommunications::receive_bytes(&buffer[..bytes]).await?;
                         }
                         Err(error) => {
                             println!("error receiving UDP message -> {:?}", error);
@@ -74,10 +74,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25000")?;
-        let test_membership_server = MembershipServer::init(test_socket_address).await;
+        let test_membership_communications =
+            MembershipCommunications::init(test_socket_address).await;
 
         assert_eq!(
-            &test_membership_server.socket_address.to_string(),
+            &test_membership_communications.socket_address.to_string(),
             "0.0.0.0:25000",
         );
 
@@ -86,7 +87,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ack() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipServer::receive_bytes(b"ack").await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ack").await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -95,7 +96,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipServer::receive_bytes(b"ping").await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ping").await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -104,7 +105,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping_req() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipServer::receive_bytes(b"ping-req").await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ping-req").await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -114,7 +115,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[should_panic]
     async fn receive_bytes_panic() {
-        let test_receive_bytes = MembershipServer::receive_bytes(b"something to panic!").await;
+        let test_receive_bytes =
+            MembershipCommunications::receive_bytes(b"something to panic!").await;
 
         assert!(!test_receive_bytes.is_ok());
     }
@@ -139,7 +141,8 @@ mod tests {
         let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
-        let test_send_bytes = MembershipServer::send_bytes(&test_socket, b"ack", test_origin).await;
+        let test_send_bytes =
+            MembershipCommunications::send_bytes(&test_socket, b"ack", test_origin).await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
@@ -168,7 +171,7 @@ mod tests {
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
         let test_send_bytes =
-            MembershipServer::send_bytes(&test_socket, b"ping", test_origin).await;
+            MembershipCommunications::send_bytes(&test_socket, b"ping", test_origin).await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
@@ -197,7 +200,7 @@ mod tests {
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
         let test_send_bytes =
-            MembershipServer::send_bytes(&test_socket, b"ping-req", test_origin).await;
+            MembershipCommunications::send_bytes(&test_socket, b"ping-req", test_origin).await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
