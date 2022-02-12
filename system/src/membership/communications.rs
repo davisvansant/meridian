@@ -1,4 +1,6 @@
 use std::net::SocketAddr;
+use std::str::FromStr;
+use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
 
@@ -15,6 +17,19 @@ impl MembershipCommunications {
         let socket = UdpSocket::bind(self.socket_address).await?;
         let mut buffer = [0; 1024];
 
+        let receiving_udp_socket = Arc::new(socket);
+        let sending_udp_socket = receiving_udp_socket.clone();
+
+        tokio::spawn(async move {
+            //setup some receiver here to receive send requests...
+            let origin = SocketAddr::from_str("0.0.0.0:25001").unwrap();
+            if let Err(error) =
+                MembershipCommunications::send_bytes(&sending_udp_socket, b"ping", origin).await
+            {
+                println!("error sending UDP packet -> {:?}", error);
+            }
+        });
+
         let mut signal = signal(SignalKind::interrupt())?;
 
         loop {
@@ -25,7 +40,7 @@ impl MembershipCommunications {
 
                     break
                 }
-                result = socket.recv_from(&mut buffer) => {
+                result = receiving_udp_socket.recv_from(&mut buffer) => {
                     match result {
                         Ok((bytes, origin)) => {
                             println!("received bytes -> {:?}", bytes);
@@ -69,7 +84,6 @@ impl MembershipCommunications {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
