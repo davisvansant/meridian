@@ -35,9 +35,49 @@ impl List {
         Ok(())
     }
 
+    pub async fn insert_supsected(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
+        match self.suspected.insert(node.id, node) {
+            Some(value) => println!("updated node in suspected list! {:?}", value),
+            None => println!("added node to suspected list!"),
+        }
+
+        Ok(())
+    }
+
+    pub async fn insert_confirmed(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
+        match self.confirmed.insert(node.id, node) {
+            Some(value) => println!("updated node in confirmed list! {:?}", value),
+            None => println!("added node to confirmed list!"),
+        }
+
+        Ok(())
+    }
+
     pub async fn remove_alive(&mut self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(remove_alive) = self.alive.remove(&node.id) {
             println!("removed from alive group - > {:?}", remove_alive);
+        }
+
+        Ok(())
+    }
+
+    pub async fn remove_suspected(
+        &mut self,
+        node: &Node,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(remove_suspected) = self.suspected.remove(&node.id) {
+            println!("removed from suspected group - > {:?}", remove_suspected);
+        }
+
+        Ok(())
+    }
+
+    pub async fn remove_confirmed(
+        &mut self,
+        node: &Node,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(remove_confirmed) = self.confirmed.remove(&node.id) {
+            println!("removed from confirmed group - > {:?}", remove_confirmed);
         }
 
         Ok(())
