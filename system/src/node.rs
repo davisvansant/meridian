@@ -31,6 +31,10 @@ impl Node {
     pub async fn build_address(&self, client_port: u16) -> SocketAddr {
         SocketAddr::new(self.address, client_port)
     }
+
+    pub async fn membership_address(&self) -> SocketAddr {
+        SocketAddr::new(self.address, self.membership_port)
+    }
 }
 
 #[cfg(test)]
