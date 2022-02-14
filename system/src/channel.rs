@@ -7,8 +7,9 @@ mod state;
 
 pub use client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
 pub use membership::{
-    MembershipDynamicJoinShutdown, MembershipReceiver, MembershipRequest, MembershipResponse,
-    MembershipSender,
+    MembershipDynamicJoinShutdown, MembershipListReceiver, MembershipListRequest,
+    MembershipListResponse, MembershipListSender, MembershipReceiver, MembershipRequest,
+    MembershipResponse, MembershipSender,
 };
 pub use membership_maintenance::{
     MembershipMaintenanceReceiver, MembershipMaintenanceRequest, MembershipMaintenanceResponse,

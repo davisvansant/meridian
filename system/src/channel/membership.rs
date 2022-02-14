@@ -7,6 +7,14 @@ pub type MembershipDynamicJoinShutdown = mpsc::Receiver<bool>;
 pub type MembershipReceiver =
     mpsc::Receiver<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
 pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
+pub type MembershipListReceiver = mpsc::Receiver<(
+    MembershipListRequest,
+    oneshot::Sender<MembershipListResponse>,
+)>;
+pub type MembershipListSender = mpsc::Sender<(
+    MembershipListRequest,
+    oneshot::Sender<MembershipListResponse>,
+)>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipRequest {
@@ -22,6 +30,28 @@ pub enum MembershipRequest {
 
 #[derive(Clone, Debug)]
 pub enum MembershipResponse {
+    // JoinCluster(Node),
+    LaunchNodes(Vec<SocketAddr>),
+    Node(Node),
+    Members(Vec<Node>),
+    Status(u8),
+    Ok,
+}
+
+#[derive(Clone, Debug)]
+pub enum MembershipListRequest {
+    // JoinCluster(Node),
+    AddMember(Node),
+    LaunchNodes,
+    Members,
+    Node,
+    RemoveMember,
+    Status,
+    Shutdown,
+}
+
+#[derive(Clone, Debug)]
+pub enum MembershipListResponse {
     // JoinCluster(Node),
     LaunchNodes(Vec<SocketAddr>),
     Node(Node),
