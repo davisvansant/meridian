@@ -33,8 +33,9 @@ impl ClusterSize {
 pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
-    launch_nodes: Vec<SocketAddr>,
-    members: HashMap<Uuid, Node>,
+    list: List,
+    // launch_nodes: Vec<SocketAddr>,
+    // members: HashMap<Uuid, Node>,
     receiver: MembershipReceiver,
 }
 
@@ -45,13 +46,15 @@ impl Membership {
         server: Node,
         receiver: MembershipReceiver,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
-        let members = cluster_size.members().await;
+        // let members = cluster_size.members().await;
+        let list = List::init(launch_nodes).await?;
 
         Ok(Membership {
             cluster_size,
-            launch_nodes,
+            // launch_nodes,
             server,
-            members,
+            list,
+            // members,
             receiver,
         })
     }
@@ -76,10 +79,12 @@ impl Membership {
                     if self.server == node {
                         println!("not adding self to members");
                     } else {
-                        match self.members.insert(node.id, node) {
-                            Some(value) => println!("updated node! {:?}", value),
-                            None => println!("added node !"),
-                        }
+                        // match self.members.insert(node.id, node) {
+                        // match self.list.insert_alive(node.id, node) {
+                        //     Some(value) => println!("updated node! {:?}", value),
+                        //     None => println!("added node !"),
+                        // }
+                        self.list.insert_alive(node).await?;
                     }
 
                     if let Err(error) = response.send(MembershipResponse::Ok) {
@@ -89,9 +94,14 @@ impl Membership {
                 MembershipRequest::LaunchNodes => {
                     println!("retrieving initial launch nodes...");
 
-                    let mut launch_nodes = Vec::with_capacity(self.launch_nodes.len());
+                    // let mut launch_nodes = Vec::with_capacity(self.launch_nodes.len());
 
-                    for node in &self.launch_nodes {
+                    let mut launch_nodes = Vec::with_capacity(self.list.initial.len());
+
+                    // for node in &self.launch_nodes {
+                    //     launch_nodes.push(node.to_owned());
+                    // }
+                    for node in &self.list.initial {
                         launch_nodes.push(node.to_owned());
                     }
 
@@ -103,9 +113,15 @@ impl Membership {
                 MembershipRequest::Members => {
                     println!("received members request!");
 
-                    let mut members = Vec::with_capacity(self.members.len());
+                    // let mut members = Vec::with_capacity(self.members.len());
+                    let mut members = Vec::with_capacity(self.list.alive.len());
 
-                    for m in self.members.values() {
+                    // for m in self.members.values() {
+                    //     println!("peers !{:?}", m);
+
+                    //     members.push(m.to_owned());
+                    // }
+                    for m in self.list.alive.values() {
                         println!("peers !{:?}", m);
 
                         members.push(m.to_owned());
@@ -130,7 +146,8 @@ impl Membership {
                     }
                 }
                 MembershipRequest::Status => {
-                    let connected_nodes = match self.members.len() {
+                    // let connected_nodes = match self.members.len() {
+                    let connected_nodes = match self.list.alive.len() {
                         0 => 0,
                         1 => 1,
                         2 => 2,
