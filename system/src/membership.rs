@@ -10,6 +10,7 @@ use communications::MembershipCommunications;
 use list::List;
 
 mod communications;
+mod failure_detector;
 mod list;
 
 #[derive(Clone, Debug, PartialEq)]
