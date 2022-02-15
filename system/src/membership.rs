@@ -48,7 +48,6 @@ impl Membership {
         server: Node,
         receiver: MembershipReceiver,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
-
         Ok(Membership {
             cluster_size,
             server,
