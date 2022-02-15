@@ -11,7 +11,7 @@ use crate::server::leader::Leader;
 mod candidate;
 mod follower;
 mod leader;
-mod preflight;
+// mod preflight;
 
 pub enum ServerState {
     Candidate,
@@ -82,7 +82,7 @@ impl Server {
             ServerState::Preflight => {
                 println!("running preflight tasks...");
 
-                preflight::run(&self.client, &self.membership).await?;
+                // preflight::run(&self.client, &self.membership).await?;
 
                 self.server_state = ServerState::Follower;
 
