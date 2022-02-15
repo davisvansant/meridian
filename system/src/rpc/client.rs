@@ -10,7 +10,8 @@ use uuid::Uuid;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
-use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
+// use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
+use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
 // use crate::rpc::{build_ip_address, build_socket_address};
@@ -60,12 +61,12 @@ impl Client {
                 ClientRequest::JoinCluster(address) => {
                     println!("joining cluster node at {:?}", &address);
 
-                    let joined_node = self.join_cluster(address).await?;
-                    let socket_address = joined_node.build_address(joined_node.cluster_port).await;
+                    // let joined_node = self.join_cluster(address).await?;
+                    // let socket_address = joined_node.build_address(joined_node.cluster_port).await;
 
-                    if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
-                        println!("error sending client response -> {:?}", error);
-                    }
+                    // if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
+                    //     println!("error sending client response -> {:?}", error);
+                    // }
                 }
                 ClientRequest::PeerNodes(socket_address) => {
                     println!("received peer nodes client request");
@@ -139,39 +140,39 @@ impl Client {
         Ok(())
     }
 
-    pub async fn join_cluster(
-        &self,
-        socket_address: SocketAddr,
-    ) -> Result<Node, Box<dyn std::error::Error>> {
-        let node = get_node(&self.membership_sender).await?;
-        let request = Data::JoinClusterRequest(node).build().await?;
-        let response = Client::transmit(socket_address, &request).await?;
+    // pub async fn join_cluster(
+    //     &self,
+    //     socket_address: SocketAddr,
+    // ) -> Result<Node, Box<dyn std::error::Error>> {
+    //     let node = get_node(&self.membership_sender).await?;
+    //     let request = Data::JoinClusterRequest(node).build().await?;
+    //     let response = Client::transmit(socket_address, &request).await?;
 
-        let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+    //     let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-        response.push_to_builder(&mut flexbuffers_builder);
+    //     response.push_to_builder(&mut flexbuffers_builder);
 
-        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
+    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
 
-        let response_details = flexbuffer_root.as_map().idx("details").as_map();
-        let id = Uuid::from_str(response_details.idx("id").as_str())?;
-        let address = IpAddr::from_str(response_details.idx("address").as_str())?;
-        let client_port = response_details.idx("client_port").as_u16();
-        let cluster_port = response_details.idx("cluster_port").as_u16();
-        let membership_port = response_details.idx("membership_port").as_u16();
+    //     let response_details = flexbuffer_root.as_map().idx("details").as_map();
+    //     let id = Uuid::from_str(response_details.idx("id").as_str())?;
+    //     let address = IpAddr::from_str(response_details.idx("address").as_str())?;
+    //     let client_port = response_details.idx("client_port").as_u16();
+    //     let cluster_port = response_details.idx("cluster_port").as_u16();
+    //     let membership_port = response_details.idx("membership_port").as_u16();
 
-        let joined_node = Node {
-            id,
-            address,
-            client_port,
-            cluster_port,
-            membership_port,
-        };
+    //     let joined_node = Node {
+    //         id,
+    //         address,
+    //         client_port,
+    //         cluster_port,
+    //         membership_port,
+    //     };
 
-        add_member(&self.membership_sender, joined_node).await?;
+    //     add_member(&self.membership_sender, joined_node).await?;
 
-        Ok(joined_node)
-    }
+    //     Ok(joined_node)
+    // }
 
     pub async fn get_connected(
         &self,
