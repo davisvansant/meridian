@@ -83,10 +83,11 @@ pub async fn launch(
     // |        init membership
     // -------------------------------------------------------------------------------------------
 
-    let mut membership = Membership::init(cluster_size, peers, node, membership_receiver).await?;
+    // let mut membership = Membership::init(cluster_size, peers, node, membership_receiver).await?;
+    let mut membership = Membership::init(cluster_size, node, membership_receiver).await?;
 
     let membership_handle = tokio::spawn(async move {
-        if let Err(error) = membership.run().await {
+        if let Err(error) = membership.run(peers).await {
             println!("error running membership -> {:?}", error);
         }
     });
