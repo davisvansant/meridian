@@ -3,6 +3,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::mpsc;
+
+use crate::channel::{
+    MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
+    MembershipCommunicationsSender,
+};
 
 pub struct MembershipCommunications {
     socket_address: SocketAddr,
@@ -20,13 +26,31 @@ impl MembershipCommunications {
         let receiving_udp_socket = Arc::new(socket);
         let sending_udp_socket = receiving_udp_socket.clone();
 
+        let (sender, mut receiver) = mpsc::channel::<MembershipCommunicationsMessage>(64);
+        let shutdown = sender.clone();
+
         tokio::spawn(async move {
-            //setup some receiver here to receive send requests...
-            let origin = SocketAddr::from_str("0.0.0.0:25001").unwrap();
-            if let Err(error) =
-                MembershipCommunications::send_bytes(&sending_udp_socket, b"ping", origin).await
-            {
-                println!("error sending UDP packet -> {:?}", error);
+            while let Some(incoming_message) = receiver.recv().await {
+                match incoming_message {
+                    MembershipCommunicationsMessage::Send(bytes, target) => {
+                        println!("do send message");
+
+                        if let Err(error) = MembershipCommunications::send_bytes(
+                            &sending_udp_socket,
+                            &bytes,
+                            target,
+                        )
+                        .await
+                        {
+                            println!("error sending message -> {:?}", error);
+                        }
+                    }
+                    MembershipCommunicationsMessage::Shutdown => {
+                        println!("shutting down receiver");
+
+                        receiver.close();
+                    }
+                }
             }
         });
 
@@ -38,6 +62,8 @@ impl MembershipCommunications {
                 _ = signal.recv() => {
                     println!("shutting down membership interface..");
 
+                    shutdown.send(MembershipCommunicationsMessage::Shutdown).await?;
+
                     break
                 }
                 result = receiving_udp_socket.recv_from(&mut buffer) => {
@@ -46,7 +72,12 @@ impl MembershipCommunications {
                             println!("received bytes -> {:?}", bytes);
                             println!("received from origin -> {:?}", origin);
 
-                            MembershipCommunications::receive_bytes(&buffer[..bytes]).await?;
+                            MembershipCommunications::receive_bytes(
+                                &sender,
+                                &buffer[..bytes],
+                                origin,
+                            )
+                            .await?;
                         }
                         Err(error) => {
                             println!("error receiving UDP message -> {:?}", error);
@@ -59,11 +90,31 @@ impl MembershipCommunications {
         Ok(())
     }
 
-    async fn receive_bytes(bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    async fn receive_bytes(
+        sender: &MembershipCommunicationsSender,
+        bytes: &[u8],
+        origin: SocketAddr,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         match bytes {
             b"ack" => println!("received ack!"),
-            b"ping" => println!("received ping!"),
-            b"ping-req" => println!("received ping request!"),
+            b"ping" => {
+                println!("received ping!");
+
+                let ack = b"ack".to_vec();
+
+                sender
+                    .send(MembershipCommunicationsMessage::Send(ack, origin))
+                    .await?;
+            }
+            b"ping-req" => {
+                println!("received ping request!");
+
+                let ping = b"ping".to_vec();
+
+                sender
+                    .send(MembershipCommunicationsMessage::Send(ping, origin))
+                    .await?;
+            }
             _ => panic!("received unexpected bytes!"),
         }
 
@@ -101,7 +152,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ack() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ack").await;
+        let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
+        let test_bytes = b"ack".to_vec();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
+
+        let test_receive_bytes =
+            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -110,7 +166,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ping").await;
+        let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
+        let test_bytes = b"ping".to_vec();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
+
+        let test_receive_bytes =
+            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -119,7 +180,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping_req() -> Result<(), Box<dyn std::error::Error>> {
-        let test_receive_bytes = MembershipCommunications::receive_bytes(b"ping-req").await;
+        let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
+        let test_bytes = b"ping-req".to_vec();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
+
+        let test_receive_bytes =
+            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -129,8 +195,12 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[should_panic]
     async fn receive_bytes_panic() {
+        let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
+        let test_bytes = b"something to panic!".to_vec();
+        let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
+
         let test_receive_bytes =
-            MembershipCommunications::receive_bytes(b"something to panic!").await;
+            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
 
         assert!(!test_receive_bytes.is_ok());
     }
