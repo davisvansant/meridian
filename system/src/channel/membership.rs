@@ -7,139 +7,23 @@ pub type MembershipDynamicJoinShutdown = mpsc::Receiver<bool>;
 pub type MembershipReceiver =
     mpsc::Receiver<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
 pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
-// pub type MembershipCommunicationsReceiver = mpsc::Receiver<MembershipCommunicationsMessage>;
-// pub type MembershipCommunicationsSender = mpsc::Sender<MembershipCommunicationsMessage>;
-// pub type MembershipListReceiver = mpsc::Receiver<(
-//     MembershipListRequest,
-//     oneshot::Sender<MembershipListResponse>,
-// )>;
-// pub type MembershipListSender = mpsc::Sender<(
-//     MembershipListRequest,
-//     oneshot::Sender<MembershipListResponse>,
-// )>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipRequest {
-    // JoinCluster(Node),
-    // AddMember(Node),
-    // LaunchNodes,
     Members,
     Node,
-    // RemoveMember,
     Status,
     Shutdown,
 }
 
 #[derive(Clone, Debug)]
 pub enum MembershipResponse {
-    // JoinCluster(Node),
     LaunchNodes(Vec<SocketAddr>),
     Node(Node),
     Members(Vec<Node>),
     Status(u8),
     Ok,
 }
-
-// #[derive(Clone, Debug)]
-// pub enum MembershipCommunicationsMessage {
-//     Send(Vec<u8>, SocketAddr),
-//     Shutdown,
-// }
-
-// #[derive(Clone, Debug)]
-// pub enum MembershipListRequest {
-//     GetInitial,
-//     GetAlive,
-//     GetSuspected,
-//     GetConfirmed,
-//     InsertAlive(Node),
-//     InsertSuspected(Node),
-//     InsertConfirmed(Node),
-//     RemoveAlive(Node),
-//     RemoveSuspected(Node),
-//     RemoveConfirmed(Node),
-//     Shutdown,
-// }
-
-// #[derive(Clone, Debug)]
-// pub enum MembershipListResponse {
-//     // JoinCluster(Node),
-//     Alive(Vec<Node>),
-//     LaunchNodes(Vec<SocketAddr>),
-//     Node(Node),
-//     Members(Vec<Node>),
-//     Status(u8),
-//     Ok,
-// }
-
-// pub async fn join_cluster(
-//     membership: &MembershipSender,
-//     node: Node,
-// ) -> Result<Node, Box<dyn std::error::Error>> {
-//     let (request, response) = oneshot::channel();
-
-//     membership
-//         .send((MembershipRequest::JoinCluster(node), request))
-//         .await?;
-
-//     // let node = response.await?;
-
-//     // Ok(node)
-//     match response.await {
-//         Ok(MembershipResponse::JoinCluster(node)) => Ok(node),
-//         Err(error) => Err(Box::new(error)),
-//         _ => panic!("unexpected response!"),
-//     }
-// }
-
-// pub async fn add_member(
-//     membership: &MembershipSender,
-//     node: Node,
-// ) -> Result<(), Box<dyn std::error::Error>> {
-//     let (request, response) = oneshot::channel();
-
-//     membership
-//         .send((MembershipRequest::AddMember(node), request))
-//         .await?;
-
-//     match response.await {
-//         Ok(MembershipResponse::Ok) => Ok(()),
-//         Err(error) => Err(Box::new(error)),
-//         _ => panic!("unexpected response!"),
-//     }
-// }
-
-// pub async fn launch_nodes(
-//     membership: &MembershipSender,
-// ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-//     let (request, response) = oneshot::channel();
-
-//     membership
-//         .send((MembershipRequest::LaunchNodes, request))
-//         .await?;
-
-//     match response.await {
-//         Ok(MembershipResponse::LaunchNodes(launch_nodes)) => Ok(launch_nodes),
-//         Err(error) => Err(Box::new(error)),
-//         _ => panic!("unexpected response!"),
-//     }
-// }
-
-// pub async fn get_alive(
-//     membership_list: &MembershipListSender,
-// ) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
-//     let (request, response) = oneshot::channel();
-
-//     membership_list
-//         .send((MembershipListRequest::GetAlive, request))
-//         .await?;
-
-//     match response.await {
-//         Ok(MembershipListResponse::Alive(alive)) => Ok(alive),
-//         Err(error) => Err(Box::new(error)),
-//         _ => panic!("unexpected response!"),
-//     }
-// }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
