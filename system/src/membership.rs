@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
+use tokio::sync::{mpsc, oneshot};
+
 use uuid::Uuid;
 
+use crate::channel::get_alive;
+use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
 
@@ -35,7 +39,7 @@ impl ClusterSize {
 pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
-    list: List,
+    // list: List,
     // launch_nodes: Vec<SocketAddr>,
     // members: HashMap<Uuid, Node>,
     receiver: MembershipReceiver,
@@ -44,24 +48,40 @@ pub struct Membership {
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
-        launch_nodes: Vec<SocketAddr>,
+        // launch_nodes: Vec<SocketAddr>,
         server: Node,
         receiver: MembershipReceiver,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         // let members = cluster_size.members().await;
-        let list = List::init(launch_nodes).await?;
+        // let list = List::init(launch_nodes).await?;
 
         Ok(Membership {
             cluster_size,
             // launch_nodes,
             server,
-            list,
+            // list,
             // members,
             receiver,
         })
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        &mut self,
+        launch_nodes: Vec<SocketAddr>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (list_sender, list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(64);
+
+        let mut list = List::init(launch_nodes, list_receiver).await?;
+
+        tokio::spawn(async move {
+            if let Err(error) = list.run().await {
+                println!("membership list error -> {:?}", error);
+            }
+        });
+
         let membership_port = self.server.membership_address().await;
         let mut communications = MembershipCommunications::init(membership_port).await;
 
@@ -83,59 +103,61 @@ impl Membership {
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
-                MembershipRequest::AddMember(node) => {
-                    println!("adding new member...");
+                // MembershipRequest::AddMember(node) => {
+                //     println!("adding new member...");
 
-                    if self.server == node {
-                        println!("not adding self to members");
-                    } else {
-                        // match self.members.insert(node.id, node) {
-                        // match self.list.insert_alive(node.id, node) {
-                        //     Some(value) => println!("updated node! {:?}", value),
-                        //     None => println!("added node !"),
-                        // }
-                        self.list.insert_alive(node).await?;
-                    }
+                //     if self.server == node {
+                //         println!("not adding self to members");
+                //     } else {
+                //         // match self.members.insert(node.id, node) {
+                //         // match self.list.insert_alive(node.id, node) {
+                //         //     Some(value) => println!("updated node! {:?}", value),
+                //         //     None => println!("added node !"),
+                //         // }
+                //         self.list.insert_alive(node).await?;
+                //     }
 
-                    if let Err(error) = response.send(MembershipResponse::Ok) {
-                        println!("error sending membership response -> {:?}", error);
-                    }
-                }
-                MembershipRequest::LaunchNodes => {
-                    println!("retrieving initial launch nodes...");
+                //     if let Err(error) = response.send(MembershipResponse::Ok) {
+                //         println!("error sending membership response -> {:?}", error);
+                //     }
+                // }
+                // MembershipRequest::LaunchNodes => {
+                //     println!("retrieving initial launch nodes...");
 
-                    // let mut launch_nodes = Vec::with_capacity(self.launch_nodes.len());
+                //     // let mut launch_nodes = Vec::with_capacity(self.launch_nodes.len());
 
-                    let mut launch_nodes = Vec::with_capacity(self.list.initial.len());
+                //     let mut launch_nodes = Vec::with_capacity(self.list.initial.len());
 
-                    // for node in &self.launch_nodes {
-                    //     launch_nodes.push(node.to_owned());
-                    // }
-                    for node in &self.list.initial {
-                        launch_nodes.push(node.to_owned());
-                    }
+                //     // for node in &self.launch_nodes {
+                //     //     launch_nodes.push(node.to_owned());
+                //     // }
+                //     for node in &self.list.initial {
+                //         launch_nodes.push(node.to_owned());
+                //     }
 
-                    if let Err(error) = response.send(MembershipResponse::LaunchNodes(launch_nodes))
-                    {
-                        println!("error sending membership response -> {:?}", error);
-                    }
-                }
+                //     if let Err(error) = response.send(MembershipResponse::LaunchNodes(launch_nodes))
+                //     {
+                //         println!("error sending membership response -> {:?}", error);
+                //     }
+                // }
                 MembershipRequest::Members => {
                     println!("received members request!");
 
                     // let mut members = Vec::with_capacity(self.members.len());
-                    let mut members = Vec::with_capacity(self.list.alive.len());
+                    // let mut members = Vec::with_capacity(self.list.alive.len());
 
                     // for m in self.members.values() {
                     //     println!("peers !{:?}", m);
 
                     //     members.push(m.to_owned());
                     // }
-                    for m in self.list.alive.values() {
-                        println!("peers !{:?}", m);
+                    // for m in self.list.alive.values() {
+                    //     println!("peers !{:?}", m);
 
-                        members.push(m.to_owned());
-                    }
+                    //     members.push(m.to_owned());
+                    // }
+                    // sender.send(MembershipListRequest(GetAlive)).await?;
+                    let members = get_alive(&list_sender).await?;
 
                     if let Err(error) = response.send(MembershipResponse::Members(members)) {
                         println!("error sending membership response -> {:?}", error);
@@ -148,16 +170,24 @@ impl Membership {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
-                MembershipRequest::RemoveMember => {
-                    println!("removing member...");
+                // MembershipRequest::RemoveMember => {
+                //     println!("removing member...");
 
-                    if let Err(error) = response.send(MembershipResponse::Ok) {
-                        println!("error sending membership response -> {:?}", error);
-                    }
-                }
+                //     if let Err(error) = response.send(MembershipResponse::Ok) {
+                //         println!("error sending membership response -> {:?}", error);
+                //     }
+                // }
                 MembershipRequest::Status => {
                     // let connected_nodes = match self.members.len() {
-                    let connected_nodes = match self.list.alive.len() {
+                    let members = get_alive(&list_sender).await?;
+                    // let connected_nodes = match self.list.alive.len() {
+                    //     0 => 0,
+                    //     1 => 1,
+                    //     2 => 2,
+                    //     3 => 3,
+                    //     _ => panic!("unexpected number of peers!"),
+                    // };
+                    let connected_nodes = match members.len() {
                         0 => 0,
                         1 => 1,
                         2 => 2,
