@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 
 use uuid::Uuid;
 
+use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
 use crate::node::Node;
 
 pub struct List {
@@ -10,10 +11,14 @@ pub struct List {
     pub alive: HashMap<Uuid, Node>,
     suspected: HashMap<Uuid, Node>,
     confirmed: HashMap<Uuid, Node>,
+    receiver: MembershipListReceiver,
 }
 
 impl List {
-    pub async fn init(initial: Vec<SocketAddr>) -> Result<List, Box<dyn std::error::Error>> {
+    pub async fn init(
+        initial: Vec<SocketAddr>,
+        receiver: MembershipListReceiver,
+    ) -> Result<List, Box<dyn std::error::Error>> {
         let alive = HashMap::with_capacity(10);
         let suspected = HashMap::with_capacity(10);
         let confirmed = HashMap::with_capacity(10);
@@ -23,7 +28,62 @@ impl List {
             alive,
             suspected,
             confirmed,
+            receiver,
         })
+    }
+
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        while let Some((request, response)) = self.receiver.recv().await {
+            match request {
+                MembershipListRequest::GetInitial => {
+                    let initial = self.initial.to_vec();
+                }
+                MembershipListRequest::GetAlive => {
+                    // let alive = self.alive.clone();
+
+                    let mut alive = Vec::with_capacity(self.alive.len());
+
+                    for member in self.alive.values() {
+                        alive.push(member.to_owned());
+                    }
+
+                    if let Err(error) = response.send(MembershipListResponse::Alive(alive)) {
+                        println!("error sending membership list response -> {:?}", error);
+                    }
+                }
+                MembershipListRequest::GetSuspected => {
+                    let suspected = self.suspected.clone();
+                }
+                MembershipListRequest::GetConfirmed => {
+                    let confirmed = self.confirmed.clone();
+                }
+                MembershipListRequest::InsertAlive(node) => {
+                    self.insert_alive(node).await?;
+                }
+                MembershipListRequest::InsertSuspected(node) => {
+                    self.insert_supsected(node).await?;
+                }
+                MembershipListRequest::InsertConfirmed(node) => {
+                    self.insert_confirmed(node).await?;
+                }
+                MembershipListRequest::RemoveAlive(node) => {
+                    self.remove_alive(&node).await?;
+                }
+                MembershipListRequest::RemoveSuspected(node) => {
+                    self.remove_suspected(&node).await?;
+                }
+                MembershipListRequest::RemoveConfirmed(node) => {
+                    self.remove_confirmed(&node).await?;
+                }
+                MembershipListRequest::Shutdown => {
+                    println!("shutting down membership list");
+
+                    self.receiver.close();
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn insert_alive(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
