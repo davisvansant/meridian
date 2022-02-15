@@ -7,10 +7,10 @@ pub type ClientSender = mpsc::Sender<(ClientRequest, oneshot::Sender<ClientRespo
 #[derive(Clone, Debug)]
 pub enum ClientRequest {
     // Candidate,
-    JoinCluster(SocketAddr),
+    // JoinCluster(SocketAddr),
     // Node,
-    PeerNodes(SocketAddr),
-    PeerStatus(SocketAddr),
+    // PeerNodes(SocketAddr),
+    // PeerStatus(SocketAddr),
     StartElection,
     SendHeartbeat,
     Shutdown,
@@ -18,7 +18,7 @@ pub enum ClientRequest {
 
 #[derive(Clone, Debug)]
 pub enum ClientResponse {
-    JoinCluster(SocketAddr),
+    // JoinCluster(SocketAddr),
     // Node,
     Nodes(Vec<SocketAddr>),
     Status(u8),
@@ -54,58 +54,58 @@ pub async fn send_heartbeat(client: &ClientSender) -> Result<(), Box<dyn std::er
     Ok(())
 }
 
-pub async fn join_cluster(
-    client: &ClientSender,
-    address: SocketAddr,
-) -> Result<SocketAddr, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+// pub async fn join_cluster(
+//     client: &ClientSender,
+//     address: SocketAddr,
+// ) -> Result<SocketAddr, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
 
-    client
-        .send((ClientRequest::JoinCluster(address), request))
-        .await?;
+//     client
+//         .send((ClientRequest::JoinCluster(address), request))
+//         .await?;
 
-    match response.await {
-        Ok(ClientResponse::JoinCluster(connected_node)) => Ok(connected_node),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+//     match response.await {
+//         Ok(ClientResponse::JoinCluster(connected_node)) => Ok(connected_node),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
 
-    // Ok(())
-}
+//     // Ok(())
+// }
 
-pub async fn peer_nodes(
-    client: &ClientSender,
-    socket_address: SocketAddr,
-) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+// pub async fn peer_nodes(
+//     client: &ClientSender,
+//     socket_address: SocketAddr,
+// ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
 
-    client
-        .send((ClientRequest::PeerNodes(socket_address), request))
-        .await?;
+//     client
+//         .send((ClientRequest::PeerNodes(socket_address), request))
+//         .await?;
 
-    match response.await {
-        Ok(ClientResponse::Nodes(peer_nodes)) => Ok(peer_nodes),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
-}
+//     match response.await {
+//         Ok(ClientResponse::Nodes(peer_nodes)) => Ok(peer_nodes),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
 
-pub async fn peer_status(
-    client: &ClientSender,
-    socket_address: SocketAddr,
-) -> Result<u8, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+// pub async fn peer_status(
+//     client: &ClientSender,
+//     socket_address: SocketAddr,
+// ) -> Result<u8, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
 
-    client
-        .send((ClientRequest::PeerStatus(socket_address), request))
-        .await?;
+//     client
+//         .send((ClientRequest::PeerStatus(socket_address), request))
+//         .await?;
 
-    match response.await {
-        Ok(ClientResponse::Status(peer_status)) => Ok(peer_status),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
-}
+//     match response.await {
+//         Ok(ClientResponse::Status(peer_status)) => Ok(peer_status),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
 
 pub async fn shutdown_client(client: &ClientSender) -> Result<(), Box<dyn std::error::Error>> {
     let (request, _response) = oneshot::channel();

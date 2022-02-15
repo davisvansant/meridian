@@ -176,14 +176,14 @@ impl Server {
 
                 Ok(append_entries_results)
             }
-            "connected" => {
-                println!("received connected nodes request!");
+            // "connected" => {
+            //     println!("received connected nodes request!");
 
-                let connected_nodes = cluster_members(membership_sender).await?;
-                let connected_response = Data::ConnectedResponse(connected_nodes).build().await?;
+            //     let connected_nodes = cluster_members(membership_sender).await?;
+            //     let connected_response = Data::ConnectedResponse(connected_nodes).build().await?;
 
-                Ok(connected_response)
-            }
+            //     Ok(connected_response)
+            // }
             // "join_cluster_request" => {
             //     println!("received join cluster request!");
 
@@ -230,14 +230,14 @@ impl Server {
 
                 Ok(request_vote_results)
             }
-            "status" => {
-                println!("received status request!");
+            // "status" => {
+            //     println!("received status request!");
 
-                let results = status(membership_sender).await?;
-                let status_response = Data::StatusResponse(results).build().await?;
+            //     let results = status(membership_sender).await?;
+            //     let status_response = Data::StatusResponse(results).build().await?;
 
-                Ok(status_response)
-            }
+            //     Ok(status_response)
+            // }
             _ => {
                 println!("currently unknown ...");
 

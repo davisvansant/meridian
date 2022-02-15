@@ -58,34 +58,34 @@ impl Client {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
-                ClientRequest::JoinCluster(address) => {
-                    println!("joining cluster node at {:?}", &address);
+                // ClientRequest::JoinCluster(address) => {
+                //     println!("joining cluster node at {:?}", &address);
 
-                    // let joined_node = self.join_cluster(address).await?;
-                    // let socket_address = joined_node.build_address(joined_node.cluster_port).await;
+                //     // let joined_node = self.join_cluster(address).await?;
+                //     // let socket_address = joined_node.build_address(joined_node.cluster_port).await;
 
-                    // if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
-                    //     println!("error sending client response -> {:?}", error);
-                    // }
-                }
-                ClientRequest::PeerNodes(socket_address) => {
-                    println!("received peer nodes client request");
+                //     // if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
+                //     //     println!("error sending client response -> {:?}", error);
+                //     // }
+                // }
+                // ClientRequest::PeerNodes(socket_address) => {
+                //     println!("received peer nodes client request");
 
-                    let connected_nodes = self.get_connected(socket_address).await?;
+                //     let connected_nodes = self.get_connected(socket_address).await?;
 
-                    if let Err(error) = response.send(ClientResponse::Nodes(connected_nodes)) {
-                        println!("error sending client peer nodes response -> {:?}", error);
-                    }
-                }
-                ClientRequest::PeerStatus(socket_address) => {
-                    println!("received get peer status");
+                //     if let Err(error) = response.send(ClientResponse::Nodes(connected_nodes)) {
+                //         println!("error sending client peer nodes response -> {:?}", error);
+                //     }
+                // }
+                // ClientRequest::PeerStatus(socket_address) => {
+                //     println!("received get peer status");
 
-                    let status = self.status(socket_address).await?;
+                //     let status = self.status(socket_address).await?;
 
-                    if let Err(error) = response.send(ClientResponse::Status(status)) {
-                        println!("error sending client peer status response -> {:?}", error);
-                    }
-                }
+                //     if let Err(error) = response.send(ClientResponse::Status(status)) {
+                //         println!("error sending client peer status response -> {:?}", error);
+                //     }
+                // }
                 ClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
 
@@ -174,48 +174,48 @@ impl Client {
     //     Ok(joined_node)
     // }
 
-    pub async fn get_connected(
-        &self,
-        socket_address: SocketAddr,
-    ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-        let request = Data::ConnectedRequest.build().await?;
-        let response = Client::transmit(socket_address, &request).await?;
+    // pub async fn get_connected(
+    //     &self,
+    //     socket_address: SocketAddr,
+    // ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+    //     let request = Data::ConnectedRequest.build().await?;
+    //     let response = Client::transmit(socket_address, &request).await?;
 
-        let root = flexbuffers::Reader::get_root(&*response)?;
+    //     let root = flexbuffers::Reader::get_root(&*response)?;
 
-        let response_details = root
-            .as_map()
-            .idx("details")
-            .as_map()
-            .idx("nodes")
-            .as_vector();
+    //     let response_details = root
+    //         .as_map()
+    //         .idx("details")
+    //         .as_map()
+    //         .idx("nodes")
+    //         .as_vector();
 
-        let mut connected_nodes = Vec::with_capacity(response_details.len());
+    //     let mut connected_nodes = Vec::with_capacity(response_details.len());
 
-        for node in response_details.iter() {
-            let id = Uuid::from_str(node.as_map().idx("id").as_str())?;
-            let address = IpAddr::from_str(node.as_map().idx("address").as_str())?;
-            let client_port = node.as_map().idx("client_port").as_u16();
-            let cluster_port = node.as_map().idx("cluster_port").as_u16();
-            let membership_port = node.as_map().idx("membership_port").as_u16();
+    //     for node in response_details.iter() {
+    //         let id = Uuid::from_str(node.as_map().idx("id").as_str())?;
+    //         let address = IpAddr::from_str(node.as_map().idx("address").as_str())?;
+    //         let client_port = node.as_map().idx("client_port").as_u16();
+    //         let cluster_port = node.as_map().idx("cluster_port").as_u16();
+    //         let membership_port = node.as_map().idx("membership_port").as_u16();
 
-            let connected_node = Node {
-                id,
-                address,
-                client_port,
-                cluster_port,
-                membership_port,
-            };
+    //         let connected_node = Node {
+    //             id,
+    //             address,
+    //             client_port,
+    //             cluster_port,
+    //             membership_port,
+    //         };
 
-            let socket_address = connected_node
-                .build_address(connected_node.cluster_port)
-                .await;
+    //         let socket_address = connected_node
+    //             .build_address(connected_node.cluster_port)
+    //             .await;
 
-            connected_nodes.push(socket_address)
-        }
+    //         connected_nodes.push(socket_address)
+    //     }
 
-        Ok(connected_nodes)
-    }
+    //     Ok(connected_nodes)
+    // }
 
     pub async fn request_vote(
         &self,
@@ -258,23 +258,23 @@ impl Client {
         Ok(())
     }
 
-    pub async fn status(
-        &self,
-        socket_address: SocketAddr,
-    ) -> Result<u8, Box<dyn std::error::Error>> {
-        let data = Data::StatusRequest.build().await?;
-        let response = Client::transmit(socket_address, &data).await?;
+    // pub async fn status(
+    //     &self,
+    //     socket_address: SocketAddr,
+    // ) -> Result<u8, Box<dyn std::error::Error>> {
+    //     let data = Data::StatusRequest.build().await?;
+    //     let response = Client::transmit(socket_address, &data).await?;
 
-        let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
+    //     let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
-        response.push_to_builder(&mut flexbuffer_builder);
+    //     response.push_to_builder(&mut flexbuffer_builder);
 
-        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
-        let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
-        let status = flexbuffer_root_details.idx("status").as_u8();
+    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
+    //     let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
+    //     let status = flexbuffer_root_details.idx("status").as_u8();
 
-        Ok(status)
-    }
+    //     Ok(status)
+    // }
 
     async fn transmit(
         socket_address: SocketAddr,
