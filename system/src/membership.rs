@@ -7,6 +7,7 @@ use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
 
 use communications::MembershipCommunications;
+use failure_detector::FailureDectector;
 use list::List;
 
 mod communications;
@@ -67,6 +68,14 @@ impl Membership {
         tokio::spawn(async move {
             if let Err(error) = communications.run().await {
                 println!("error with membership communications -> {:?}", error);
+            }
+        });
+
+        let mut failure_detector = FailureDectector::init().await;
+
+        tokio::spawn(async move {
+            if let Err(error) = failure_detector.run().await {
+                println!("error with membership failure dector -> {:?}", error);
             }
         });
 
