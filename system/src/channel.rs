@@ -1,16 +1,34 @@
 mod client;
 mod membership;
+mod membership_communications;
+mod membership_list;
 mod membership_maintenance;
 // mod rpc_server;
 mod server;
 mod state;
 
 pub use client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
+// pub use membership::{
+//     MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
+//     MembershipCommunicationsSender, MembershipDynamicJoinShutdown, MembershipListReceiver,
+//     MembershipListRequest, MembershipListResponse, MembershipListSender, MembershipReceiver,
+//     MembershipRequest, MembershipResponse, MembershipSender,
+// };
+// pub use membership::{
+//     MembershipDynamicJoinShutdown, MembershipListReceiver, MembershipListRequest,
+//     MembershipListResponse, MembershipListSender, MembershipReceiver, MembershipRequest,
+//     MembershipResponse, MembershipSender,
+// };
 pub use membership::{
+    MembershipDynamicJoinShutdown, MembershipReceiver, MembershipRequest, MembershipResponse,
+    MembershipSender,
+};
+pub use membership_communications::{
     MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
-    MembershipCommunicationsSender, MembershipDynamicJoinShutdown, MembershipListReceiver,
-    MembershipListRequest, MembershipListResponse, MembershipListSender, MembershipReceiver,
-    MembershipRequest, MembershipResponse, MembershipSender,
+    MembershipCommunicationsSender,
+};
+pub use membership_list::{
+    MembershipListReceiver, MembershipListRequest, MembershipListResponse, MembershipListSender,
 };
 pub use membership_maintenance::{
     MembershipMaintenanceReceiver, MembershipMaintenanceRequest, MembershipMaintenanceResponse,
@@ -28,6 +46,8 @@ pub use client::{
 // pub use membership::{
 //     add_member, cluster_members, get_node, launch_nodes, shutdown_membership, status,
 // };
-pub use membership::{cluster_members, get_alive, get_node, shutdown_membership, status};
+// pub use membership::{cluster_members, get_alive, get_node, shutdown_membership, status};
+pub use membership::{cluster_members, get_node, shutdown_membership, status};
+pub use membership_list::get_alive;
 pub use membership_maintenance::shutdown_membership_maintenance;
 pub use state::{append_entries, candidate, heartbeat, leader, request_vote, shutdown_state};

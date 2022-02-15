@@ -7,16 +7,16 @@ pub type MembershipDynamicJoinShutdown = mpsc::Receiver<bool>;
 pub type MembershipReceiver =
     mpsc::Receiver<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
 pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
-pub type MembershipCommunicationsReceiver = mpsc::Receiver<MembershipCommunicationsMessage>;
-pub type MembershipCommunicationsSender = mpsc::Sender<MembershipCommunicationsMessage>;
-pub type MembershipListReceiver = mpsc::Receiver<(
-    MembershipListRequest,
-    oneshot::Sender<MembershipListResponse>,
-)>;
-pub type MembershipListSender = mpsc::Sender<(
-    MembershipListRequest,
-    oneshot::Sender<MembershipListResponse>,
-)>;
+// pub type MembershipCommunicationsReceiver = mpsc::Receiver<MembershipCommunicationsMessage>;
+// pub type MembershipCommunicationsSender = mpsc::Sender<MembershipCommunicationsMessage>;
+// pub type MembershipListReceiver = mpsc::Receiver<(
+//     MembershipListRequest,
+//     oneshot::Sender<MembershipListResponse>,
+// )>;
+// pub type MembershipListSender = mpsc::Sender<(
+//     MembershipListRequest,
+//     oneshot::Sender<MembershipListResponse>,
+// )>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipRequest {
@@ -40,37 +40,37 @@ pub enum MembershipResponse {
     Ok,
 }
 
-#[derive(Clone, Debug)]
-pub enum MembershipCommunicationsMessage {
-    Send(Vec<u8>, SocketAddr),
-    Shutdown,
-}
+// #[derive(Clone, Debug)]
+// pub enum MembershipCommunicationsMessage {
+//     Send(Vec<u8>, SocketAddr),
+//     Shutdown,
+// }
 
-#[derive(Clone, Debug)]
-pub enum MembershipListRequest {
-    GetInitial,
-    GetAlive,
-    GetSuspected,
-    GetConfirmed,
-    InsertAlive(Node),
-    InsertSuspected(Node),
-    InsertConfirmed(Node),
-    RemoveAlive(Node),
-    RemoveSuspected(Node),
-    RemoveConfirmed(Node),
-    Shutdown,
-}
+// #[derive(Clone, Debug)]
+// pub enum MembershipListRequest {
+//     GetInitial,
+//     GetAlive,
+//     GetSuspected,
+//     GetConfirmed,
+//     InsertAlive(Node),
+//     InsertSuspected(Node),
+//     InsertConfirmed(Node),
+//     RemoveAlive(Node),
+//     RemoveSuspected(Node),
+//     RemoveConfirmed(Node),
+//     Shutdown,
+// }
 
-#[derive(Clone, Debug)]
-pub enum MembershipListResponse {
-    // JoinCluster(Node),
-    Alive(Vec<Node>),
-    LaunchNodes(Vec<SocketAddr>),
-    Node(Node),
-    Members(Vec<Node>),
-    Status(u8),
-    Ok,
-}
+// #[derive(Clone, Debug)]
+// pub enum MembershipListResponse {
+//     // JoinCluster(Node),
+//     Alive(Vec<Node>),
+//     LaunchNodes(Vec<SocketAddr>),
+//     Node(Node),
+//     Members(Vec<Node>),
+//     Status(u8),
+//     Ok,
+// }
 
 // pub async fn join_cluster(
 //     membership: &MembershipSender,
@@ -125,21 +125,21 @@ pub enum MembershipListResponse {
 //     }
 // }
 
-pub async fn get_alive(
-    membership_list: &MembershipListSender,
-) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+// pub async fn get_alive(
+//     membership_list: &MembershipListSender,
+// ) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
 
-    membership_list
-        .send((MembershipListRequest::GetAlive, request))
-        .await?;
+//     membership_list
+//         .send((MembershipListRequest::GetAlive, request))
+//         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Alive(alive)) => Ok(alive),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
-}
+//     match response.await {
+//         Ok(MembershipListResponse::Alive(alive)) => Ok(alive),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
