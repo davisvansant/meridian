@@ -21,11 +21,11 @@ pub type MembershipListSender = mpsc::Sender<(
 #[derive(Clone, Debug)]
 pub enum MembershipRequest {
     // JoinCluster(Node),
-    AddMember(Node),
-    LaunchNodes,
+    // AddMember(Node),
+    // LaunchNodes,
     Members,
     Node,
-    RemoveMember,
+    // RemoveMember,
     Status,
     Shutdown,
 }
@@ -48,19 +48,23 @@ pub enum MembershipCommunicationsMessage {
 
 #[derive(Clone, Debug)]
 pub enum MembershipListRequest {
-    // JoinCluster(Node),
-    AddMember(Node),
-    LaunchNodes,
-    Members,
-    Node,
-    RemoveMember,
-    Status,
+    GetInitial,
+    GetAlive,
+    GetSuspected,
+    GetConfirmed,
+    InsertAlive(Node),
+    InsertSuspected(Node),
+    InsertConfirmed(Node),
+    RemoveAlive(Node),
+    RemoveSuspected(Node),
+    RemoveConfirmed(Node),
     Shutdown,
 }
 
 #[derive(Clone, Debug)]
 pub enum MembershipListResponse {
     // JoinCluster(Node),
+    Alive(Vec<Node>),
     LaunchNodes(Vec<SocketAddr>),
     Node(Node),
     Members(Vec<Node>),
@@ -88,34 +92,50 @@ pub enum MembershipListResponse {
 //     }
 // }
 
-pub async fn add_member(
-    membership: &MembershipSender,
-    node: Node,
-) -> Result<(), Box<dyn std::error::Error>> {
+// pub async fn add_member(
+//     membership: &MembershipSender,
+//     node: Node,
+// ) -> Result<(), Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
+
+//     membership
+//         .send((MembershipRequest::AddMember(node), request))
+//         .await?;
+
+//     match response.await {
+//         Ok(MembershipResponse::Ok) => Ok(()),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
+
+// pub async fn launch_nodes(
+//     membership: &MembershipSender,
+// ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
+
+//     membership
+//         .send((MembershipRequest::LaunchNodes, request))
+//         .await?;
+
+//     match response.await {
+//         Ok(MembershipResponse::LaunchNodes(launch_nodes)) => Ok(launch_nodes),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
+
+pub async fn get_alive(
+    membership_list: &MembershipListSender,
+) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
-    membership
-        .send((MembershipRequest::AddMember(node), request))
+    membership_list
+        .send((MembershipListRequest::GetAlive, request))
         .await?;
 
     match response.await {
-        Ok(MembershipResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
-}
-
-pub async fn launch_nodes(
-    membership: &MembershipSender,
-) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
-
-    membership
-        .send((MembershipRequest::LaunchNodes, request))
-        .await?;
-
-    match response.await {
-        Ok(MembershipResponse::LaunchNodes(launch_nodes)) => Ok(launch_nodes),
+        Ok(MembershipListResponse::Alive(alive)) => Ok(alive),
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }

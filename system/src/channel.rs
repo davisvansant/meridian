@@ -25,8 +25,9 @@ pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 pub use client::{
     join_cluster, peer_nodes, peer_status, send_heartbeat, shutdown_client, start_election,
 };
-pub use membership::{
-    add_member, cluster_members, get_node, launch_nodes, shutdown_membership, status,
-};
+// pub use membership::{
+//     add_member, cluster_members, get_node, launch_nodes, shutdown_membership, status,
+// };
+pub use membership::{cluster_members, get_alive, get_node, shutdown_membership, status};
 pub use membership_maintenance::shutdown_membership_maintenance;
 pub use state::{append_entries, candidate, heartbeat, leader, request_vote, shutdown_state};
