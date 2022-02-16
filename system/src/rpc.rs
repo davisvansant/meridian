@@ -20,15 +20,9 @@ pub mod request_vote;
 pub enum Data {
     AppendEntriesArguments(AppendEntriesArguments),
     AppendEntriesResults(AppendEntriesResults),
-    // ConnectedRequest,
-    // ConnectedResponse(Vec<Node>),
-    // JoinClusterRequest(Node),
-    // JoinClusterResponse(Node),
     _InstallSnapshot,
     RequestVoteArguments(RequestVoteArguments),
     RequestVoteResults(RequestVoteResults),
-    // StatusRequest,
-    // StatusResponse(u8),
 }
 
 impl Data {
@@ -68,72 +62,6 @@ impl Data {
 
                 Ok(flexbuffers_builder.take_buffer())
             }
-            // Data::ConnectedRequest => {
-            //     flexbuffers_data.push("data", "connected");
-
-            //     flexbuffers_data.end_map();
-
-            //     Ok(flexbuffers_builder.take_buffer())
-            // }
-            // Data::ConnectedResponse(cluster_member) => {
-            //     flexbuffers_data.push("data", "connected");
-
-            //     let mut details = flexbuffers_data.start_map("details");
-            //     let mut nodes = details.start_vector("nodes");
-
-            //     for node in cluster_member {
-            //         let mut connected_nodes = nodes.start_map();
-
-            //         connected_nodes.push("id", node.id.to_string().as_str());
-            //         connected_nodes.push("address", node.address.to_string().as_str());
-            //         connected_nodes.push("client_port", node.client_port.to_string().as_str());
-            //         connected_nodes.push("cluster_port", node.cluster_port.to_string().as_str());
-            //         connected_nodes
-            //             .push("membership_port", node.membership_port.to_string().as_str());
-            //         connected_nodes.end_map();
-            //     }
-
-            //     nodes.end_vector();
-            //     details.end_map();
-
-            //     flexbuffers_data.end_map();
-
-            //     Ok(flexbuffers_builder.take_buffer())
-            // }
-            // Data::JoinClusterRequest(node) => {
-            //     let membership_node = membership::MembershipNode::build(node).await?;
-
-            //     flexbuffers_data.push("data", "join_cluster_request");
-
-            //     let mut details = flexbuffers_data.start_map("details");
-
-            //     details.push("id", membership_node.id.as_str());
-            //     details.push("address", membership_node.address.as_str());
-            //     details.push("client_port", membership_node.client_port.as_str());
-            //     details.push("cluster_port", membership_node.cluster_port.as_str());
-            //     details.push("membership_port", membership_node.membership_port.as_str());
-            //     details.end_map();
-
-            //     flexbuffers_data.end_map();
-
-            //     Ok(flexbuffers_builder.take_buffer())
-            // }
-            // Data::JoinClusterResponse(node) => {
-            //     flexbuffers_data.push("data", "join_cluster_response");
-
-            //     let mut details = flexbuffers_data.start_map("details");
-
-            //     details.push("id", node.id.to_string().as_str());
-            //     details.push("address", node.address.to_string().as_str());
-            //     details.push("client_port", node.client_port.to_string().as_str());
-            //     details.push("cluster_port", node.cluster_port.to_string().as_str());
-            //     details.push("membership_port", node.membership_port.to_string().as_str());
-            //     details.end_map();
-
-            //     flexbuffers_data.end_map();
-
-            //     Ok(flexbuffers_builder.take_buffer())
-            // }
             Data::_InstallSnapshot => {
                 unimplemented!();
             }
@@ -164,26 +92,6 @@ impl Data {
                 flexbuffers_data.end_map();
 
                 Ok(flexbuffers_builder.take_buffer())
-                // }
-                // Data::StatusRequest => {
-                //     flexbuffers_data.push("data", "status");
-
-                //     let details = flexbuffers_data.start_map("details");
-
-                //     details.end_map();
-
-                //     flexbuffers_data.end_map();
-
-                //     Ok(flexbuffers_builder.take_buffer())
-                // }
-                // Data::StatusResponse(status) => {
-                //     flexbuffers_data.push("data", "status_response");
-                //     flexbuffers_data.push("details", *status);
-
-                //     flexbuffers_data.end_map();
-
-                //     Ok(flexbuffers_builder.take_buffer())
-                // }
             }
         }
     }
@@ -303,41 +211,6 @@ mod tests {
         Ok(())
     }
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_join_cluster_request() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
-    //     let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
-
-    //     let test_join_cluster_request = Data::JoinClusterRequest(test_node).build().await?;
-
-    //     assert_eq!(test_join_cluster_request.len(), 187);
-
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     test_join_cluster_request.push_to_builder(&mut test_flexbuffers_builder);
-
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffer_root_data = test_flexbuffer_root.as_map().index("data")?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-    //     // let test_index_id = test_flexbuffers_root_details.index("id")?;
-    //     let test_index_address = test_flexbuffers_root_details.index("address")?;
-    //     let test_index_client_port = test_flexbuffers_root_details.index("client_port")?;
-    //     let test_index_cluster_port = test_flexbuffers_root_details.index("cluster_port")?;
-    //     let test_index_membership_port = test_flexbuffers_root_details.index("membership_port")?;
-
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(test_flexbuffer_root_data.as_str(), "join_cluster_request");
-    //     // assert_eq!(test_index_id.as_str(), "some_node_id");
-    //     assert_eq!(test_index_address.as_str(), "0.0.0.0");
-    //     assert_eq!(test_index_client_port.as_str(), "10000");
-    //     assert_eq!(test_index_cluster_port.as_str(), "15000");
-    //     assert_eq!(test_index_membership_port.as_str(), "20000");
-
-    //     Ok(())
-    // }
-
     #[tokio::test(flavor = "multi_thread")]
     async fn data_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
         let test_request_vote_arguments = RequestVoteArguments {
@@ -417,56 +290,6 @@ mod tests {
 
         Ok(())
     }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_status_request() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_status_request = Data::StatusRequest.build().await?;
-
-    //     assert_eq!(test_status_request.len(), 38);
-
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     test_status_request.push_to_builder(&mut test_flexbuffers_builder);
-
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(test_flexbuffer_root.as_map().idx("data").as_str(), "status");
-    //     // assert_eq!(test_flexbuffers_root_details.idx("term").as_u8(), 0);
-    //     assert!(test_flexbuffers_root_details.is_empty());
-
-    //     Ok(())
-    // }
-
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn data_status_response() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_status = 1;
-    //     let test_status_response = Data::StatusResponse(test_status).build().await?;
-
-    //     assert_eq!(test_status_response.len(), 43);
-
-    //     let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     test_status_response.push_to_builder(&mut test_flexbuffers_builder);
-
-    //     let test_flexbuffer_root = flexbuffers::Reader::get_root(test_flexbuffers_builder.view())?;
-    //     // let test_flexbuffers_root_details = test_flexbuffer_root.as_map().idx("details").as_map();
-
-    //     assert!(test_flexbuffer_root.is_aligned());
-    //     assert_eq!(test_flexbuffer_root.bitwidth().n_bytes(), 1);
-    //     assert_eq!(test_flexbuffer_root.length(), 2);
-    //     assert_eq!(
-    //         test_flexbuffer_root.as_map().idx("data").as_str(),
-    //         "status_response",
-    //     );
-    //     assert_eq!(test_flexbuffer_root.as_map().idx("details").as_u8(), 1);
-    //     // assert!(test_flexbuffers_root_details.is_empty());
-
-    //     Ok(())
-    // }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_ip_address() -> Result<(), Box<dyn std::error::Error>> {

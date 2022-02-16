@@ -10,18 +10,12 @@ use uuid::Uuid;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
-// use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
-// use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
 use crate::channel::{RpcClientReceiver, RpcClientRequest, RpcClientResponse};
-// use crate::rpc::{build_ip_address, build_socket_address};
 use crate::rpc::{Data, Node, RequestVoteResults};
 
 pub struct Client {
-    // ip_address: IpAddr,
-    // port: u16,
-    // socket_address: SocketAddr,
     receiver: RpcClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
@@ -30,25 +24,12 @@ pub struct Client {
 
 impl Client {
     pub async fn init(
-        // interface: Interface,
         receiver: RpcClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
-        // let ip_address = build_ip_address().await;
-        // let port = match interface {
-        //     Interface::Communications => 1245,
-        //     Interface::Membership => 1246,
-        // };
-        // let port = 1245;
-
-        // let socket_address = build_socket_address(ip_address, port).await;
-
         Ok(Client {
-            // ip_address,
-            // port,
-            // socket_address,
             receiver,
             membership_sender,
             state_sender,
@@ -59,34 +40,6 @@ impl Client {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
-                // ClientRequest::JoinCluster(address) => {
-                //     println!("joining cluster node at {:?}", &address);
-
-                //     // let joined_node = self.join_cluster(address).await?;
-                //     // let socket_address = joined_node.build_address(joined_node.cluster_port).await;
-
-                //     // if let Err(error) = response.send(ClientResponse::JoinCluster(socket_address)) {
-                //     //     println!("error sending client response -> {:?}", error);
-                //     // }
-                // }
-                // ClientRequest::PeerNodes(socket_address) => {
-                //     println!("received peer nodes client request");
-
-                //     let connected_nodes = self.get_connected(socket_address).await?;
-
-                //     if let Err(error) = response.send(ClientResponse::Nodes(connected_nodes)) {
-                //         println!("error sending client peer nodes response -> {:?}", error);
-                //     }
-                // }
-                // ClientRequest::PeerStatus(socket_address) => {
-                //     println!("received get peer status");
-
-                //     let status = self.status(socket_address).await?;
-
-                //     if let Err(error) = response.send(ClientResponse::Status(status)) {
-                //         println!("error sending client peer status response -> {:?}", error);
-                //     }
-                // }
                 RpcClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
 
@@ -141,83 +94,6 @@ impl Client {
         Ok(())
     }
 
-    // pub async fn join_cluster(
-    //     &self,
-    //     socket_address: SocketAddr,
-    // ) -> Result<Node, Box<dyn std::error::Error>> {
-    //     let node = get_node(&self.membership_sender).await?;
-    //     let request = Data::JoinClusterRequest(node).build().await?;
-    //     let response = Client::transmit(socket_address, &request).await?;
-
-    //     let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     response.push_to_builder(&mut flexbuffers_builder);
-
-    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
-
-    //     let response_details = flexbuffer_root.as_map().idx("details").as_map();
-    //     let id = Uuid::from_str(response_details.idx("id").as_str())?;
-    //     let address = IpAddr::from_str(response_details.idx("address").as_str())?;
-    //     let client_port = response_details.idx("client_port").as_u16();
-    //     let cluster_port = response_details.idx("cluster_port").as_u16();
-    //     let membership_port = response_details.idx("membership_port").as_u16();
-
-    //     let joined_node = Node {
-    //         id,
-    //         address,
-    //         client_port,
-    //         cluster_port,
-    //         membership_port,
-    //     };
-
-    //     add_member(&self.membership_sender, joined_node).await?;
-
-    //     Ok(joined_node)
-    // }
-
-    // pub async fn get_connected(
-    //     &self,
-    //     socket_address: SocketAddr,
-    // ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-    //     let request = Data::ConnectedRequest.build().await?;
-    //     let response = Client::transmit(socket_address, &request).await?;
-
-    //     let root = flexbuffers::Reader::get_root(&*response)?;
-
-    //     let response_details = root
-    //         .as_map()
-    //         .idx("details")
-    //         .as_map()
-    //         .idx("nodes")
-    //         .as_vector();
-
-    //     let mut connected_nodes = Vec::with_capacity(response_details.len());
-
-    //     for node in response_details.iter() {
-    //         let id = Uuid::from_str(node.as_map().idx("id").as_str())?;
-    //         let address = IpAddr::from_str(node.as_map().idx("address").as_str())?;
-    //         let client_port = node.as_map().idx("client_port").as_u16();
-    //         let cluster_port = node.as_map().idx("cluster_port").as_u16();
-    //         let membership_port = node.as_map().idx("membership_port").as_u16();
-
-    //         let connected_node = Node {
-    //             id,
-    //             address,
-    //             client_port,
-    //             cluster_port,
-    //             membership_port,
-    //         };
-
-    //         let socket_address = connected_node
-    //             .build_address(connected_node.cluster_port)
-    //             .await;
-
-    //         connected_nodes.push(socket_address)
-    //     }
-
-    //     Ok(connected_nodes)
-    // }
-
     pub async fn request_vote(
         &self,
         socket_address: SocketAddr,
@@ -259,24 +135,6 @@ impl Client {
         Ok(())
     }
 
-    // pub async fn status(
-    //     &self,
-    //     socket_address: SocketAddr,
-    // ) -> Result<u8, Box<dyn std::error::Error>> {
-    //     let data = Data::StatusRequest.build().await?;
-    //     let response = Client::transmit(socket_address, &data).await?;
-
-    //     let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-    //     response.push_to_builder(&mut flexbuffer_builder);
-
-    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
-    //     let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
-    //     let status = flexbuffer_root_details.idx("status").as_u8();
-
-    //     Ok(status)
-    // }
-
     async fn transmit(
         socket_address: SocketAddr,
         data: &[u8],
@@ -302,9 +160,7 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::rpc::Server;
     use crate::channel::CandidateTransition;
-    // use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{RpcClientRequest, RpcClientResponse};
     use crate::channel::{StateRequest, StateResponse};

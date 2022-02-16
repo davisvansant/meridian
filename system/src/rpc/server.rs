@@ -9,18 +9,14 @@ use tokio::signal::unix::{signal, SignalKind};
 
 use uuid::Uuid;
 
-// use crate::channel::{add_member, append_entries, cluster_members, get_node, request_vote, status};
 use crate::channel::{append_entries, cluster_members, get_node, request_vote, status};
 use crate::channel::{Leader, LeaderSender};
 use crate::channel::{MembershipSender, StateSender};
-// use crate::rpc::{build_ip_address, build_tcp_socket};
 use crate::rpc::build_tcp_socket;
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
 use crate::rpc::{Data, Node};
 
 pub struct Server {
-    // ip_address: IpAddr,
-    // port: u16,
     socket_address: SocketAddr,
     membership_sender: MembershipSender,
     state_sender: StateSender,
@@ -34,17 +30,7 @@ impl Server {
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
     ) -> Result<Server, Box<dyn std::error::Error>> {
-        // let ip_address = build_ip_address().await;
-        // let port = match interface {
-        //     Interface::Communications => 1245,
-        //     Interface::Membership => 1246,
-        // };
-
-        // let socket_address = build_socket_address(ip_address, port).await;
-
         Ok(Server {
-            // ip_address,
-            // port,
             socket_address,
             membership_sender,
             state_sender,
@@ -176,39 +162,6 @@ impl Server {
 
                 Ok(append_entries_results)
             }
-            // "connected" => {
-            //     println!("received connected nodes request!");
-
-            //     let connected_nodes = cluster_members(membership_sender).await?;
-            //     let connected_response = Data::ConnectedResponse(connected_nodes).build().await?;
-
-            //     Ok(connected_response)
-            // }
-            // "join_cluster_request" => {
-            //     println!("received join cluster request!");
-
-            //     let request_details = flexbuffers_root.as_map().idx("details").as_map();
-            //     let id = Uuid::from_str(request_details.idx("id").as_str())?;
-            //     let address = IpAddr::from_str(request_details.idx("address").as_str())?;
-            //     let client_port = request_details.idx("client_port").as_u16();
-            //     let cluster_port = request_details.idx("cluster_port").as_u16();
-            //     let membership_port = request_details.idx("membership_port").as_u16();
-
-            //     let candidate_node = Node {
-            //         id,
-            //         address,
-            //         client_port,
-            //         cluster_port,
-            //         membership_port,
-            //     };
-
-            //     add_member(membership_sender, candidate_node).await?;
-
-            //     let server_node = get_node(membership_sender).await?;
-            //     let join_cluster_response = Data::JoinClusterRequest(server_node).build().await?;
-
-            //     Ok(join_cluster_response)
-            // }
             "request_vote_arguments" => {
                 println!("received request vote arguments!");
 
@@ -230,14 +183,6 @@ impl Server {
 
                 Ok(request_vote_results)
             }
-            // "status" => {
-            //     println!("received status request!");
-
-            //     let results = status(membership_sender).await?;
-            //     let status_response = Data::StatusResponse(results).build().await?;
-
-            //     Ok(status_response)
-            // }
             _ => {
                 println!("currently unknown ...");
 
@@ -250,7 +195,6 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::rpc::Client;
     use crate::channel::Leader;
     use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
