@@ -17,6 +17,7 @@ use list::List;
 mod communications;
 mod failure_detector;
 mod list;
+mod static_join;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClusterSize {
