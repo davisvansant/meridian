@@ -24,7 +24,8 @@ pub use membership_maintenance::{
     MembershipMaintenanceReceiver, MembershipMaintenanceRequest, MembershipMaintenanceResponse,
     MembershipMaintenanceSender, MembershipMaintenanceShutdown,
 };
-pub use rpc_client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
+// pub use rpc_client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
+pub use rpc_client::{RpcClientReceiver, RpcClientRequest, RpcClientResponse, RpcClientSender};
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
@@ -36,5 +37,6 @@ pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 pub use membership::{cluster_members, get_node, shutdown_membership, status};
 pub use membership_list::get_alive;
 pub use membership_maintenance::shutdown_membership_maintenance;
-pub use rpc_client::{send_heartbeat, shutdown_client, start_election};
+// pub use rpc_client::{send_heartbeat, shutdown_client, start_election};
+pub use rpc_client::{send_heartbeat, shutdown_rpc_client, start_election};
 pub use state::{append_entries, candidate, heartbeat, leader, request_vote, shutdown_state};
