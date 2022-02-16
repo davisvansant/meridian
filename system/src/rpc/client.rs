@@ -13,7 +13,8 @@ use crate::channel::StateSender;
 // use crate::channel::{add_member, candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
-use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
+// use crate::channel::{ClientReceiver, ClientRequest, ClientResponse};
+use crate::channel::{RpcClientReceiver, RpcClientRequest, RpcClientResponse};
 // use crate::rpc::{build_ip_address, build_socket_address};
 use crate::rpc::{Data, Node, RequestVoteResults};
 
@@ -21,7 +22,7 @@ pub struct Client {
     // ip_address: IpAddr,
     // port: u16,
     // socket_address: SocketAddr,
-    receiver: ClientReceiver,
+    receiver: RpcClientReceiver,
     membership_sender: MembershipSender,
     state_sender: StateSender,
     candidate_sender: CandidateSender,
@@ -30,7 +31,7 @@ pub struct Client {
 impl Client {
     pub async fn init(
         // interface: Interface,
-        receiver: ClientReceiver,
+        receiver: RpcClientReceiver,
         membership_sender: MembershipSender,
         state_sender: StateSender,
         candidate_sender: CandidateSender,
@@ -86,7 +87,7 @@ impl Client {
                 //         println!("error sending client peer status response -> {:?}", error);
                 //     }
                 // }
-                ClientRequest::StartElection => {
+                RpcClientRequest::StartElection => {
                     let mut vote = Vec::with_capacity(2);
 
                     let peers = cluster_members(&self.membership_sender).await?;
@@ -112,14 +113,14 @@ impl Client {
                         }
                     }
 
-                    if let Err(error) = response.send(ClientResponse::EndElection(())) {
+                    if let Err(error) = response.send(RpcClientResponse::EndElection(())) {
                         println!(
                             "error sending client start election response -> {:?}",
                             error,
                         );
                     }
                 }
-                ClientRequest::SendHeartbeat => {
+                RpcClientRequest::SendHeartbeat => {
                     println!("sending heartbeat");
 
                     let cluster_member = cluster_members(&self.membership_sender).await?;
@@ -129,7 +130,7 @@ impl Client {
                         self.send_heartbeat(socket_address).await?;
                     }
                 }
-                ClientRequest::Shutdown => {
+                RpcClientRequest::Shutdown => {
                     println!("shutting down client...");
 
                     self.receiver.close();
@@ -303,15 +304,16 @@ mod tests {
     use super::*;
     // use crate::rpc::Server;
     use crate::channel::CandidateTransition;
-    use crate::channel::{ClientRequest, ClientResponse};
+    // use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
+    use crate::channel::{RpcClientRequest, RpcClientResponse};
     use crate::channel::{StateRequest, StateResponse};
     use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let (test_client_sender, test_client_receiver) =
-            mpsc::channel::<(ClientRequest, oneshot::Sender<ClientResponse>)>(64);
+            mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
         let (test_membership_sender, _test_membership_receiver) =
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =

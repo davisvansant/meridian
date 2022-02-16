@@ -1,7 +1,8 @@
 use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::{leader, send_heartbeat};
-use crate::channel::{ClientSender, StateSender};
+// use crate::channel::{ClientSender, StateSender};
+use crate::channel::{RpcClientSender, StateSender};
 
 pub struct Leader {}
 
@@ -12,7 +13,7 @@ impl Leader {
 
     pub async fn run(
         &mut self,
-        client: &ClientSender,
+        rpc_client: &RpcClientSender,
         state: &StateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         leader(state).await?;
@@ -27,7 +28,7 @@ impl Leader {
 
                     break
                 }
-                _ = send_heartbeat(client) => {}
+                _ = send_heartbeat(rpc_client) => {}
             }
         }
 

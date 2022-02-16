@@ -1,7 +1,8 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::start_election;
-use crate::channel::{CandidateReceiver, CandidateTransition, ClientSender};
+// use crate::channel::{CandidateReceiver, CandidateTransition, ClientSender};
+use crate::channel::{CandidateReceiver, CandidateTransition, RpcClientSender};
 
 pub struct Candidate {
     pub election_timeout: Duration,
@@ -15,7 +16,7 @@ impl Candidate {
 
     pub async fn run(
         &mut self,
-        client: &ClientSender,
+        client: &RpcClientSender,
         transition: &mut CandidateReceiver,
     ) -> Result<CandidateTransition, Box<dyn std::error::Error>> {
         let client_owner = client.to_owned();
