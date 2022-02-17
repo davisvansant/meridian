@@ -147,16 +147,18 @@ mod tests {
     use super::*;
     use crate::channel::CandidateTransition;
     use crate::channel::Leader;
+    use crate::channel::RpcClientRequest;
     // use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
-    use crate::channel::{RpcClientRequest, RpcClientResponse};
+    // use crate::channel::{RpcClientRequest, RpcClientResponse};
     use crate::channel::{StateRequest, StateResponse};
     use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_client_sender, _test_client_receiver) =
-            mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
+        // let (test_client_sender, _test_client_receiver) =
+        //     mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
+        let (test_client_sender, _test_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
         let (test_membership_sender, _test_membership_receiver) =
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =

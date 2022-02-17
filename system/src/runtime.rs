@@ -6,7 +6,8 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
 // use crate::channel::{ClientRequest, ClientResponse};
-use crate::channel::{RpcClientRequest, RpcClientResponse};
+// use crate::channel::{RpcClientRequest, RpcClientResponse};
+use crate::channel::RpcClientRequest;
 // use crate::channel::{MembershipMaintenanceRequest, MembershipMaintenanceResponse};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
@@ -34,8 +35,9 @@ pub async fn launch(
     // |         init internal rpc client channel
     // -------------------------------------------------------------------------------------------
 
-    let (rpc_client_sender, rpc_client_receiver) =
-        mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
+    // let (rpc_client_sender, rpc_client_receiver) =
+    //     mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
+    let (rpc_client_sender, rpc_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
     let shutdown_client = rpc_client_sender.clone();
 
     // -------------------------------------------------------------------------------------------
