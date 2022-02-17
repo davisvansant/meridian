@@ -1,16 +1,10 @@
-// use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
-// use uuid::Uuid;
-
+use crate::channel::MembershipCommunicationsMessage;
 use crate::channel::{get_alive, shutdown_membership_list};
-use crate::channel::{
-    MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
-    MembershipCommunicationsSender,
-};
-use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
+use crate::channel::{MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
 

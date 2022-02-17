@@ -43,8 +43,6 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetAlive => {
-                    // let alive = self.alive.clone();
-
                     let mut alive = Vec::with_capacity(self.alive.len());
 
                     for member in self.alive.values() {

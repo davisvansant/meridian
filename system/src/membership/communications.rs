@@ -1,14 +1,9 @@
 use std::net::SocketAddr;
-// use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
-// use tokio::sync::mpsc;
 
-use crate::channel::{
-    MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
-    MembershipCommunicationsSender,
-};
+use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 
 pub struct MembershipCommunications {
     socket_address: SocketAddr,
@@ -33,34 +28,10 @@ impl MembershipCommunications {
         let receiving_udp_socket = Arc::new(socket);
         let sending_udp_socket = receiving_udp_socket.clone();
 
-        // let (sender, mut receiver) = mpsc::channel::<MembershipCommunicationsMessage>(64);
-        // let shutdown = sender.clone();
         let sender = self.receiver.to_owned();
         let mut receiver = self.receiver.subscribe();
 
         tokio::spawn(async move {
-            // while let Some(incoming_message) = receiver.recv().await {
-            //     match incoming_message {
-            //         MembershipCommunicationsMessage::Send(bytes, target) => {
-            //             println!("do send message");
-
-            //             if let Err(error) = MembershipCommunications::send_bytes(
-            //                 &sending_udp_socket,
-            //                 &bytes,
-            //                 target,
-            //             )
-            //             .await
-            //             {
-            //                 println!("error sending message -> {:?}", error);
-            //             }
-            //         }
-            //         MembershipCommunicationsMessage::Shutdown => {
-            //             println!("shutting down receiver");
-
-            //             receiver.close();
-            //         }
-            //     }
-            // }
             while let Ok(incoming_message) = receiver.recv().await {
                 match incoming_message {
                     MembershipCommunicationsMessage::Send(bytes, target) => {
@@ -86,8 +57,6 @@ impl MembershipCommunications {
                 _ = signal.recv() => {
                     println!("shutting down membership interface..");
 
-                    // shutdown.send(MembershipCommunicationsMessage::Shutdown).await?;
-                    // drop(self.receiver);
                     drop(sender);
 
                     break
@@ -128,9 +97,6 @@ impl MembershipCommunications {
 
                 let ack = b"ack".to_vec();
 
-                // sender
-                //     .send(MembershipCommunicationsMessage::Send(ack, origin))
-                //     .await?;
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
             }
             b"ping-req" => {
@@ -138,9 +104,6 @@ impl MembershipCommunications {
 
                 let ping = b"ping".to_vec();
 
-                // sender
-                //     .send(MembershipCommunicationsMessage::Send(ping, origin))
-                //     .await?;
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
             }
             _ => panic!("received unexpected bytes!"),
@@ -184,7 +147,6 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ack() -> Result<(), Box<dyn std::error::Error>> {
-        // let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_bytes = b"ack".to_vec();
@@ -200,7 +162,6 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping() -> Result<(), Box<dyn std::error::Error>> {
-        // let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_bytes = b"ping".to_vec();
@@ -216,7 +177,6 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ping_req() -> Result<(), Box<dyn std::error::Error>> {
-        // let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_bytes = b"ping-req".to_vec();
@@ -233,7 +193,6 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[should_panic]
     async fn receive_bytes_panic() {
-        // let (test_sender, _test_receiver) = mpsc::channel::<MembershipCommunicationsMessage>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_bytes = b"something to panic!".to_vec();
