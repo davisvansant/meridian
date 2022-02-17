@@ -1,11 +1,15 @@
 // use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 // use uuid::Uuid;
 
 use crate::channel::{get_alive, shutdown_membership_list};
+use crate::channel::{
+    MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
+    MembershipCommunicationsSender,
+};
 use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
@@ -73,8 +77,12 @@ impl Membership {
             }
         });
 
+        let (send_udp_message, _) = broadcast::channel::<MembershipCommunicationsMessage>(64);
+        let membership_communications_sender = send_udp_message.clone();
+
         let membership_port = self.server.membership_address().await;
-        let mut communications = MembershipCommunications::init(membership_port).await;
+        let mut communications =
+            MembershipCommunications::init(membership_port, membership_communications_sender).await;
 
         tokio::spawn(async move {
             if let Err(error) = communications.run().await {
