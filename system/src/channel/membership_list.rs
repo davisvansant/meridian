@@ -31,6 +31,7 @@ pub enum MembershipListRequest {
 pub enum MembershipListResponse {
     // JoinCluster(Node),
     Alive(Vec<Node>),
+    Suspected(Vec<Node>),
     LaunchNodes(Vec<SocketAddr>),
     Node(Node),
     Members(Vec<Node>),
