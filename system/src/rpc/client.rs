@@ -1,22 +1,13 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
-
-// use std::net::{IpAddr, SocketAddr};
 use std::net::SocketAddr;
-// use std::str::FromStr;
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-// use tokio::net::{TcpSocket, TcpStream};
 use tokio::net::TcpSocket;
-
-// use uuid::Uuid;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
 use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
-// use crate::channel::{RpcClientReceiver, RpcClientRequest, RpcClientResponse};
 use crate::channel::{RpcClientReceiver, RpcClientRequest};
-// use crate::rpc::{Data, Node, RequestVoteResults};
 use crate::rpc::{Data, RequestVoteResults};
 
 pub struct Client {
@@ -42,7 +33,6 @@ impl Client {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // while let Some((request, response)) = self.receiver.recv().await {
         while let Some(request) = self.receiver.recv().await {
             match request {
                 RpcClientRequest::StartElection => {
@@ -70,13 +60,6 @@ impl Client {
                             self.candidate_sender.send(CandidateTransition::Follower)?;
                         }
                     }
-
-                    // if let Err(error) = response.send(RpcClientResponse::EndElection(())) {
-                    //     println!(
-                    //         "error sending client start election response -> {:?}",
-                    //         error,
-                    //     );
-                    // }
                 }
                 RpcClientRequest::SendHeartbeat => {
                     println!("sending heartbeat");
@@ -168,14 +151,11 @@ mod tests {
     use crate::channel::CandidateTransition;
     use crate::channel::RpcClientRequest;
     use crate::channel::{MembershipRequest, MembershipResponse};
-    // use crate::channel::{RpcClientRequest, RpcClientResponse};
     use crate::channel::{StateRequest, StateResponse};
     use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        // let (test_client_sender, test_client_receiver) =
-        //     mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
         let (test_client_sender, test_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
         let (test_membership_sender, _test_membership_receiver) =
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);

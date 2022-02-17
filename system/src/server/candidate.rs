@@ -1,7 +1,6 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::start_election;
-// use crate::channel::{CandidateReceiver, CandidateTransition, ClientSender};
 use crate::channel::{CandidateReceiver, CandidateTransition, RpcClientSender};
 
 pub struct Candidate {
