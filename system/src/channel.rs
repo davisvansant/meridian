@@ -25,7 +25,8 @@ pub use membership_list::{
 //     MembershipMaintenanceSender, MembershipMaintenanceShutdown,
 // };
 // pub use rpc_client::{ClientReceiver, ClientRequest, ClientResponse, ClientSender};
-pub use rpc_client::{RpcClientReceiver, RpcClientRequest, RpcClientResponse, RpcClientSender};
+// pub use rpc_client::{RpcClientReceiver, RpcClientRequest, RpcClientResponse, RpcClientSender};
+pub use rpc_client::{RpcClientReceiver, RpcClientRequest, RpcClientSender};
 pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
