@@ -68,7 +68,16 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetConfirmed => {
-                    let confirmed = self.confirmed.clone();
+                    let mut confirmed = Vec::with_capacity(self.confirmed.len());
+
+                    for node in self.confirmed.values() {
+                        confirmed.push(node.to_owned());
+                    }
+
+                    if let Err(error) = response.send(MembershipListResponse::Confirmed(confirmed))
+                    {
+                        println!("error sending membership list response -> {:?}", error);
+                    }
                 }
                 MembershipListRequest::InsertAlive(node) => {
                     self.insert_alive(node).await?;
