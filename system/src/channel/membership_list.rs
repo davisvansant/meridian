@@ -33,6 +33,7 @@ pub enum MembershipListResponse {
     Initial(Vec<SocketAddr>),
     Alive(Vec<Node>),
     Suspected(Vec<Node>),
+    Confirmed(Vec<Node>),
     LaunchNodes(Vec<SocketAddr>),
     Node(Node),
     Members(Vec<Node>),
