@@ -206,7 +206,6 @@ pub async fn remove_confirmed(
 
 pub async fn shutdown_membership_list(
     membership_list: &MembershipListSender,
-    node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 

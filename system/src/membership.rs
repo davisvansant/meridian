@@ -26,15 +26,15 @@ pub enum ClusterSize {
     Five,
 }
 
-impl ClusterSize {
-    pub async fn members(&self) -> HashMap<Uuid, Node> {
-        match self {
-            ClusterSize::One => HashMap::with_capacity(1),
-            ClusterSize::Three => HashMap::with_capacity(3),
-            ClusterSize::Five => HashMap::with_capacity(5),
-        }
-    }
-}
+// impl ClusterSize {
+//     pub async fn members(&self) -> HashMap<Uuid, Node> {
+//         match self {
+//             ClusterSize::One => HashMap::with_capacity(1),
+//             ClusterSize::Three => HashMap::with_capacity(3),
+//             ClusterSize::Five => HashMap::with_capacity(5),
+//         }
+//     }
+// }
 
 // #[derive(Clone, Debug)]
 pub struct Membership {
