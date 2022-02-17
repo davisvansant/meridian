@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use tokio::sync::{mpsc, oneshot};
 
-use uuid::Uuid;
+// use uuid::Uuid;
 
-use crate::channel::get_alive;
+use crate::channel::{get_alive, shutdown_membership_list};
 use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
@@ -126,6 +126,8 @@ impl Membership {
                 }
                 MembershipRequest::Shutdown => {
                     println!("shutting down membership...");
+
+                    shutdown_membership_list(&list_sender).await?;
 
                     self.receiver.close();
                 }
