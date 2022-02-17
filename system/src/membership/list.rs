@@ -52,7 +52,16 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetSuspected => {
-                    let suspected = self.suspected.clone();
+                    let mut suspected = Vec::with_capacity(self.suspected.len());
+
+                    for node in self.suspected.values() {
+                        suspected.push(node.to_owned());
+                    }
+
+                    if let Err(error) = response.send(MembershipListResponse::Suspected(suspected))
+                    {
+                        println!("error sending membership list response -> {:?}", error);
+                    }
                 }
                 MembershipListRequest::GetConfirmed => {
                     let confirmed = self.confirmed.clone();
