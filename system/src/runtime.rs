@@ -131,7 +131,7 @@ pub async fn launch(
     let node_socket_address = node.build_address(node.cluster_port).await;
 
     let mut rpc_communications_server = Server::init(
-        rpc_communications_server_membership_sender,
+        // rpc_communications_server_membership_sender,
         rpc_communications_server_state_sender,
         leader_sender,
         node_socket_address,

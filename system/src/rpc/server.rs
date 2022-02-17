@@ -1,38 +1,42 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
 
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
+// use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
+// use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+// use tokio::net::{TcpListener, TcpStream};
 use tokio::signal::unix::{signal, SignalKind};
 
-use uuid::Uuid;
+// use uuid::Uuid;
 
-use crate::channel::{append_entries, cluster_members, get_node, request_vote, status};
+// use crate::channel::{append_entries, cluster_members, get_node, request_vote, status};
+use crate::channel::{append_entries, request_vote};
 use crate::channel::{Leader, LeaderSender};
-use crate::channel::{MembershipSender, StateSender};
+// use crate::channel::{MembershipSender, StateSender};
+use crate::channel::StateSender;
 use crate::rpc::build_tcp_socket;
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
-use crate::rpc::{Data, Node};
+// use crate::rpc::{Data, Node};
+use crate::rpc::Data;
 
 pub struct Server {
     socket_address: SocketAddr,
-    membership_sender: MembershipSender,
+    // membership_sender: MembershipSender,
     state_sender: StateSender,
     heartbeat: LeaderSender,
 }
 
 impl Server {
     pub async fn init(
-        membership_sender: MembershipSender,
+        // membership_sender: MembershipSender,
         state_sender: StateSender,
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         Ok(Server {
             socket_address,
-            membership_sender,
+            // membership_sender,
             state_sender,
             heartbeat,
         })
@@ -64,7 +68,7 @@ impl Server {
                     println!("stream -> {:?}", &tcp_stream);
                     println!("socket address -> {:?}", &socket_address);
 
-                    let membership_sender = self.membership_sender.to_owned();
+                    // let membership_sender = self.membership_sender.to_owned();
                     let state_sender = self.state_sender.to_owned();
                     let heartbeat = self.heartbeat.to_owned();
 
@@ -75,7 +79,7 @@ impl Server {
                             Ok(data_length) => {
                                 let send_result = match Self::route_incoming(
                                 &buffer[0..data_length],
-                                &membership_sender,
+                                // &membership_sender,
                                 &state_sender,
                                 &heartbeat,
                             )
@@ -113,7 +117,7 @@ impl Server {
 
     async fn route_incoming(
         data: &[u8],
-        membership_sender: &MembershipSender,
+        // membership_sender: &MembershipSender,
         state_sender: &StateSender,
         heartbeat: &LeaderSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -196,21 +200,22 @@ impl Server {
 mod tests {
     use super::*;
     use crate::channel::Leader;
-    use crate::channel::{MembershipRequest, MembershipResponse};
+    // use crate::channel::{MembershipRequest, MembershipResponse};
     use crate::channel::{StateRequest, StateResponse};
+    use std::str::FromStr;
     use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_membership_sender, _test_membership_receiver) =
-            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+        // let (test_membership_sender, _test_membership_receiver) =
+        //     mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
         let (test_state_sender, _test_state_receiver) =
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
 
         let test_server = Server::init(
-            test_membership_sender,
+            // test_membership_sender,
             test_state_sender,
             test_leader_sender,
             test_socket_address,
@@ -222,7 +227,7 @@ mod tests {
             "0.0.0.0",
         );
         assert_eq!(test_server.socket_address.port(), 1245);
-        assert!(!test_server.membership_sender.is_closed());
+        // assert!(!test_server.membership_sender.is_closed());
         assert!(!test_server.state_sender.is_closed());
 
         Ok(())

@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use std::str::FromStr;
+// use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
@@ -135,6 +135,7 @@ impl MembershipCommunications {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {

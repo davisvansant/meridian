@@ -1,9 +1,6 @@
+use crate::channel::MembershipCommunicationsSender;
 use crate::channel::MembershipListSender;
 use crate::channel::{get_initial, send_message};
-use crate::channel::{
-    MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
-    MembershipCommunicationsSender,
-};
 
 pub struct StaticJoin {
     membership_communications_sender: MembershipCommunicationsSender,

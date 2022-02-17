@@ -1,19 +1,22 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
 
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
+// use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
+// use std::str::FromStr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpSocket, TcpStream};
+// use tokio::net::{TcpSocket, TcpStream};
+use tokio::net::TcpSocket;
 
-use uuid::Uuid;
+// use uuid::Uuid;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
 use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{RpcClientReceiver, RpcClientRequest, RpcClientResponse};
-use crate::rpc::{Data, Node, RequestVoteResults};
+// use crate::rpc::{Data, Node, RequestVoteResults};
+use crate::rpc::{Data, RequestVoteResults};
 
 pub struct Client {
     receiver: RpcClientReceiver,
