@@ -17,6 +17,7 @@ use crate::node::Node;
 use communications::MembershipCommunications;
 use failure_detector::FailureDectector;
 use list::List;
+use static_join::StaticJoin;
 
 mod communications;
 mod failure_detector;
@@ -68,6 +69,7 @@ impl Membership {
             MembershipListRequest,
             oneshot::Sender<MembershipListResponse>,
         )>(64);
+        let static_join_send_list = list_sender.to_owned();
 
         let mut list = List::init(launch_nodes, list_receiver).await?;
 
@@ -79,6 +81,7 @@ impl Membership {
 
         let (send_udp_message, _) = broadcast::channel::<MembershipCommunicationsMessage>(64);
         let membership_communications_sender = send_udp_message.clone();
+        let static_join_send_udp_message = send_udp_message.clone();
 
         let membership_port = self.server.membership_address().await;
         let mut communications =
@@ -99,6 +102,15 @@ impl Membership {
         });
 
         println!("membership initialized and running...");
+
+        let mut static_join =
+            StaticJoin::init(static_join_send_udp_message, static_join_send_list).await;
+
+        tokio::spawn(async move {
+            if let Err(error) = static_join.run().await {
+                println!("error with membership static join -> {:?}", error);
+            }
+        });
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
