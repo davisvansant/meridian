@@ -29,16 +29,10 @@ pub enum MembershipListRequest {
 
 #[derive(Clone, Debug)]
 pub enum MembershipListResponse {
-    // JoinCluster(Node),
     Initial(Vec<SocketAddr>),
     Alive(Vec<Node>),
     Suspected(Vec<Node>),
     Confirmed(Vec<Node>),
-    LaunchNodes(Vec<SocketAddr>),
-    Node(Node),
-    Members(Vec<Node>),
-    Status(u8),
-    Ok,
 }
 
 pub async fn get_initial(
@@ -51,7 +45,7 @@ pub async fn get_initial(
         .await?;
 
     match response.await {
-        Ok(MembershipListResponse::LaunchNodes(launch_nodes)) => Ok(launch_nodes),
+        Ok(MembershipListResponse::Initial(initial)) => Ok(initial),
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
@@ -75,7 +69,7 @@ pub async fn get_alive(
 
 pub async fn get_suspected(
     membership_list: &MembershipListSender,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership_list
@@ -83,7 +77,7 @@ pub async fn get_suspected(
         .await?;
 
     match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
+        Ok(MembershipListResponse::Suspected(suspected)) => Ok(suspected),
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
@@ -91,7 +85,7 @@ pub async fn get_suspected(
 
 pub async fn get_confirmed(
     membership_list: &MembershipListSender,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership_list
@@ -99,7 +93,7 @@ pub async fn get_confirmed(
         .await?;
 
     match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
+        Ok(MembershipListResponse::Confirmed(confirmed)) => Ok(confirmed),
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
@@ -109,116 +103,88 @@ pub async fn insert_alive(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::InsertAlive(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn insert_suspected(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::InsertSuspected(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn insert_confirmed(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::InsertConfirmed(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn remove_alive(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::RemoveAlive(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn remove_suspected(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::RemoveSuspected(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn remove_confirmed(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::RemoveConfirmed(node), request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
 
 pub async fn shutdown_membership_list(
     membership_list: &MembershipListSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+    let (request, _response) = oneshot::channel();
 
     membership_list
         .send((MembershipListRequest::Shutdown, request))
         .await?;
 
-    match response.await {
-        Ok(MembershipListResponse::Ok) => Ok(()),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
+    Ok(())
 }
