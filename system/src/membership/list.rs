@@ -37,6 +37,10 @@ impl List {
             match request {
                 MembershipListRequest::GetInitial => {
                     let initial = self.initial.to_vec();
+
+                    if let Err(error) = response.send(MembershipListResponse::Initial(initial)) {
+                        println!("error sending membership list response -> {:?}", error);
+                    }
                 }
                 MembershipListRequest::GetAlive => {
                     // let alive = self.alive.clone();
