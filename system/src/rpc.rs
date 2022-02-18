@@ -97,13 +97,13 @@ impl Data {
     }
 }
 
-pub async fn build_ip_address() -> IpAddr {
-    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
-}
+// pub async fn build_ip_address() -> IpAddr {
+//     IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
+// }
 
-pub async fn build_socket_address(ip_address: IpAddr, port: u16) -> SocketAddr {
-    SocketAddr::new(ip_address, port)
-}
+// pub async fn build_socket_address(ip_address: IpAddr, port: u16) -> SocketAddr {
+//     SocketAddr::new(ip_address, port)
+// }
 
 pub async fn build_tcp_socket() -> Result<TcpSocket, Box<dyn std::error::Error>> {
     let tcp_socket = TcpSocket::new_v4()?;
@@ -291,25 +291,25 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn build_ip_address() -> Result<(), Box<dyn std::error::Error>> {
-        let test_ip_address = super::build_ip_address().await;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn build_ip_address() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_ip_address = super::build_ip_address().await;
 
-        assert_eq!(test_ip_address.to_string().as_str(), "127.0.0.1");
+    //     assert_eq!(test_ip_address.to_string().as_str(), "127.0.0.1");
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn build_socket_address() -> Result<(), Box<dyn std::error::Error>> {
-        let test_ip_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-        let test_port = 1234;
-        let test_socket_address = super::build_socket_address(test_ip_address, test_port).await;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn build_socket_address() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_ip_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+    //     let test_port = 1234;
+    //     let test_socket_address = super::build_socket_address(test_ip_address, test_port).await;
 
-        assert_eq!(test_socket_address.to_string().as_str(), "127.0.0.1:1234");
+    //     assert_eq!(test_socket_address.to_string().as_str(), "127.0.0.1:1234");
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_tcp_socket() -> Result<(), Box<dyn std::error::Error>> {

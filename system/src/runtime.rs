@@ -49,7 +49,7 @@ pub async fn launch(
 
     // let preflight_membership_sender = membership_sender.to_owned();
     let server_membership_sender = membership_sender.to_owned();
-    let rpc_communications_server_membership_sender = membership_sender.to_owned();
+    // let rpc_communications_server_membership_sender = membership_sender.to_owned();
     // let rpc_membership_server_membership_sender = membership_sender.to_owned();
     let shutdown_membership = membership_sender.to_owned();
 

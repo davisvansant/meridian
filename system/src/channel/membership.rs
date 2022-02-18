@@ -21,7 +21,7 @@ pub enum MembershipResponse {
     Node(Node),
     Members(Vec<Node>),
     Status(u8),
-    Ok,
+    // Ok,
 }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
