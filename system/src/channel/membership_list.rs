@@ -116,10 +116,10 @@ pub async fn insert_suspected(
     membership_list: &MembershipListSender,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (request, _response) = oneshot::channel();
+    let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::InsertSuspected(node), request))
+        .send((MembershipListRequest::InsertSuspected(node), _request))
         .await?;
 
     Ok(())
