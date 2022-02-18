@@ -1,5 +1,5 @@
 use flexbuffers::{Builder, BuilderOptions};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::net::TcpSocket;
 
 // use crate::node::Node;
@@ -115,6 +115,7 @@ pub async fn build_tcp_socket() -> Result<TcpSocket, Box<dyn std::error::Error>>
 mod tests {
     use super::*;
     use flexbuffers::Pushable;
+    use std::net::SocketAddr;
     use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
