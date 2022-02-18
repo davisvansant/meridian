@@ -4,7 +4,9 @@ use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::MembershipListSender;
-use crate::channel::{insert_alive, remove_alive, remove_confirmed, remove_suspected};
+use crate::channel::{
+    insert_alive, insert_suspected, remove_alive, remove_confirmed, remove_suspected,
+};
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::node::Node;
 
@@ -120,6 +122,12 @@ impl MembershipCommunications {
                 let ping = b"ping".to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
+
+                let placeholder_node =
+                    Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
+
+                remove_alive(list_sender, placeholder_node).await?;
+                insert_suspected(list_sender, placeholder_node).await?;
             }
             _ => panic!("received unexpected bytes!"),
         }
@@ -221,7 +229,7 @@ mod tests {
         let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
             MembershipListRequest,
             oneshot::Sender<MembershipListResponse>,
-        )>(1);
+        )>(64);
         let test_bytes = b"ping-req".to_vec();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
 
