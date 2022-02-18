@@ -64,6 +64,7 @@ impl Membership {
             oneshot::Sender<MembershipListResponse>,
         )>(64);
         let static_join_send_list = list_sender.to_owned();
+        let communications_list_sender = list_sender.to_owned();
 
         let mut list = List::init(launch_nodes, list_receiver).await?;
 
@@ -78,8 +79,12 @@ impl Membership {
         let static_join_send_udp_message = send_udp_message.clone();
 
         let membership_port = self.server.membership_address().await;
-        let mut communications =
-            MembershipCommunications::init(membership_port, membership_communications_sender).await;
+        let mut communications = MembershipCommunications::init(
+            membership_port,
+            communications_list_sender,
+            membership_communications_sender,
+        )
+        .await;
 
         tokio::spawn(async move {
             if let Err(error) = communications.run().await {

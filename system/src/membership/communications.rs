@@ -3,20 +3,26 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
 
+use crate::channel::MembershipListSender;
+use crate::channel::{insert_alive, remove_alive, remove_confirmed, remove_suspected};
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
+use crate::node::Node;
 
 pub struct MembershipCommunications {
     socket_address: SocketAddr,
+    list_sender: MembershipListSender,
     receiver: MembershipCommunicationsSender,
 }
 
 impl MembershipCommunications {
     pub async fn init(
         socket_address: SocketAddr,
+        list_sender: MembershipListSender,
         receiver: MembershipCommunicationsSender,
     ) -> MembershipCommunications {
         MembershipCommunications {
             socket_address,
+            list_sender,
             receiver,
         }
     }
@@ -69,6 +75,7 @@ impl MembershipCommunications {
 
                             MembershipCommunications::receive_bytes(
                                 &sender,
+                                &self.list_sender,
                                 &buffer[..bytes],
                                 origin,
                             )
@@ -87,6 +94,7 @@ impl MembershipCommunications {
 
     async fn receive_bytes(
         sender: &MembershipCommunicationsSender,
+        list_sender: &MembershipListSender,
         bytes: &[u8],
         origin: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -98,6 +106,13 @@ impl MembershipCommunications {
                 let ack = b"ack".to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
+
+                let placeholder_node =
+                    Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
+
+                remove_confirmed(list_sender, placeholder_node).await?;
+                remove_suspected(list_sender, placeholder_node).await?;
+                insert_alive(list_sender, placeholder_node).await?;
             }
             b"ping-req" => {
                 println!("received ping request!");
@@ -126,16 +141,22 @@ impl MembershipCommunications {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::{MembershipListRequest, MembershipListResponse};
     use std::str::FromStr;
-    use tokio::sync::broadcast;
+    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25000")?;
+        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_membership_communications =
-            MembershipCommunications::init(test_socket_address, test_sender).await;
+            MembershipCommunications::init(test_socket_address, test_list_sender, test_sender)
+                .await;
 
         assert_eq!(
             &test_membership_communications.socket_address.to_string(),
@@ -147,13 +168,22 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn receive_bytes_ack() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(1);
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
         let test_bytes = b"ack".to_vec();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
 
-        let test_receive_bytes =
-            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(
+            &test_sender,
+            &test_list_sender,
+            &test_bytes,
+            test_origin,
+        )
+        .await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -164,11 +194,20 @@ mod tests {
     async fn receive_bytes_ping() -> Result<(), Box<dyn std::error::Error>> {
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
+        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(64);
         let test_bytes = b"ping".to_vec();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
 
-        let test_receive_bytes =
-            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(
+            &test_sender,
+            &test_list_sender,
+            &test_bytes,
+            test_origin,
+        )
+        .await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -179,11 +218,20 @@ mod tests {
     async fn receive_bytes_ping_req() -> Result<(), Box<dyn std::error::Error>> {
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
+        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(1);
         let test_bytes = b"ping-req".to_vec();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000")?;
 
-        let test_receive_bytes =
-            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(
+            &test_sender,
+            &test_list_sender,
+            &test_bytes,
+            test_origin,
+        )
+        .await;
 
         assert!(test_receive_bytes.is_ok());
 
@@ -195,11 +243,20 @@ mod tests {
     async fn receive_bytes_panic() {
         let (test_sender, _test_receiver) =
             broadcast::channel::<MembershipCommunicationsMessage>(1);
+        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(1);
         let test_bytes = b"something to panic!".to_vec();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
-        let test_receive_bytes =
-            MembershipCommunications::receive_bytes(&test_sender, &test_bytes, test_origin).await;
+        let test_receive_bytes = MembershipCommunications::receive_bytes(
+            &test_sender,
+            &test_list_sender,
+            &test_bytes,
+            test_origin,
+        )
+        .await;
 
         assert!(!test_receive_bytes.is_ok());
     }
