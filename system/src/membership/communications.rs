@@ -8,6 +8,7 @@ use crate::channel::{
     insert_alive, insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
+use crate::membership::Message;
 use crate::node::Node;
 
 pub struct MembershipCommunications {
@@ -100,12 +101,13 @@ impl MembershipCommunications {
         bytes: &[u8],
         origin: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        match bytes {
-            b"ack" => println!("received ack!"),
-            b"ping" => {
+        match Message::from_bytes(bytes).await {
+            Message::Ack => println!("received ack!"),
+            Message::Ping => {
                 println!("received ping!");
 
-                let ack = b"ack".to_vec();
+                // let ack = b"ack".to_vec();
+                let ack = Message::Ack.build().await.to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
 
@@ -116,10 +118,11 @@ impl MembershipCommunications {
                 remove_suspected(list_sender, placeholder_node).await?;
                 insert_alive(list_sender, placeholder_node).await?;
             }
-            b"ping-req" => {
+            Message::PingReq => {
                 println!("received ping request!");
 
-                let ping = b"ping".to_vec();
+                // let ping = b"ping".to_vec();
+                let ping = Message::Ping.build().await.to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
 
@@ -129,8 +132,38 @@ impl MembershipCommunications {
                 remove_alive(list_sender, placeholder_node).await?;
                 insert_suspected(list_sender, placeholder_node).await?;
             }
-            _ => panic!("received unexpected bytes!"),
         }
+        // match bytes {
+        //     b"ack" => println!("received ack!"),
+        //     b"ping" => {
+        //         println!("received ping!");
+
+        //         let ack = b"ack".to_vec();
+
+        //         sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
+
+        //         let placeholder_node =
+        //             Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
+
+        //         remove_confirmed(list_sender, placeholder_node).await?;
+        //         remove_suspected(list_sender, placeholder_node).await?;
+        //         insert_alive(list_sender, placeholder_node).await?;
+        //     }
+        //     b"ping-req" => {
+        //         println!("received ping request!");
+
+        //         let ping = b"ping".to_vec();
+
+        //         sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
+
+        //         let placeholder_node =
+        //             Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
+
+        //         remove_alive(list_sender, placeholder_node).await?;
+        //         insert_suspected(list_sender, placeholder_node).await?;
+        //     }
+        //     _ => panic!("received unexpected bytes!"),
+        // }
 
         Ok(())
     }
