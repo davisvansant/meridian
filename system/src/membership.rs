@@ -13,9 +13,12 @@ use failure_detector::FailureDectector;
 use list::List;
 use static_join::StaticJoin;
 
+pub(self) use message::Message;
+
 mod communications;
 mod failure_detector;
 mod list;
+mod message;
 mod static_join;
 
 #[derive(Clone, Debug, PartialEq)]
