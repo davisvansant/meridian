@@ -106,7 +106,6 @@ impl MembershipCommunications {
             Message::Ping => {
                 println!("received ping!");
 
-                // let ack = b"ack".to_vec();
                 let ack = Message::Ack.build().await.to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
@@ -121,7 +120,6 @@ impl MembershipCommunications {
             Message::PingReq => {
                 println!("received ping request!");
 
-                // let ping = b"ping".to_vec();
                 let ping = Message::Ping.build().await.to_vec();
 
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
@@ -133,37 +131,6 @@ impl MembershipCommunications {
                 insert_suspected(list_sender, placeholder_node).await?;
             }
         }
-        // match bytes {
-        //     b"ack" => println!("received ack!"),
-        //     b"ping" => {
-        //         println!("received ping!");
-
-        //         let ack = b"ack".to_vec();
-
-        //         sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
-
-        //         let placeholder_node =
-        //             Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
-
-        //         remove_confirmed(list_sender, placeholder_node).await?;
-        //         remove_suspected(list_sender, placeholder_node).await?;
-        //         insert_alive(list_sender, placeholder_node).await?;
-        //     }
-        //     b"ping-req" => {
-        //         println!("received ping request!");
-
-        //         let ping = b"ping".to_vec();
-
-        //         sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
-
-        //         let placeholder_node =
-        //             Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
-
-        //         remove_alive(list_sender, placeholder_node).await?;
-        //         insert_suspected(list_sender, placeholder_node).await?;
-        //     }
-        //     _ => panic!("received unexpected bytes!"),
-        // }
 
         Ok(())
     }
