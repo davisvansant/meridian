@@ -68,6 +68,7 @@ impl Membership {
         )>(64);
         let static_join_send_list = list_sender.to_owned();
         let communications_list_sender = list_sender.to_owned();
+        let failure_detector_list_sender = list_sender.to_owned();
 
         let mut list = List::init(launch_nodes, list_receiver).await?;
 
@@ -95,7 +96,7 @@ impl Membership {
             }
         });
 
-        let mut failure_detector = FailureDectector::init().await;
+        let mut failure_detector = FailureDectector::init(failure_detector_list_sender).await;
 
         tokio::spawn(async move {
             if let Err(error) = failure_detector.run().await {
