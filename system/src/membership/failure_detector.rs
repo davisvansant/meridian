@@ -2,7 +2,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
 use crate::channel::MembershipListSender;
-use crate::channel::{get_alive, insert_confirmed};
+use crate::channel::{get_alive, insert_confirmed, remove_alive, remove_suspected};
 
 pub struct FailureDectector {
     protocol_period: Duration,
@@ -49,7 +49,8 @@ impl FailureDectector {
 
         for node in alive {
             // placeholder...
-
+            remove_alive(&self.list_sender, node).await?;
+            remove_suspected(&self.list_sender, node).await?;
             insert_confirmed(&self.list_sender, node).await?;
         }
 
