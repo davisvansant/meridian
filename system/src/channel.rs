@@ -17,7 +17,8 @@ pub use server::{CandidateReceiver, CandidateSender, CandidateTransition};
 pub use server::{Leader, LeaderReceiver, LeaderSender};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
-pub use membership::{cluster_members, get_node, shutdown_membership, status};
+// pub use membership::{cluster_members, get_node, shutdown_membership, status};
+pub use membership::{cluster_members, get_node, shutdown_membership};
 pub use membership_communications::send_message;
 pub use membership_list::{
     get_alive, get_confirmed, get_initial, get_suspected, insert_alive, insert_confirmed,

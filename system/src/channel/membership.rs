@@ -10,7 +10,7 @@ pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<Mem
 pub enum MembershipRequest {
     Members,
     Node,
-    Status,
+    // Status,
     Shutdown,
 }
 
@@ -18,7 +18,7 @@ pub enum MembershipRequest {
 pub enum MembershipResponse {
     Node(Node),
     Members(Vec<Node>),
-    Status(u8),
+    // Status(u8),
 }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
@@ -49,19 +49,19 @@ pub async fn cluster_members(
     }
 }
 
-pub async fn status(membership: &MembershipSender) -> Result<u8, Box<dyn std::error::Error>> {
-    let (request, response) = oneshot::channel();
+// pub async fn status(membership: &MembershipSender) -> Result<u8, Box<dyn std::error::Error>> {
+//     let (request, response) = oneshot::channel();
 
-    membership
-        .send((MembershipRequest::Status, request))
-        .await?;
+//     membership
+//         .send((MembershipRequest::Status, request))
+//         .await?;
 
-    match response.await {
-        Ok(MembershipResponse::Status(connected_nodes)) => Ok(connected_nodes),
-        Err(error) => Err(Box::new(error)),
-        _ => panic!("unexpected response!"),
-    }
-}
+//     match response.await {
+//         Ok(MembershipResponse::Status(connected_nodes)) => Ok(connected_nodes),
+//         Err(error) => Err(Box::new(error)),
+//         _ => panic!("unexpected response!"),
+//     }
+// }
 
 pub async fn shutdown_membership(
     membership: &MembershipSender,

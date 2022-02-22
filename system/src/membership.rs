@@ -132,20 +132,20 @@ impl Membership {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
-                MembershipRequest::Status => {
-                    let members = get_alive(&list_sender).await?;
-                    let connected_nodes = match members.len() {
-                        0 => 0,
-                        1 => 1,
-                        2 => 2,
-                        3 => 3,
-                        _ => panic!("unexpected number of peers!"),
-                    };
+                // MembershipRequest::Status => {
+                //     let members = get_alive(&list_sender).await?;
+                //     let connected_nodes = match members.len() {
+                //         0 => 0,
+                //         1 => 1,
+                //         2 => 2,
+                //         3 => 3,
+                //         _ => panic!("unexpected number of peers!"),
+                //     };
 
-                    if let Err(error) = response.send(MembershipResponse::Status(connected_nodes)) {
-                        println!("error sending membership response -> {:?}", error);
-                    }
-                }
+                //     if let Err(error) = response.send(MembershipResponse::Status(connected_nodes)) {
+                //         println!("error sending membership response -> {:?}", error);
+                //     }
+                // }
                 MembershipRequest::Shutdown => {
                     println!("shutting down membership...");
 
