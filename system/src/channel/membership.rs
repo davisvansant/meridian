@@ -1,4 +1,3 @@
-// use std::net::SocketAddr;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::node::Node;
@@ -17,11 +16,9 @@ pub enum MembershipRequest {
 
 #[derive(Clone, Debug)]
 pub enum MembershipResponse {
-    // LaunchNodes(Vec<SocketAddr>),
     Node(Node),
     Members(Vec<Node>),
     Status(u8),
-    // Ok,
 }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {

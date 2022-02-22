@@ -6,10 +6,6 @@ mod server;
 mod state;
 
 pub use membership::{MembershipReceiver, MembershipRequest, MembershipResponse, MembershipSender};
-// pub use membership_communications::{
-//     MembershipCommunicationsMessage, MembershipCommunicationsReceiver,
-//     MembershipCommunicationsSender,
-// };
 pub use membership_communications::{
     MembershipCommunicationsMessage, MembershipCommunicationsSender,
 };
