@@ -5,7 +5,8 @@ use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::MembershipListSender;
 use crate::channel::{
-    insert_alive, insert_suspected, remove_alive, remove_confirmed, remove_suspected,
+    get_alive, get_confirmed, get_suspected, insert_alive, insert_suspected, remove_alive,
+    remove_confirmed, remove_suspected,
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::membership::Message;
@@ -40,11 +41,14 @@ impl MembershipCommunications {
         let sender = self.receiver.to_owned();
         let mut receiver = self.receiver.subscribe();
 
+        let send_message_list_sender = self.list_sender.to_owned();
+
         tokio::spawn(async move {
             while let Ok(incoming_message) = receiver.recv().await {
                 match incoming_message {
                     MembershipCommunicationsMessage::Send(bytes, target) => {
                         if let Err(error) = MembershipCommunications::send_bytes(
+                            &send_message_list_sender,
                             &sending_udp_socket,
                             &bytes,
                             target,
@@ -136,10 +140,15 @@ impl MembershipCommunications {
     }
 
     async fn send_bytes(
+        list_sender: &MembershipListSender,
         socket: &UdpSocket,
         bytes: &[u8],
         target: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let _alive = get_alive(list_sender).await?;
+        let _suspected = get_suspected(list_sender).await?;
+        let _confirmed = get_confirmed(list_sender).await?;
+
         socket.send_to(bytes, target).await?;
 
         Ok(())
@@ -150,6 +159,7 @@ impl MembershipCommunications {
 mod tests {
     use super::*;
     use crate::channel::{MembershipListRequest, MembershipListResponse};
+    use crate::node::Node;
     use std::str::FromStr;
     use tokio::sync::{broadcast, mpsc, oneshot};
 
@@ -283,14 +293,53 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
+        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(64);
+
+        tokio::spawn(async move {
+            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+                match test_request {
+                    MembershipListRequest::GetAlive => {
+                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Alive(test_alive))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetConfirmed => {
+                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Confirmed(test_confirmed))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetSuspected => {
+                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Suspected(test_suspected))
+                            .unwrap();
+                    }
+                    _ => panic!("send bytes ack test"),
+                }
+            }
+        });
+
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
         let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
-        let test_send_bytes =
-            MembershipCommunications::send_bytes(&test_socket, b"ack", test_origin).await;
+        let test_send_bytes = MembershipCommunications::send_bytes(
+            &test_list_sender,
+            &test_socket,
+            b"ack",
+            test_origin,
+        )
+        .await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
@@ -312,14 +361,53 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
+        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(64);
+
+        tokio::spawn(async move {
+            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+                match test_request {
+                    MembershipListRequest::GetAlive => {
+                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Alive(test_alive))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetConfirmed => {
+                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Confirmed(test_confirmed))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetSuspected => {
+                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Suspected(test_suspected))
+                            .unwrap();
+                    }
+                    _ => panic!("send bytes ping test"),
+                }
+            }
+        });
+
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
         let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
-        let test_send_bytes =
-            MembershipCommunications::send_bytes(&test_socket, b"ping", test_origin).await;
+        let test_send_bytes = MembershipCommunications::send_bytes(
+            &test_list_sender,
+            &test_socket,
+            b"ping",
+            test_origin,
+        )
+        .await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
@@ -341,14 +429,53 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
+        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+            MembershipListRequest,
+            oneshot::Sender<MembershipListResponse>,
+        )>(64);
+
+        tokio::spawn(async move {
+            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+                match test_request {
+                    MembershipListRequest::GetAlive => {
+                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Alive(test_alive))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetConfirmed => {
+                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Confirmed(test_confirmed))
+                            .unwrap();
+                    }
+                    MembershipListRequest::GetSuspected => {
+                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+
+                        test_response
+                            .send(MembershipListResponse::Suspected(test_suspected))
+                            .unwrap();
+                    }
+                    _ => panic!("send bytes ping test"),
+                }
+            }
+        });
+
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25001").unwrap();
         let test_socket = UdpSocket::bind(test_socket_address).await.unwrap();
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
-        let test_send_bytes =
-            MembershipCommunications::send_bytes(&test_socket, b"ping-req", test_origin).await;
+        let test_send_bytes = MembershipCommunications::send_bytes(
+            &test_list_sender,
+            &test_socket,
+            b"ping-req",
+            test_origin,
+        )
+        .await;
 
         assert!(test_receiver.await.is_ok());
         assert!(test_send_bytes.is_ok());
