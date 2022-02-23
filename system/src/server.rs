@@ -83,6 +83,14 @@ impl Server {
             ServerState::Preflight => {
                 println!("running preflight tasks...");
 
+                let mut errors = 0;
+
+                while errors <= 3 {
+                    println!("do preflight stuff...");
+
+                    errors += 1;
+                }
+
                 // preflight::run(&self.client, &self.membership).await?;
 
                 self.server_state = ServerState::Follower;
