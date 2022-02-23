@@ -104,16 +104,10 @@ impl Membership {
             }
         });
 
-        println!("membership initialized and running...");
-
         let mut static_join =
             StaticJoin::init(static_join_send_udp_message, static_join_send_list).await;
 
-        tokio::spawn(async move {
-            if let Err(error) = static_join.run().await {
-                println!("error with membership static join -> {:?}", error);
-            }
-        });
+        println!("membership initialized and running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
@@ -130,6 +124,15 @@ impl Membership {
                     let node = self.server;
 
                     if let Err(error) = response.send(MembershipResponse::Node(node)) {
+                        println!("error sending membership response -> {:?}", error);
+                    }
+                }
+                MembershipRequest::StaticJoin => {
+                    static_join.run().await?;
+
+                    let alive = get_alive(&list_sender).await?;
+
+                    if let Err(error) = response.send(MembershipResponse::Status(alive.len())) {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
