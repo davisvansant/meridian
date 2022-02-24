@@ -12,7 +12,7 @@ use crate::server::leader::Leader;
 mod candidate;
 mod follower;
 mod leader;
-// mod preflight;
+mod preflight;
 
 pub enum ServerState {
     Candidate,
@@ -86,14 +86,28 @@ impl Server {
                 let mut errors = 0;
 
                 while errors <= 3 {
-                    println!("do preflight stuff...");
+                    match preflight::run(&self.membership).await {
+                        Ok(()) => {
+                            println!("launching...");
 
-                    errors += 1;
+                            break;
+                        }
+                        Err(error) => {
+                            println!("preflight error -> {:?}", error);
+                            println!("attempting preflight again -> {:?}", &error);
+
+                            errors += 1;
+                        }
+                    }
                 }
 
-                // preflight::run(&self.client, &self.membership).await?;
+                if errors >= 3 {
+                    self.server_state = ServerState::Shutdown;
+                } else {
+                    self.server_state = ServerState::Follower;
 
-                self.server_state = ServerState::Follower;
+                    sleep(Duration::from_secs(5)).await;
+                }
 
                 Ok(())
             }
