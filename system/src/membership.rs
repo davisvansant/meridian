@@ -11,9 +11,8 @@ use crate::node::Node;
 use communications::MembershipCommunications;
 use failure_detector::FailureDectector;
 use list::List;
+use message::Message;
 use static_join::StaticJoin;
-
-pub(self) use message::Message;
 
 mod communications;
 mod failure_detector;
