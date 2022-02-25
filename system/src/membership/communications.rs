@@ -276,7 +276,7 @@ mod tests {
         )
         .await;
 
-        assert!(!test_receive_bytes.is_ok());
+        assert!(test_receive_bytes.is_err());
     }
 
     #[tokio::test(flavor = "multi_thread")]
