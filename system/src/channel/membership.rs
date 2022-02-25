@@ -19,7 +19,7 @@ pub enum MembershipRequest {
 pub enum MembershipResponse {
     Node(Node),
     Members(Vec<Node>),
-    Status(usize),
+    Status((usize, usize)),
 }
 
 pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
@@ -52,7 +52,7 @@ pub async fn cluster_members(
 
 pub async fn static_join(
     membership: &MembershipSender,
-) -> Result<usize, Box<dyn std::error::Error>> {
+) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership
@@ -60,7 +60,9 @@ pub async fn static_join(
         .await?;
 
     match response.await {
-        Ok(MembershipResponse::Status(active_peers)) => Ok(active_peers),
+        Ok(MembershipResponse::Status((active_peers, expected_peers))) => {
+            Ok((active_peers, expected_peers))
+        }
         Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
