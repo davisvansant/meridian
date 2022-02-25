@@ -14,7 +14,6 @@ mod server;
 
 pub mod append_entries;
 pub mod install_snapshot;
-// pub mod membership;
 pub mod request_vote;
 
 pub enum Data {

@@ -3,7 +3,6 @@ use tokio::time::{sleep, Duration};
 
 use crate::channel::LeaderSender;
 use crate::channel::{CandidateSender, CandidateTransition};
-// use crate::channel::{ClientSender, MembershipSender, StateSender};
 use crate::channel::{MembershipSender, RpcClientSender, StateSender};
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
@@ -69,7 +68,6 @@ impl Server {
                     break
                 }
                 server_state = self.server_state() => {
-                    // println!("why of why");
                     println!("output of server state -> {:?}", server_state);
                 }
             }
@@ -170,16 +168,12 @@ mod tests {
     use crate::channel::CandidateTransition;
     use crate::channel::Leader;
     use crate::channel::RpcClientRequest;
-    // use crate::channel::{ClientRequest, ClientResponse};
     use crate::channel::{MembershipRequest, MembershipResponse};
-    // use crate::channel::{RpcClientRequest, RpcClientResponse};
     use crate::channel::{StateRequest, StateResponse};
     use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        // let (test_client_sender, _test_client_receiver) =
-        //     mpsc::channel::<(RpcClientRequest, oneshot::Sender<RpcClientResponse>)>(64);
         let (test_client_sender, _test_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
         let (test_membership_sender, _test_membership_receiver) =
             mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
