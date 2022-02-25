@@ -128,7 +128,7 @@ impl Client {
         data: &[u8],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
-        // let mut tcp_stream = TcpStream::connect(socket_address).await?;
+
         let tcp_socket = TcpSocket::new_v4()?;
 
         tcp_socket.set_reuseaddr(true)?;
@@ -172,11 +172,6 @@ mod tests {
         )
         .await?;
 
-        // assert_eq!(
-        //     test_client.socket_address.ip().to_string().as_str(),
-        //     "127.0.0.1",
-        // );
-        // assert_eq!(test_client.socket_address.port(), 1245);
         assert!(!test_client_sender.is_closed());
         assert!(!test_client.membership_sender.is_closed());
         assert!(!test_client.state_sender.is_closed());
