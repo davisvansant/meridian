@@ -13,6 +13,7 @@ mod follower;
 mod leader;
 mod preflight;
 
+#[derive(PartialEq)]
 pub enum ServerState {
     Candidate,
     Follower,
@@ -68,7 +69,13 @@ impl Server {
                     break
                 }
                 server_state = self.server_state() => {
-                    println!("output of server state -> {:?}", server_state);
+                    if self.server_state == ServerState::Shutdown {
+                        println!("server > shutdown...");
+
+                        break;
+                    } else {
+                        println!("output of server state -> {:?}", server_state);
+                    }
                 }
             }
         }
