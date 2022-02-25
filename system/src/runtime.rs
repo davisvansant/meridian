@@ -24,12 +24,13 @@ pub async fn launch(
     peers: Vec<SocketAddr>,
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let cluster_size = match cluster_size {
-        "1" => ClusterSize::One,
-        "3" => ClusterSize::Three,
-        "5" => ClusterSize::Five,
-        _ => panic!("Expected a cluster size of 1, 3, or 5"),
-    };
+    // let cluster_size = match cluster_size {
+    //     "1" => ClusterSize::One,
+    //     "3" => ClusterSize::Three,
+    //     "5" => ClusterSize::Five,
+    //     _ => panic!("Expected a cluster size of 1, 3, or 5"),
+    // };
+    let cluster_size = ClusterSize::from_str(cluster_size).await;
 
     // -------------------------------------------------------------------------------------------
     // |         init internal rpc client channel
