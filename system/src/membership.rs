@@ -27,6 +27,25 @@ pub enum ClusterSize {
     Five,
 }
 
+impl ClusterSize {
+    pub async fn from_str(size: &str) -> ClusterSize {
+        match size {
+            "1" => ClusterSize::One,
+            "3" => ClusterSize::Three,
+            "5" => ClusterSize::Five,
+            _ => panic!("Expected a cluster size of 1, 3, or 5"),
+        }
+    }
+
+    pub async fn len(&self) -> usize {
+        match self {
+            ClusterSize::One => 1,
+            ClusterSize::Three => 3,
+            ClusterSize::Five => 5,
+        }
+    }
+}
+
 // impl ClusterSize {
 //     pub async fn members(&self) -> HashMap<Uuid, Node> {
 //         match self {
@@ -130,8 +149,11 @@ impl Membership {
                     static_join.run().await?;
 
                     let alive = get_alive(&list_sender).await?;
+                    let expected = self.cluster_size.len().await;
 
-                    if let Err(error) = response.send(MembershipResponse::Status(alive.len())) {
+                    if let Err(error) =
+                        response.send(MembershipResponse::Status((alive.len(), expected)))
+                    {
                         println!("error sending membership response -> {:?}", error);
                     }
                 }
