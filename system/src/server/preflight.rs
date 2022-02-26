@@ -73,7 +73,13 @@ pub async fn run(
     // sleep(Duration::from_secs(5)).await;
 
     // println!("launching...");
-    static_join(membership).await?;
+    let (active, expected) = static_join(membership).await?;
 
-    Ok(())
+    if active == expected {
+        Ok(())
+    } else {
+        let error = format!("static join -> expected {} | active {}", &expected, &active);
+
+        Err(Box::from(error))
+    }
 }
