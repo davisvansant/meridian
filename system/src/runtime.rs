@@ -6,6 +6,8 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
 use crate::channel::RpcClientRequest;
+// use crate::channel::{build_shutdown_channel, shutdown, Shutdown};
+use crate::channel::{build_shutdown_channel, shutdown};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
 use crate::membership::{ClusterSize, Membership};
@@ -20,6 +22,14 @@ pub async fn launch(
     node: Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cluster_size = ClusterSize::from_str(cluster_size).await;
+
+    let another_shutdown_signal = build_shutdown_channel().await;
+    // let shutdown_membership_tasks = another_shutdown_signal.subscribe();
+    let shutdown_membership_tasks = another_shutdown_signal.to_owned();
+    let shutdown_rpc_server_task = another_shutdown_signal.subscribe();
+    // let shutdown_system_server_task = another_shutdown_signal.subscribe();
+    let shutdown_system_server_task = another_shutdown_signal.to_owned();
+    let mut system_shutdown = another_shutdown_signal.subscribe();
 
     // -------------------------------------------------------------------------------------------
     // |         init internal rpc client channel
@@ -70,7 +80,13 @@ pub async fn launch(
     // |        init membership
     // -------------------------------------------------------------------------------------------
 
-    let mut membership = Membership::init(cluster_size, node, membership_receiver).await?;
+    let mut membership = Membership::init(
+        cluster_size,
+        node,
+        membership_receiver,
+        shutdown_membership_tasks,
+    )
+    .await?;
 
     let membership_handle = tokio::spawn(async move {
         if let Err(error) = membership.run(peers).await {
@@ -88,6 +104,7 @@ pub async fn launch(
         state_sender,
         server_candidate_sender,
         system_leader_sender,
+        shutdown_system_server_task,
     )
     .await?;
 
@@ -119,6 +136,7 @@ pub async fn launch(
         rpc_communications_server_state_sender,
         leader_sender,
         node_socket_address,
+        shutdown_rpc_server_task,
     )
     .await?;
 
@@ -150,21 +168,59 @@ pub async fn launch(
     // |        init shutdown signal
     // -------------------------------------------------------------------------------------------
 
+    // let another_shutdown_signal = build_shutdown_channel().await;
+
     let shutdown_signal = tokio::spawn(async move {
-        if let Ok(()) = ctrl_c().await {
-            println!("received shutdown signal...");
-            println!("shutting down...");
+        // if let Ok(()) = ctrl_c().await {
+        //     println!("received shutdown signal...");
+        //     println!("shutting down...");
 
-            if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
-                println!("system state shutdown...");
-            }
+        //     if let Err(error) = shutdown(&another_shutdown_signal).await {
+        //         println!("error sending shutdown signal! -> {:?}", error);
+        //     }
 
-            if let Ok(()) = crate::channel::shutdown_rpc_client(&shutdown_client).await {
-                println!("rpc client shutdown...");
-            }
+        //     if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
+        //         println!("system state shutdown...");
+        //     }
 
-            if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
-                println!("initiating membership shutdown...");
+        //     if let Ok(()) = crate::channel::shutdown_rpc_client(&shutdown_client).await {
+        //         println!("rpc client shutdown...");
+        //     }
+
+        //     if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
+        //         println!("initiating membership shutdown...");
+        //     }
+        // }
+        loop {
+            tokio::select! {
+                // biased;
+                ctrl_c = ctrl_c() => {
+                    println!("received shutdown signal {:?}", ctrl_c);
+                    println!("shutting down...");
+
+                if let Err(error) = shutdown(&another_shutdown_signal).await {
+                    println!("error sending shutdown signal! -> {:?}", error);
+                }
+
+                if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
+                    println!("system state shutdown...");
+                }
+
+                if let Ok(()) = crate::channel::shutdown_rpc_client(&shutdown_client).await {
+                    println!("rpc client shutdown...");
+                }
+
+                if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
+                    println!("initiating membership shutdown...");
+                }
+
+                    break
+                }
+                _ = system_shutdown.recv() => {
+                    println!("shutting down...");
+
+                    break
+                }
             }
         }
     });
