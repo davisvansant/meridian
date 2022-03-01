@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::MembershipCommunicationsMessage;
+// use crate::channel::ShutdownReceiver;
+use crate::channel::ShutdownSender;
 use crate::channel::{get_alive, shutdown_membership_list};
 use crate::channel::{MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
@@ -50,6 +52,7 @@ pub struct Membership {
     cluster_size: ClusterSize,
     server: Node,
     receiver: MembershipReceiver,
+    shutdown: ShutdownSender,
 }
 
 impl Membership {
@@ -57,11 +60,13 @@ impl Membership {
         cluster_size: ClusterSize,
         server: Node,
         receiver: MembershipReceiver,
+        shutdown: ShutdownSender,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         Ok(Membership {
             cluster_size,
             server,
             receiver,
+            shutdown,
         })
     }
 
@@ -97,8 +102,13 @@ impl Membership {
         )
         .await;
 
+        let mut communications_shutdown = self.shutdown.subscribe();
+        let mut failure_detector_shutdown = self.shutdown.subscribe();
+
+        drop(self.shutdown.to_owned());
+
         tokio::spawn(async move {
-            if let Err(error) = communications.run().await {
+            if let Err(error) = communications.run(&mut communications_shutdown).await {
                 println!("error with membership communications -> {:?}", error);
             }
         });
@@ -106,7 +116,7 @@ impl Membership {
         let mut failure_detector = FailureDectector::init(failure_detector_list_sender).await;
 
         tokio::spawn(async move {
-            if let Err(error) = failure_detector.run().await {
+            if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
                 println!("error with membership failure dector -> {:?}", error);
             }
         });

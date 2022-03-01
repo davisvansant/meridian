@@ -1,7 +1,10 @@
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
+use crate::channel::shutdown;
 use crate::channel::LeaderSender;
+// use crate::channel::ShutdownReceiver;
+use crate::channel::ShutdownSender;
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{MembershipSender, RpcClientSender, StateSender};
 use crate::server::candidate::Candidate;
@@ -29,6 +32,7 @@ pub struct Server {
     state: StateSender,
     candidate_sender: CandidateSender,
     heartbeat: LeaderSender,
+    shutdown: ShutdownSender,
 }
 
 impl Server {
@@ -38,6 +42,7 @@ impl Server {
         state: StateSender,
         candidate_sender: CandidateSender,
         heartbeat: LeaderSender,
+        shutdown: ShutdownSender,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         let server_state = ServerState::Shutdown;
 
@@ -48,6 +53,7 @@ impl Server {
             state,
             candidate_sender,
             heartbeat,
+            shutdown,
         })
     }
 
@@ -56,12 +62,19 @@ impl Server {
 
         let mut stream = signal(SignalKind::interrupt())?;
 
+        // let mut server_shutdown = self.shutdown.to_owned();
+        // let mut leader_shutdown = self.shutdown.to_owned();
+        let mut server_shutdown = self.shutdown.subscribe();
+
+        // drop(self.shutdown.to_owned());
+
         self.server_state = ServerState::Preflight;
 
         loop {
             tokio::select! {
                 biased;
-                _ = stream.recv() => {
+                // _ = stream.recv() => {
+                _ = server_shutdown.recv() => {
                     println!("shutting down system server...");
 
                     self.server_state = ServerState::Shutdown;
@@ -79,6 +92,8 @@ impl Server {
                 }
             }
         }
+
+        self.run_shutdown().await?;
 
         Ok(())
     }
@@ -153,7 +168,10 @@ impl Server {
             ServerState::Leader => {
                 println!("server > leader!");
 
-                let mut leader = Leader::init().await?;
+                // let mut leader_shutdown = self.shutdown.to_owned();
+                let mut shutdown = self.shutdown.subscribe();
+
+                let mut leader = Leader::init(shutdown).await?;
                 leader.run(&self.client, &self.state).await?;
 
                 self.server_state = ServerState::Candidate;
@@ -163,15 +181,34 @@ impl Server {
             ServerState::Shutdown => {
                 println!("server > shutdown...");
 
+                // shutdown(&self.shutdown).await?;
+
+                // crate::channel::shutdown_state(&self.state).await?;
+                // crate::channel::shutdown_rpc_client(&self.client).await?;
+                // crate::channel::shutdown_membership(&self.membership).await?;
+
+                self.server_state = ServerState::Shutdown;
+
                 Ok(())
             }
         }
+    }
+
+    async fn run_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
+        shutdown(&self.shutdown).await?;
+
+        crate::channel::shutdown_state(&self.state).await?;
+        crate::channel::shutdown_rpc_client(&self.client).await?;
+        crate::channel::shutdown_membership(&self.membership).await?;
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::build_shutdown_channel;
     use crate::channel::CandidateTransition;
     use crate::channel::Leader;
     use crate::channel::RpcClientRequest;
@@ -189,6 +226,7 @@ mod tests {
         let (test_candidate_sender, _test_candidate_receiver) =
             broadcast::channel::<CandidateTransition>(64);
         let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
+        let test_shutdown_sender = build_shutdown_channel().await;
 
         let test_server = Server::init(
             test_client_sender,
@@ -196,6 +234,7 @@ mod tests {
             test_state_sender,
             test_candidate_sender,
             test_leader_sender,
+            test_shutdown_sender,
         )
         .await?;
 

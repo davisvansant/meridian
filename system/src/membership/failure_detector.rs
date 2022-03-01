@@ -2,6 +2,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
 use crate::channel::MembershipListSender;
+use crate::channel::ShutdownReceiver;
 use crate::channel::{get_alive, insert_confirmed, remove_alive, remove_suspected};
 
 pub struct FailureDectector {
@@ -19,13 +20,17 @@ impl FailureDectector {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        &mut self,
+        shutdown: &mut ShutdownReceiver,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut signal = signal(SignalKind::interrupt())?;
 
         loop {
             tokio::select! {
                 biased;
-                _ = signal.recv() => {
+                // _ = signal.recv() => {
+                _ = shutdown.recv() => {
                     println!("shutting down failure dectector...");
 
                     break

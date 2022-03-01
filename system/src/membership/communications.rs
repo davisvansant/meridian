@@ -4,6 +4,7 @@ use tokio::net::UdpSocket;
 use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::MembershipListSender;
+use crate::channel::ShutdownReceiver;
 use crate::channel::{
     get_alive, get_confirmed, get_suspected, insert_alive, insert_suspected, remove_alive,
     remove_confirmed, remove_suspected,
@@ -31,7 +32,10 @@ impl MembershipCommunications {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(
+        &mut self,
+        shutdown: &mut ShutdownReceiver,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind(self.socket_address).await?;
         let mut buffer = [0; 1024];
 
@@ -62,12 +66,13 @@ impl MembershipCommunications {
             }
         });
 
-        let mut signal = signal(SignalKind::interrupt())?;
+        // let mut signal = signal(SignalKind::interrupt())?;
 
         loop {
             tokio::select! {
                 biased;
-                _ = signal.recv() => {
+                // _ = signal.recv() => {
+                _ = shutdown.recv() => {
                     println!("shutting down membership interface..");
 
                     drop(sender);

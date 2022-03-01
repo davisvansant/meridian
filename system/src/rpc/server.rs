@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::signal::unix::{signal, SignalKind};
 
+use crate::channel::ShutdownReceiver;
 use crate::channel::StateSender;
 use crate::channel::{append_entries, request_vote};
 use crate::channel::{Leader, LeaderSender};
@@ -16,6 +17,7 @@ pub struct Server {
     socket_address: SocketAddr,
     state_sender: StateSender,
     heartbeat: LeaderSender,
+    shutdown: ShutdownReceiver,
 }
 
 impl Server {
@@ -23,11 +25,13 @@ impl Server {
         state_sender: StateSender,
         heartbeat: LeaderSender,
         socket_address: SocketAddr,
+        shutdown: ShutdownReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         Ok(Server {
             socket_address,
             state_sender,
             heartbeat,
+            shutdown,
         })
     }
 
@@ -46,7 +50,8 @@ impl Server {
         loop {
             tokio::select! {
                 biased;
-                _ = interrupt.recv() => {
+                // _ = interrupt.recv() => {
+                 _ = self.shutdown.recv() => {
                     println!("shutting down rpc server interface...");
 
                     break
@@ -185,6 +190,7 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::build_shutdown_channel;
     use crate::channel::Leader;
     use crate::channel::{StateRequest, StateResponse};
     use std::str::FromStr;
@@ -196,9 +202,18 @@ mod tests {
             mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
         let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
+        let test_shutdown_sender = build_shutdown_channel().await;
+        let test_shutdown_receiver = test_shutdown_sender.subscribe();
 
-        let test_server =
-            Server::init(test_state_sender, test_leader_sender, test_socket_address).await?;
+        drop(test_shutdown_sender);
+
+        let test_server = Server::init(
+            test_state_sender,
+            test_leader_sender,
+            test_socket_address,
+            test_shutdown_receiver,
+        )
+        .await?;
 
         assert_eq!(
             test_server.socket_address.ip().to_string().as_str(),
