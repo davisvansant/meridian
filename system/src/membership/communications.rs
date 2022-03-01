@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
-use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
@@ -66,12 +65,9 @@ impl MembershipCommunications {
             }
         });
 
-        // let mut signal = signal(SignalKind::interrupt())?;
-
         loop {
             tokio::select! {
                 biased;
-                // _ = signal.recv() => {
                 _ = shutdown.recv() => {
                     println!("shutting down membership interface..");
 

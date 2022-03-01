@@ -6,7 +6,6 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::channel::CandidateTransition;
 use crate::channel::Leader;
 use crate::channel::RpcClientRequest;
-// use crate::channel::{build_shutdown_channel, shutdown, Shutdown};
 use crate::channel::{build_shutdown_channel, shutdown};
 use crate::channel::{MembershipRequest, MembershipResponse};
 use crate::channel::{StateRequest, StateResponse};
@@ -24,10 +23,8 @@ pub async fn launch(
     let cluster_size = ClusterSize::from_str(cluster_size).await;
 
     let another_shutdown_signal = build_shutdown_channel().await;
-    // let shutdown_membership_tasks = another_shutdown_signal.subscribe();
     let shutdown_membership_tasks = another_shutdown_signal.to_owned();
     let shutdown_rpc_server_task = another_shutdown_signal.subscribe();
-    // let shutdown_system_server_task = another_shutdown_signal.subscribe();
     let shutdown_system_server_task = another_shutdown_signal.to_owned();
     let mut system_shutdown = another_shutdown_signal.subscribe();
 
@@ -168,29 +165,7 @@ pub async fn launch(
     // |        init shutdown signal
     // -------------------------------------------------------------------------------------------
 
-    // let another_shutdown_signal = build_shutdown_channel().await;
-
     let shutdown_signal = tokio::spawn(async move {
-        // if let Ok(()) = ctrl_c().await {
-        //     println!("received shutdown signal...");
-        //     println!("shutting down...");
-
-        //     if let Err(error) = shutdown(&another_shutdown_signal).await {
-        //         println!("error sending shutdown signal! -> {:?}", error);
-        //     }
-
-        //     if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
-        //         println!("system state shutdown...");
-        //     }
-
-        //     if let Ok(()) = crate::channel::shutdown_rpc_client(&shutdown_client).await {
-        //         println!("rpc client shutdown...");
-        //     }
-
-        //     if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
-        //         println!("initiating membership shutdown...");
-        //     }
-        // }
         loop {
             tokio::select! {
                 // biased;

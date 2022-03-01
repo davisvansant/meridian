@@ -1,8 +1,5 @@
-use tokio::signal::unix::{signal, SignalKind};
-
 use crate::channel::ShutdownReceiver;
 use crate::channel::{leader, send_heartbeat};
-// use crate::channel::{ClientSender, StateSender};
 use crate::channel::{RpcClientSender, StateSender};
 
 pub struct Leader {
@@ -21,12 +18,9 @@ impl Leader {
     ) -> Result<(), Box<dyn std::error::Error>> {
         leader(state).await?;
 
-        let mut interrupt = signal(SignalKind::interrupt())?;
-
         loop {
             tokio::select! {
                 biased;
-                // _ = interrupt.recv() => {
                 _ = self.shutdown.recv() => {
                     println!("shutting down leader heartbeat...");
 

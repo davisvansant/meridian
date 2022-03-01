@@ -3,7 +3,6 @@ use flexbuffers::{Builder, BuilderOptions, Pushable};
 use std::net::SocketAddr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::signal::unix::{signal, SignalKind};
 
 use crate::channel::ShutdownReceiver;
 use crate::channel::StateSender;
@@ -45,12 +44,9 @@ impl Server {
         let backlog = 1024;
         let tcp_listener = tcp_socket.listen(backlog)?;
 
-        let mut interrupt = signal(SignalKind::interrupt())?;
-
         loop {
             tokio::select! {
                 biased;
-                // _ = interrupt.recv() => {
                  _ = self.shutdown.recv() => {
                     println!("shutting down rpc server interface...");
 

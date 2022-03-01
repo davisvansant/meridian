@@ -1,9 +1,7 @@
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
 use crate::channel::shutdown;
 use crate::channel::LeaderSender;
-// use crate::channel::ShutdownReceiver;
 use crate::channel::ShutdownSender;
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{MembershipSender, RpcClientSender, StateSender};
@@ -60,20 +58,13 @@ impl Server {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         sleep(Duration::from_secs(5)).await;
 
-        let mut stream = signal(SignalKind::interrupt())?;
-
-        // let mut server_shutdown = self.shutdown.to_owned();
-        // let mut leader_shutdown = self.shutdown.to_owned();
         let mut server_shutdown = self.shutdown.subscribe();
-
-        // drop(self.shutdown.to_owned());
 
         self.server_state = ServerState::Preflight;
 
         loop {
             tokio::select! {
                 biased;
-                // _ = stream.recv() => {
                 _ = server_shutdown.recv() => {
                     println!("shutting down system server...");
 
@@ -168,10 +159,9 @@ impl Server {
             ServerState::Leader => {
                 println!("server > leader!");
 
-                // let mut leader_shutdown = self.shutdown.to_owned();
-                let mut shutdown = self.shutdown.subscribe();
-
+                let shutdown = self.shutdown.subscribe();
                 let mut leader = Leader::init(shutdown).await?;
+
                 leader.run(&self.client, &self.state).await?;
 
                 self.server_state = ServerState::Candidate;
@@ -180,12 +170,6 @@ impl Server {
             }
             ServerState::Shutdown => {
                 println!("server > shutdown...");
-
-                // shutdown(&self.shutdown).await?;
-
-                // crate::channel::shutdown_state(&self.state).await?;
-                // crate::channel::shutdown_rpc_client(&self.client).await?;
-                // crate::channel::shutdown_membership(&self.membership).await?;
 
                 self.server_state = ServerState::Shutdown;
 

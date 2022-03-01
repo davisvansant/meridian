@@ -1,4 +1,3 @@
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
 use crate::channel::MembershipListSender;
@@ -24,12 +23,9 @@ impl FailureDectector {
         &mut self,
         shutdown: &mut ShutdownReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut signal = signal(SignalKind::interrupt())?;
-
         loop {
             tokio::select! {
                 biased;
-                // _ = signal.recv() => {
                 _ = shutdown.recv() => {
                     println!("shutting down failure dectector...");
 
