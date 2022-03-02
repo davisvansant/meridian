@@ -25,61 +25,88 @@ impl Message {
             _ => panic!("cannot build requested bytes into message"),
         }
     }
-    pub async fn build_list(&self, node: Node) -> Vec<u8> {
+    pub async fn build_list(
+        &self,
+        node: Node,
+        alive_list: Vec<Node>,
+        suspected_list: Vec<Node>,
+        confirmed_list: Vec<Node>,
+    ) -> Vec<u8> {
         let flexbuffer_options = BuilderOptions::SHARE_NONE;
         let mut flexbuffers_builder = Builder::new(flexbuffer_options);
-        let mut flexbuffers_data = flexbuffers_builder.start_map();
+        let mut message_data = flexbuffers_builder.start_map();
 
         match self {
             Message::Ack => {
-                flexbuffers_data.push("message", "ack");
-
-                let mut node_map = flexbuffers_data.start_map("node");
-
-                node_map.push("id", node.id.to_string().as_str());
-                node_map.push("address", node.address.to_string().as_str());
-                node_map.push("client_port", node.client_port);
-                node_map.push("cluster_port", node.cluster_port);
-                node_map.push("membership_port", node.membership_port);
-
-                node_map.end_map();
-                flexbuffers_data.end_map();
-
-                flexbuffers_builder.take_buffer()
+                message_data.push("message", "ack");
             }
             Message::Ping => {
-                flexbuffers_data.push("message", "ping");
-
-                let mut node_map = flexbuffers_data.start_map("node");
-
-                node_map.push("id", node.id.to_string().as_str());
-                node_map.push("address", node.address.to_string().as_str());
-                node_map.push("client_port", node.client_port);
-                node_map.push("cluster_port", node.cluster_port);
-                node_map.push("membership_port", node.membership_port);
-
-                node_map.end_map();
-                flexbuffers_data.end_map();
-
-                flexbuffers_builder.take_buffer()
+                message_data.push("message", "ping");
             }
             Message::PingReq => {
-                flexbuffers_data.push("message", "ping_req");
-
-                let mut node_map = flexbuffers_data.start_map("node");
-
-                node_map.push("id", node.id.to_string().as_str());
-                node_map.push("address", node.address.to_string().as_str());
-                node_map.push("client_port", node.client_port);
-                node_map.push("cluster_port", node.cluster_port);
-                node_map.push("membership_port", node.membership_port);
-
-                node_map.end_map();
-                flexbuffers_data.end_map();
-
-                flexbuffers_builder.take_buffer()
+                message_data.push("message", "ping_req");
             }
         }
+
+        let mut node_map = message_data.start_map("node");
+
+        node_map.push("id", node.id.to_string().as_str());
+        node_map.push("address", node.address.to_string().as_str());
+        node_map.push("client_port", node.client_port);
+        node_map.push("cluster_port", node.cluster_port);
+        node_map.push("membership_port", node.membership_port);
+
+        node_map.end_map();
+
+        let mut alive_vector = message_data.start_vector("alive_list");
+
+        if !alive_list.is_empty() {
+            for alive_node in alive_list {
+                let mut alive_node_map = alive_vector.start_map();
+
+                alive_node_map.push("id", alive_node.id.to_string().as_str());
+                alive_node_map.push("address", alive_node.address.to_string().as_str());
+                alive_node_map.push("client_port", alive_node.client_port);
+                alive_node_map.push("cluster_port", alive_node.cluster_port);
+                alive_node_map.push("membership_port", alive_node.membership_port);
+            }
+        }
+
+        alive_vector.end_vector();
+
+        let mut suspected_vector = message_data.start_vector("suspected_list");
+
+        if !suspected_list.is_empty() {
+            for suspected_node in suspected_list {
+                let mut suspected_node_map = suspected_vector.start_map();
+
+                suspected_node_map.push("id", suspected_node.id.to_string().as_str());
+                suspected_node_map.push("address", suspected_node.address.to_string().as_str());
+                suspected_node_map.push("client_port", suspected_node.client_port);
+                suspected_node_map.push("cluster_port", suspected_node.cluster_port);
+                suspected_node_map.push("membership_port", suspected_node.membership_port);
+            }
+        }
+
+        suspected_vector.end_vector();
+
+        let mut confirmed_vector = message_data.start_vector("confirmed_list");
+
+        if !confirmed_list.is_empty() {
+            for confirmed_node in confirmed_list {
+                let mut confirmed_node_map = confirmed_vector.start_map();
+
+                confirmed_node_map.push("id", confirmed_node.id.to_string().as_str());
+                confirmed_node_map.push("address", confirmed_node.address.to_string().as_str());
+                confirmed_node_map.push("client_port", confirmed_node.client_port);
+                confirmed_node_map.push("cluster_port", confirmed_node.cluster_port);
+                confirmed_node_map.push("membership_port", confirmed_node.membership_port);
+            }
+        }
+
+        confirmed_vector.end_vector();
+        message_data.end_map();
+        flexbuffers_builder.take_buffer()
     }
 }
 
