@@ -1,3 +1,7 @@
+use flexbuffers::{Builder, BuilderOptions};
+
+use crate::node::Node;
+
 #[derive(Debug, PartialEq)]
 pub enum Message {
     Ack,
@@ -19,6 +23,62 @@ impl Message {
             b"ping" => Message::Ping,
             b"ping-req" => Message::PingReq,
             _ => panic!("cannot build requested bytes into message"),
+        }
+    }
+    pub async fn build_list(&self, node: Node) -> Vec<u8> {
+        let flexbuffer_options = BuilderOptions::SHARE_NONE;
+        let mut flexbuffers_builder = Builder::new(flexbuffer_options);
+        let mut flexbuffers_data = flexbuffers_builder.start_map();
+
+        match self {
+            Message::Ack => {
+                flexbuffers_data.push("message", "ack");
+
+                let mut node_map = flexbuffers_data.start_map("node");
+
+                node_map.push("id", node.id.to_string().as_str());
+                node_map.push("address", node.address.to_string().as_str());
+                node_map.push("client_port", node.client_port);
+                node_map.push("cluster_port", node.cluster_port);
+                node_map.push("membership_port", node.membership_port);
+
+                node_map.end_map();
+                flexbuffers_data.end_map();
+
+                flexbuffers_builder.take_buffer()
+            }
+            Message::Ping => {
+                flexbuffers_data.push("message", "ping");
+
+                let mut node_map = flexbuffers_data.start_map("node");
+
+                node_map.push("id", node.id.to_string().as_str());
+                node_map.push("address", node.address.to_string().as_str());
+                node_map.push("client_port", node.client_port);
+                node_map.push("cluster_port", node.cluster_port);
+                node_map.push("membership_port", node.membership_port);
+
+                node_map.end_map();
+                flexbuffers_data.end_map();
+
+                flexbuffers_builder.take_buffer()
+            }
+            Message::PingReq => {
+                flexbuffers_data.push("message", "ping_req");
+
+                let mut node_map = flexbuffers_data.start_map("node");
+
+                node_map.push("id", node.id.to_string().as_str());
+                node_map.push("address", node.address.to_string().as_str());
+                node_map.push("client_port", node.client_port);
+                node_map.push("cluster_port", node.cluster_port);
+                node_map.push("membership_port", node.membership_port);
+
+                node_map.end_map();
+                flexbuffers_data.end_map();
+
+                flexbuffers_builder.take_buffer()
+            }
         }
     }
 }
