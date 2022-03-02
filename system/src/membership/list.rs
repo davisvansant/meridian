@@ -7,8 +7,8 @@ use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipLi
 use crate::node::Node;
 
 pub struct List {
-    pub initial: Vec<SocketAddr>,
-    pub alive: HashMap<Uuid, Node>,
+    initial: Vec<SocketAddr>,
+    alive: HashMap<Uuid, Node>,
     suspected: HashMap<Uuid, Node>,
     confirmed: HashMap<Uuid, Node>,
     receiver: MembershipListReceiver,
