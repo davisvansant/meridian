@@ -41,7 +41,6 @@ impl MembershipCommunications {
         let receiving_udp_socket = Arc::new(socket);
         let sending_udp_socket = receiving_udp_socket.clone();
 
-        let sender = self.receiver.to_owned();
         let mut receiver = self.receiver.subscribe();
 
         let send_message_list_sender = self.list_sender.to_owned();
@@ -71,8 +70,6 @@ impl MembershipCommunications {
                 _ = shutdown.recv() => {
                     println!("shutting down membership interface..");
 
-                    drop(sender);
-
                     break
                 }
                 result = receiving_udp_socket.recv_from(&mut buffer) => {
@@ -81,13 +78,21 @@ impl MembershipCommunications {
                             println!("received bytes -> {:?}", bytes);
                             println!("received from origin -> {:?}", origin);
 
-                            MembershipCommunications::receive_bytes(
-                                &sender,
-                                &self.list_sender,
-                                &buffer[..bytes],
-                                origin,
-                            )
-                            .await?;
+                            let send_message = self.receiver.to_owned();
+                            let list_sender = self.list_sender.to_owned();
+                            let message = buffer[..bytes].to_owned();
+
+                            tokio::spawn(async move {
+                                if let Err(error) = MembershipCommunications::receive_bytes(
+                                    &send_message,
+                                    &list_sender,
+                                    &message,
+                                    origin,
+                                )
+                                .await {
+                                    println!("error with running receive bytes -> {:?}", error);
+                                }
+                            });
                         }
                         Err(error) => {
                             println!("error receiving UDP message -> {:?}", error);
