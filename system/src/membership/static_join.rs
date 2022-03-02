@@ -1,6 +1,7 @@
 use crate::channel::MembershipCommunicationsSender;
 use crate::channel::MembershipListSender;
 use crate::channel::{get_initial, send_message};
+use crate::membership::Message;
 
 pub struct StaticJoin {
     membership_communications_sender: MembershipCommunicationsSender,
@@ -22,9 +23,9 @@ impl StaticJoin {
         let initial_nodes = get_initial(&self.membership_list_sender).await?;
 
         for origin in initial_nodes {
-            let bytes = b"ping".to_vec();
+            let ping = Message::Ping.build().await.to_vec();
 
-            send_message(&self.membership_communications_sender, bytes, origin).await?;
+            send_message(&self.membership_communications_sender, ping, origin).await?;
         }
 
         Ok(())
