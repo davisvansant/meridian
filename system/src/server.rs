@@ -84,6 +84,8 @@ impl Server {
             }
         }
 
+        sleep(Duration::from_secs(5)).await;
+
         self.run_shutdown().await?;
 
         Ok(())
