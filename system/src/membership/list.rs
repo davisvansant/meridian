@@ -7,6 +7,7 @@ use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipLi
 use crate::node::Node;
 
 pub struct List {
+    server: Node,
     initial: Vec<SocketAddr>,
     alive: HashMap<Uuid, Node>,
     suspected: HashMap<Uuid, Node>,
@@ -16,6 +17,7 @@ pub struct List {
 
 impl List {
     pub async fn init(
+        server: Node,
         initial: Vec<SocketAddr>,
         receiver: MembershipListReceiver,
     ) -> Result<List, Box<dyn std::error::Error>> {
@@ -24,6 +26,7 @@ impl List {
         let confirmed = HashMap::with_capacity(10);
 
         Ok(List {
+            server,
             initial,
             alive,
             suspected,
@@ -35,6 +38,13 @@ impl List {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
+                MembershipListRequest::GetNode => {
+                    let node = self.server;
+
+                    if let Err(error) = response.send(MembershipListResponse::Node(node)) {
+                        println!("error sending membership list response -> {:?}", error);
+                    }
+                }
                 MembershipListRequest::GetInitial => {
                     let initial = self.initial.to_vec();
 
