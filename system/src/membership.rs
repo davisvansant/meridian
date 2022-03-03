@@ -50,7 +50,7 @@ impl ClusterSize {
 
 pub struct Membership {
     cluster_size: ClusterSize,
-    server: Node,
+    // server: Node,
     receiver: MembershipReceiver,
     shutdown: ShutdownSender,
 }
@@ -58,13 +58,13 @@ pub struct Membership {
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
-        server: Node,
+        // server: Node,
         receiver: MembershipReceiver,
         shutdown: ShutdownSender,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         Ok(Membership {
             cluster_size,
-            server,
+            // server,
             receiver,
             shutdown,
         })
@@ -72,6 +72,7 @@ impl Membership {
 
     pub async fn run(
         &mut self,
+        server: Node,
         launch_nodes: Vec<SocketAddr>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (list_sender, list_receiver) = mpsc::channel::<(
@@ -82,7 +83,7 @@ impl Membership {
         let communications_list_sender = list_sender.to_owned();
         let failure_detector_list_sender = list_sender.to_owned();
 
-        let mut list = List::init(launch_nodes, list_receiver).await?;
+        let mut list = List::init(server, launch_nodes, list_receiver).await?;
 
         tokio::spawn(async move {
             if let Err(error) = list.run().await {
@@ -94,7 +95,9 @@ impl Membership {
         let membership_communications_sender = send_udp_message.clone();
         let static_join_send_udp_message = send_udp_message.clone();
 
-        let membership_port = self.server.membership_address().await;
+        // let membership_port = self.server.membership_address().await;
+        let membership_port = server.membership_address().await;
+
         let mut communications = MembershipCommunications::init(
             membership_port,
             communications_list_sender,
@@ -138,7 +141,8 @@ impl Membership {
                     }
                 }
                 MembershipRequest::Node => {
-                    let node = self.server;
+                    // let node = self.server;
+                    let node = server;
 
                     if let Err(error) = response.send(MembershipResponse::Node(node)) {
                         println!("error sending membership response -> {:?}", error);

@@ -79,14 +79,14 @@ pub async fn launch(
 
     let mut membership = Membership::init(
         cluster_size,
-        node,
+        // node,
         membership_receiver,
         shutdown_membership_tasks,
     )
     .await?;
 
     let membership_handle = tokio::spawn(async move {
-        if let Err(error) = membership.run(peers).await {
+        if let Err(error) = membership.run(node, peers).await {
             println!("error running membership -> {:?}", error);
         }
     });
