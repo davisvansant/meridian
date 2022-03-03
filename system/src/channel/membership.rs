@@ -22,7 +22,7 @@ pub enum MembershipResponse {
     Status((usize, usize)),
 }
 
-pub async fn get_node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
+pub async fn node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership.send((MembershipRequest::Node, request)).await?;

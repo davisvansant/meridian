@@ -14,6 +14,7 @@ pub type MembershipListSender = mpsc::Sender<(
 
 #[derive(Clone, Debug)]
 pub enum MembershipListRequest {
+    GetNode,
     GetInitial,
     GetAlive,
     GetSuspected,
@@ -29,10 +30,27 @@ pub enum MembershipListRequest {
 
 #[derive(Clone, Debug)]
 pub enum MembershipListResponse {
+    Node(Node),
     Initial(Vec<SocketAddr>),
     Alive(Vec<Node>),
     Suspected(Vec<Node>),
     Confirmed(Vec<Node>),
+}
+
+pub async fn get_node(
+    membership_list: &MembershipListSender,
+) -> Result<Node, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    membership_list
+        .send((MembershipListRequest::GetNode, request))
+        .await?;
+
+    match response.await {
+        Ok(MembershipListResponse::Node(node)) => Ok(node),
+        Err(error) => Err(Box::new(error)),
+        _ => panic!("unexpected response!"),
+    }
 }
 
 pub async fn get_initial(
