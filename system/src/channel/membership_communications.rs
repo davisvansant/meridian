@@ -11,10 +11,13 @@ pub enum MembershipCommunicationsMessage {
 
 pub async fn send_message(
     membership_communications: &MembershipCommunicationsSender,
-    bytes: Vec<u8>,
+    bytes: &[u8],
     origin: SocketAddr,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    membership_communications.send(MembershipCommunicationsMessage::Send(bytes, origin))?;
+    membership_communications.send(MembershipCommunicationsMessage::Send(
+        bytes.to_vec(),
+        origin,
+    ))?;
 
     Ok(())
 }
