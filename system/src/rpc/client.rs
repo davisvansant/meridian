@@ -5,7 +5,8 @@ use tokio::net::TcpSocket;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
-use crate::channel::{candidate, cluster_members, get_node, heartbeat};
+// use crate::channel::{candidate, cluster_members, get_node, heartbeat};
+use crate::channel::{candidate, cluster_members, heartbeat, node};
 use crate::channel::{CandidateSender, CandidateTransition};
 use crate::channel::{RpcClientReceiver, RpcClientRequest};
 use crate::rpc::{Data, RequestVoteResults};
@@ -86,9 +87,11 @@ impl Client {
         &self,
         socket_address: SocketAddr,
     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        let candidate_id = get_node(&self.membership_sender).await?;
-        let request_vote_arguments =
-            candidate(&self.state_sender, candidate_id.id.to_string()).await?;
+        // let candidate_id = get_node(&self.membership_sender).await?;
+        let node = node(&self.membership_sender).await?;
+        // let request_vote_arguments =
+        //     candidate(&self.state_sender, candidate_id.id.to_string()).await?;
+        let request_vote_arguments = candidate(&self.state_sender, node.id.to_string()).await?;
         let data = Data::RequestVoteArguments(request_vote_arguments)
             .build()
             .await?;
@@ -114,8 +117,10 @@ impl Client {
         &self,
         socket_address: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let leader = get_node(&self.membership_sender).await?;
-        let heartbeat = heartbeat(&self.state_sender, leader.id.to_string()).await?;
+        // let leader = get_node(&self.membership_sender).await?;
+        let node = node(&self.membership_sender).await?;
+        // let heartbeat = heartbeat(&self.state_sender, leader.id.to_string()).await?;
+        let heartbeat = heartbeat(&self.state_sender, node.id.to_string()).await?;
         let data = Data::AppendEntriesArguments(heartbeat).build().await?;
 
         Client::transmit(socket_address, &data).await?;
