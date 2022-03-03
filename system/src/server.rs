@@ -98,7 +98,7 @@ impl Server {
 
                 let mut errors = 0;
 
-                while errors <= 3 {
+                while errors <= 2 {
                     match preflight::run(&self.membership).await {
                         Ok(()) => {
                             println!("launching...");
@@ -112,9 +112,12 @@ impl Server {
                             errors += 1;
                         }
                     }
+                    sleep(Duration::from_secs(10)).await;
                 }
 
-                if errors >= 3 {
+                if errors >= 2 {
+                    println!("preflight tasks failed...shutting down...");
+
                     self.server_state = ServerState::Shutdown;
                 } else {
                     self.server_state = ServerState::Follower;
