@@ -1,4 +1,4 @@
-use flexbuffers::{Builder, BuilderOptions, Pushable};
+use flexbuffers::{Builder, BuilderOptions};
 
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -63,64 +63,62 @@ impl Message {
 
         node_map.end_map();
 
-        // let mut alive_vector = message_data.start_vector("alive_list");
+        let mut alive_list_vector = message_data.start_vector("alive_list");
 
-        // if !alive_list.is_empty() {
-        //     for alive_node in alive_list {
-        //         let mut alive_node_map = alive_vector.start_map();
+        if !alive_list.is_empty() {
+            for alive_node in alive_list {
+                let mut alive_node_map = alive_list_vector.start_map();
 
-        //         alive_node_map.push("id", alive_node.id.to_string().as_str());
-        //         alive_node_map.push("address", alive_node.address.to_string().as_str());
-        //         alive_node_map.push("client_port", alive_node.client_port);
-        //         alive_node_map.push("cluster_port", alive_node.cluster_port);
-        //         alive_node_map.push("membership_port", alive_node.membership_port);
-        //     }
-        // }
+                alive_node_map.push("id", alive_node.id.to_string().as_str());
+                alive_node_map.push("address", alive_node.address.to_string().as_str());
+                alive_node_map.push("client_port", alive_node.client_port);
+                alive_node_map.push("cluster_port", alive_node.cluster_port);
+                alive_node_map.push("membership_port", alive_node.membership_port);
+            }
+        }
 
-        // alive_vector.end_vector();
+        alive_list_vector.end_vector();
 
-        // let mut suspected_vector = message_data.start_vector("suspected_list");
+        let mut suspected_list_vector = message_data.start_vector("suspected_list");
 
-        // if !suspected_list.is_empty() {
-        //     for suspected_node in suspected_list {
-        //         let mut suspected_node_map = suspected_vector.start_map();
+        if !suspected_list.is_empty() {
+            for suspected_node in suspected_list {
+                let mut suspected_node_map = suspected_list_vector.start_map();
 
-        //         suspected_node_map.push("id", suspected_node.id.to_string().as_str());
-        //         suspected_node_map.push("address", suspected_node.address.to_string().as_str());
-        //         suspected_node_map.push("client_port", suspected_node.client_port);
-        //         suspected_node_map.push("cluster_port", suspected_node.cluster_port);
-        //         suspected_node_map.push("membership_port", suspected_node.membership_port);
-        //     }
-        // }
+                suspected_node_map.push("id", suspected_node.id.to_string().as_str());
+                suspected_node_map.push("address", suspected_node.address.to_string().as_str());
+                suspected_node_map.push("client_port", suspected_node.client_port);
+                suspected_node_map.push("cluster_port", suspected_node.cluster_port);
+                suspected_node_map.push("membership_port", suspected_node.membership_port);
+            }
+        }
 
-        // suspected_vector.end_vector();
+        suspected_list_vector.end_vector();
 
-        // let mut confirmed_vector = message_data.start_vector("confirmed_list");
+        let mut confirmed_list_vector = message_data.start_vector("confirmed_list");
 
-        // if !confirmed_list.is_empty() {
-        //     for confirmed_node in confirmed_list {
-        //         let mut confirmed_node_map = confirmed_vector.start_map();
+        if !confirmed_list.is_empty() {
+            for confirmed_node in confirmed_list {
+                let mut confirmed_node_map = confirmed_list_vector.start_map();
 
-        //         confirmed_node_map.push("id", confirmed_node.id.to_string().as_str());
-        //         confirmed_node_map.push("address", confirmed_node.address.to_string().as_str());
-        //         confirmed_node_map.push("client_port", confirmed_node.client_port);
-        //         confirmed_node_map.push("cluster_port", confirmed_node.cluster_port);
-        //         confirmed_node_map.push("membership_port", confirmed_node.membership_port);
-        //     }
-        // }
+                confirmed_node_map.push("id", confirmed_node.id.to_string().as_str());
+                confirmed_node_map.push("address", confirmed_node.address.to_string().as_str());
+                confirmed_node_map.push("client_port", confirmed_node.client_port);
+                confirmed_node_map.push("cluster_port", confirmed_node.cluster_port);
+                confirmed_node_map.push("membership_port", confirmed_node.membership_port);
+            }
+        }
 
-        // confirmed_vector.end_vector();
+        confirmed_list_vector.end_vector();
+
         message_data.end_map();
+
         flexbuffers_builder.take_buffer()
     }
     pub async fn from_list(
         message_data: &[u8],
     ) -> Result<(Message, Node), Box<dyn std::error::Error>> {
-        let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-        message_data.push_to_builder(&mut flexbuffers_builder);
-
-        let flexbuffers_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
+        let flexbuffers_root = flexbuffers::Reader::get_root(message_data)?;
 
         let message = match flexbuffers_root.as_map().idx("message").as_str() {
             "ack" => Message::Ack,
