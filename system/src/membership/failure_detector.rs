@@ -46,14 +46,14 @@ impl FailureDectector {
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
         sleep(self.protocol_period).await;
 
-        let alive = get_alive(&self.list_sender).await?;
+        // let alive = get_alive(&self.list_sender).await?;
 
-        for node in alive {
-            // placeholder...
-            remove_alive(&self.list_sender, node).await?;
-            remove_suspected(&self.list_sender, node).await?;
-            insert_confirmed(&self.list_sender, node).await?;
-        }
+        // for node in alive {
+        //     // placeholder...
+        //     remove_alive(&self.list_sender, node).await?;
+        //     remove_suspected(&self.list_sender, node).await?;
+        //     insert_confirmed(&self.list_sender, node).await?;
+        // }
 
         Ok(())
     }
