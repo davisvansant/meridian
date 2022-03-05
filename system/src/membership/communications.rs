@@ -115,7 +115,11 @@ impl MembershipCommunications {
         let (message, origin_node) = Message::from_list(bytes).await?;
 
         match message {
-            Message::Ack => println!("received ack!"),
+            Message::Ack => {
+                println!("received ack!");
+
+                insert_alive(list_sender, origin_node).await?;
+            }
             Message::Ping => {
                 println!("received ping!");
 
