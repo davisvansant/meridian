@@ -19,7 +19,7 @@ pub use server::{Leader, LeaderReceiver, LeaderSender};
 pub use shutdown::{ShutdownReceiver, ShutdownSender};
 pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
-pub use membership::{cluster_members, node, shutdown_membership, static_join};
+pub use membership::{cluster_members, failure_detector, node, shutdown_membership, static_join};
 pub use membership_communications::send_message;
 pub use membership_list::{
     get_alive, get_confirmed, get_initial, get_node, get_suspected, insert_alive, insert_confirmed,

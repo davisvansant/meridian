@@ -8,6 +8,7 @@ pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<Mem
 
 #[derive(Clone, Debug)]
 pub enum MembershipRequest {
+    FailureDectector,
     Members,
     Node,
     StaticJoin,
@@ -20,6 +21,18 @@ pub enum MembershipResponse {
     Node(Node),
     Members(Vec<Node>),
     Status((usize, usize)),
+}
+
+pub async fn failure_detector(
+    membership: &MembershipSender,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (_request, _response) = oneshot::channel();
+
+    membership
+        .send((MembershipRequest::FailureDectector, _request))
+        .await?;
+
+    Ok(())
 }
 
 pub async fn node(membership: &MembershipSender) -> Result<Node, Box<dyn std::error::Error>> {

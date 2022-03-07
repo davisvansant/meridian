@@ -131,6 +131,9 @@ impl Membership {
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
+                MembershipRequest::FailureDectector => {
+                    println!("launch failure dector");
+                }
                 MembershipRequest::Members => {
                     println!("received members request!");
 
