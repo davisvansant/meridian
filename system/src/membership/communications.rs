@@ -112,13 +112,18 @@ impl MembershipCommunications {
         origin: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // match Message::from_bytes(bytes).await {
-        let (message, origin_node) = Message::from_list(bytes).await?;
+        let (message, origin_node, active_list, suspected_list, confirmed_list) =
+            Message::from_list(bytes).await?;
 
         match message {
             Message::Ack => {
                 println!("received ack!");
 
                 insert_alive(list_sender, origin_node).await?;
+
+                for alive_node in active_list {
+                    insert_alive(list_sender, alive_node).await?;
+                }
             }
             Message::Ping => {
                 println!("received ping!");
@@ -129,7 +134,7 @@ impl MembershipCommunications {
                 let confirmed_list = get_confirmed(list_sender).await?;
 
                 let ack = Message::Ack
-                    .build_list(node, alive_list, suspected_list, confirmed_list)
+                    .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
                     .await;
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
@@ -144,6 +149,10 @@ impl MembershipCommunications {
                 remove_confirmed(list_sender, origin_node).await?;
                 remove_suspected(list_sender, origin_node).await?;
                 insert_alive(list_sender, origin_node).await?;
+
+                for alive_node in active_list {
+                    insert_alive(list_sender, alive_node).await?;
+                }
             }
             Message::PingReq => {
                 println!("received ping request!");
