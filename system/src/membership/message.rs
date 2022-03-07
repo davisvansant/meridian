@@ -32,10 +32,10 @@ impl Message {
     }
     pub async fn build_list(
         &self,
-        node: Node,
-        alive_list: Vec<Node>,
-        suspected_list: Vec<Node>,
-        confirmed_list: Vec<Node>,
+        node: &Node,
+        alive_list: &[Node],
+        suspected_list: &[Node],
+        confirmed_list: &[Node],
     ) -> Vec<u8> {
         let flexbuffer_options = BuilderOptions::SHARE_NONE;
         let mut flexbuffers_builder = Builder::new(flexbuffer_options);
@@ -117,7 +117,7 @@ impl Message {
     }
     pub async fn from_list(
         message_data: &[u8],
-    ) -> Result<(Message, Node), Box<dyn std::error::Error>> {
+    ) -> Result<(Message, Node, Vec<Node>, Vec<Node>, Vec<Node>), Box<dyn std::error::Error>> {
         let flexbuffers_root = flexbuffers::Reader::get_root(message_data)?;
 
         let message = match flexbuffers_root.as_map().idx("message").as_str() {
@@ -128,6 +128,7 @@ impl Message {
         };
 
         let flexbuffer_node = flexbuffers_root.as_map().idx("node").as_map();
+
         let id = Uuid::parse_str(flexbuffer_node.idx("id").as_str())?;
         let address = IpAddr::from_str(flexbuffer_node.idx("address").as_str())?;
         let client_port = flexbuffer_node.idx("client_port").as_u16();
@@ -142,7 +143,70 @@ impl Message {
             membership_port,
         };
 
-        Ok((message, node))
+        let flexbuffer_alive_list = flexbuffers_root.as_map().idx("alive_list").as_vector();
+        let mut alive_list = Vec::with_capacity(flexbuffer_alive_list.len());
+
+        for alive_node in flexbuffer_alive_list.iter() {
+            let id = Uuid::parse_str(alive_node.as_map().idx("id").as_str())?;
+            let address = IpAddr::from_str(alive_node.as_map().idx("address").as_str())?;
+            let client_port = alive_node.as_map().idx("client_port").as_u16();
+            let cluster_port = alive_node.as_map().idx("cluster_port").as_u16();
+            let membership_port = alive_node.as_map().idx("membership_port").as_u16();
+
+            let node = Node {
+                id,
+                address,
+                client_port,
+                cluster_port,
+                membership_port,
+            };
+
+            alive_list.push(node);
+        }
+
+        let flexbuffer_suspected_list = flexbuffers_root.as_map().idx("suspected_list").as_vector();
+        let mut suspected_list = Vec::with_capacity(flexbuffer_suspected_list.len());
+
+        for suspected_node in flexbuffer_suspected_list.iter() {
+            let id = Uuid::parse_str(suspected_node.as_map().idx("id").as_str())?;
+            let address = IpAddr::from_str(suspected_node.as_map().idx("address").as_str())?;
+            let client_port = suspected_node.as_map().idx("client_port").as_u16();
+            let cluster_port = suspected_node.as_map().idx("cluster_port").as_u16();
+            let membership_port = suspected_node.as_map().idx("membership_port").as_u16();
+
+            let node = Node {
+                id,
+                address,
+                client_port,
+                cluster_port,
+                membership_port,
+            };
+
+            suspected_list.push(node);
+        }
+
+        let flexbuffer_confirmed_list = flexbuffers_root.as_map().idx("confirmed_list").as_vector();
+        let mut confirmed_list = Vec::with_capacity(flexbuffer_confirmed_list.len());
+
+        for confirmed_node in flexbuffer_confirmed_list.iter() {
+            let id = Uuid::parse_str(confirmed_node.as_map().idx("id").as_str())?;
+            let address = IpAddr::from_str(confirmed_node.as_map().idx("address").as_str())?;
+            let client_port = confirmed_node.as_map().idx("client_port").as_u16();
+            let cluster_port = confirmed_node.as_map().idx("cluster_port").as_u16();
+            let membership_port = confirmed_node.as_map().idx("membership_port").as_u16();
+
+            let node = Node {
+                id,
+                address,
+                client_port,
+                cluster_port,
+                membership_port,
+            };
+
+            confirmed_list.push(node);
+        }
+
+        Ok((message, node, alive_list, suspected_list, confirmed_list))
     }
 }
 
