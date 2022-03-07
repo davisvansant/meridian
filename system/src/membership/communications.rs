@@ -111,8 +111,7 @@ impl MembershipCommunications {
         bytes: &[u8],
         origin: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // match Message::from_bytes(bytes).await {
-        let (message, origin_node, active_list, suspected_list, confirmed_list) =
+        let (message, origin_node, peer_active_list, peer_suspected_list, peer_confirmed_list) =
             Message::from_list(bytes).await?;
 
         match message {
@@ -121,7 +120,7 @@ impl MembershipCommunications {
 
                 insert_alive(list_sender, &origin_node).await?;
 
-                for alive_node in &active_list {
+                for alive_node in &peer_active_list {
                     insert_alive(list_sender, alive_node).await?;
                 }
             }
@@ -129,64 +128,59 @@ impl MembershipCommunications {
                 println!("received ping!");
 
                 let node = get_node(list_sender).await?;
-                let alive_list = get_alive(list_sender).await?;
-                let suspected_list = get_suspected(list_sender).await?;
-                let confirmed_list = get_confirmed(list_sender).await?;
+                let local_alive_list = get_alive(list_sender).await?;
+                let local_suspected_list = get_suspected(list_sender).await?;
+                let local_confirmed_list = get_confirmed(list_sender).await?;
 
                 let ack = Message::Ack
-                    .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
+                    .build_list(
+                        &node,
+                        &local_alive_list,
+                        &local_suspected_list,
+                        &local_confirmed_list,
+                    )
                     .await;
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
-
-                // let ack = Message::Ack.build().await.to_vec();
-
-                // sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
-
-                // let placeholder_node =
-                //     Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
 
                 remove_confirmed(list_sender, &origin_node).await?;
                 remove_suspected(list_sender, &origin_node).await?;
                 insert_alive(list_sender, &origin_node).await?;
 
-                for alive_node in &active_list {
+                for alive_node in &peer_active_list {
                     insert_alive(list_sender, alive_node).await?;
                 }
             }
             Message::PingReq => {
                 println!("received ping request!");
 
-                // let ping = Message::Ping.build().await.to_vec();
-
                 let node = get_node(list_sender).await?;
-                let alive_list = get_alive(list_sender).await?;
-                let suspected_list = get_suspected(list_sender).await?;
-                let confirmed_list = get_confirmed(list_sender).await?;
+                let local_alive_list = get_alive(list_sender).await?;
+                let local_suspected_list = get_suspected(list_sender).await?;
+                let local_confirmed_list = get_confirmed(list_sender).await?;
 
                 let ping = Message::Ack
-                    .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
+                    .build_list(
+                        &node,
+                        &local_alive_list,
+                        &local_suspected_list,
+                        &local_confirmed_list,
+                    )
                     .await;
 
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
 
-                // let placeholder_node =
-                //     Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
-
-                for suspected_node in &suspected_list {
+                for suspected_node in &peer_suspected_list {
                     remove_alive(list_sender, suspected_node).await?;
                     remove_confirmed(list_sender, suspected_node).await?;
                     insert_suspected(list_sender, suspected_node).await?;
                 }
 
-                for confirmed_node in &confirmed_list {
+                for confirmed_node in &peer_confirmed_list {
                     remove_alive(list_sender, confirmed_node).await?;
                     remove_suspected(list_sender, confirmed_node).await?;
                     insert_confirmed(list_sender, confirmed_node).await?;
                 }
-
-                // remove_alive(list_sender, placeholder_node).await?;
-                // insert_suspected(list_sender, placeholder_node).await?;
             }
         }
 
