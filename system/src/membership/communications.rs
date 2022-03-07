@@ -10,7 +10,6 @@ use crate::channel::{
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::membership::Message;
-use crate::node::Node;
 
 pub struct MembershipCommunications {
     socket_address: SocketAddr,
