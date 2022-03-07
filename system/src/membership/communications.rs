@@ -5,8 +5,8 @@ use tokio::net::UdpSocket;
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
 use crate::channel::{
-    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_suspected,
-    remove_alive, remove_confirmed, remove_suspected,
+    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
+    insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::membership::Message;
@@ -119,9 +119,9 @@ impl MembershipCommunications {
             Message::Ack => {
                 println!("received ack!");
 
-                insert_alive(list_sender, origin_node).await?;
+                insert_alive(list_sender, &origin_node).await?;
 
-                for alive_node in active_list {
+                for alive_node in &active_list {
                     insert_alive(list_sender, alive_node).await?;
                 }
             }
@@ -146,26 +146,47 @@ impl MembershipCommunications {
                 // let placeholder_node =
                 //     Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
 
-                remove_confirmed(list_sender, origin_node).await?;
-                remove_suspected(list_sender, origin_node).await?;
-                insert_alive(list_sender, origin_node).await?;
+                remove_confirmed(list_sender, &origin_node).await?;
+                remove_suspected(list_sender, &origin_node).await?;
+                insert_alive(list_sender, &origin_node).await?;
 
-                for alive_node in active_list {
+                for alive_node in &active_list {
                     insert_alive(list_sender, alive_node).await?;
                 }
             }
             Message::PingReq => {
                 println!("received ping request!");
 
-                let ping = Message::Ping.build().await.to_vec();
+                // let ping = Message::Ping.build().await.to_vec();
+
+                let node = get_node(list_sender).await?;
+                let alive_list = get_alive(list_sender).await?;
+                let suspected_list = get_suspected(list_sender).await?;
+                let confirmed_list = get_confirmed(list_sender).await?;
+
+                let ping = Message::Ack
+                    .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
+                    .await;
 
                 sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
 
-                let placeholder_node =
-                    Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
+                // let placeholder_node =
+                //     Node::init(origin.ip(), origin.port(), origin.port(), origin.port()).await?;
 
-                remove_alive(list_sender, placeholder_node).await?;
-                insert_suspected(list_sender, placeholder_node).await?;
+                for suspected_node in &suspected_list {
+                    remove_alive(list_sender, suspected_node).await?;
+                    remove_confirmed(list_sender, suspected_node).await?;
+                    insert_suspected(list_sender, suspected_node).await?;
+                }
+
+                for confirmed_node in &confirmed_list {
+                    remove_alive(list_sender, confirmed_node).await?;
+                    remove_suspected(list_sender, confirmed_node).await?;
+                    insert_confirmed(list_sender, confirmed_node).await?;
+                }
+
+                // remove_alive(list_sender, placeholder_node).await?;
+                // insert_suspected(list_sender, placeholder_node).await?;
             }
         }
 
