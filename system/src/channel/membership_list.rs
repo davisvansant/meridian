@@ -119,12 +119,12 @@ pub async fn get_confirmed(
 
 pub async fn insert_alive(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::InsertAlive(node), _request))
+        .send((MembershipListRequest::InsertAlive(*node), _request))
         .await?;
 
     Ok(())
@@ -132,12 +132,12 @@ pub async fn insert_alive(
 
 pub async fn insert_suspected(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::InsertSuspected(node), _request))
+        .send((MembershipListRequest::InsertSuspected(*node), _request))
         .await?;
 
     Ok(())
@@ -145,12 +145,12 @@ pub async fn insert_suspected(
 
 pub async fn insert_confirmed(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::InsertConfirmed(node), request))
+        .send((MembershipListRequest::InsertConfirmed(*node), request))
         .await?;
 
     Ok(())
@@ -158,12 +158,12 @@ pub async fn insert_confirmed(
 
 pub async fn remove_alive(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::RemoveAlive(node), _request))
+        .send((MembershipListRequest::RemoveAlive(*node), _request))
         .await?;
 
     Ok(())
@@ -171,12 +171,12 @@ pub async fn remove_alive(
 
 pub async fn remove_suspected(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::RemoveSuspected(node), _request))
+        .send((MembershipListRequest::RemoveSuspected(*node), _request))
         .await?;
 
     Ok(())
@@ -184,12 +184,12 @@ pub async fn remove_suspected(
 
 pub async fn remove_confirmed(
     membership_list: &MembershipListSender,
-    node: Node,
+    node: &Node,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
 
     membership_list
-        .send((MembershipListRequest::RemoveConfirmed(node), _request))
+        .send((MembershipListRequest::RemoveConfirmed(*node), _request))
         .await?;
 
     Ok(())
