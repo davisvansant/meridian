@@ -1,5 +1,6 @@
 use tokio::time::{sleep, Duration};
 
+use crate::channel::failure_detector;
 use crate::channel::shutdown;
 use crate::channel::LeaderSender;
 use crate::channel::ShutdownSender;
@@ -121,6 +122,8 @@ impl Server {
                     self.server_state = ServerState::Shutdown;
                 } else {
                     self.server_state = ServerState::Follower;
+
+                    failure_detector(&self.membership).await?;
 
                     sleep(Duration::from_secs(5)).await;
                 }
