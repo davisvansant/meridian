@@ -88,7 +88,9 @@ impl List {
                     }
                 }
                 MembershipListRequest::InsertAlive(node) => {
-                    self.insert_alive(node).await?;
+                    if node != self.server {
+                        self.insert_alive(node).await?;
+                    }
                 }
                 MembershipListRequest::InsertSuspected(node) => {
                     self.insert_supsected(node).await?;
