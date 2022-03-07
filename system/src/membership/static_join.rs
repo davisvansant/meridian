@@ -30,21 +30,12 @@ impl StaticJoin {
         let suspected_list = get_suspected(&self.membership_list_sender).await?;
         let confirmed_list = get_confirmed(&self.membership_list_sender).await?;
         let initial_nodes = get_initial(&self.membership_list_sender).await?;
+
         let ping = Message::Ping
-            .build_list(node, alive_list, suspected_list, confirmed_list)
+            .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
             .await;
 
         for origin in initial_nodes {
-            // let ping = Message::Ping.build().await.to_vec();
-            // let node = get_node(&self.membership_list_sender).await?;
-            // let alive_list = get_alive(&self.membership_list_sender).await?;
-            // let suspected_list = get_suspected(&self.membership_list_sender).await?;
-            // let confirmed_list = get_confirmed(&self.membership_list_sender).await?;
-
-            // let ping = Message::Ping
-            //     .build_list(node, alive_list, suspected_list, confirmed_list)
-            //     .await;
-
             send_message(&self.membership_communications_sender, &ping, origin).await?;
         }
 
