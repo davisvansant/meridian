@@ -3,19 +3,25 @@ use tokio::time::{sleep, Duration};
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
 use crate::channel::{get_alive, insert_confirmed, remove_alive, remove_suspected};
+use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
 
 pub struct FailureDectector {
     protocol_period: Duration,
     list_sender: MembershipListSender,
+    receiver: MembershipFailureDetectorReceiver,
 }
 
 impl FailureDectector {
-    pub async fn init(list_sender: MembershipListSender) -> FailureDectector {
+    pub async fn init(
+        list_sender: MembershipListSender,
+        receiver: MembershipFailureDetectorReceiver,
+    ) -> FailureDectector {
         let protocol_period = Duration::from_secs(10);
 
         FailureDectector {
             protocol_period,
             list_sender,
+            receiver,
         }
     }
 
@@ -23,11 +29,21 @@ impl FailureDectector {
         &mut self,
         shutdown: &mut ShutdownReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(request) = self.receiver.recv().await {
+            match request {
+                MembershipFailureDetectorRequest::Launch => {
+                    println!("launching membership failure detector!");
+                }
+            }
+        }
+
         loop {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
                     println!("shutting down failure dectector...");
+
+                    self.receiver.close();
 
                     break
                 }
