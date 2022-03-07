@@ -5,6 +5,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::channel::MembershipCommunicationsMessage;
 // use crate::channel::ShutdownReceiver;
 use crate::channel::ShutdownSender;
+use crate::channel::{build_failure_detector_channel, launch_failure_detector};
 use crate::channel::{get_alive, shutdown_membership_list};
 use crate::channel::{MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
@@ -116,7 +117,11 @@ impl Membership {
             }
         });
 
-        let mut failure_detector = FailureDectector::init(failure_detector_list_sender).await;
+        let (failure_detector_sender, failure_detector_reciever) =
+            build_failure_detector_channel().await;
+
+        let mut failure_detector =
+            FailureDectector::init(failure_detector_list_sender, failure_detector_reciever).await;
 
         tokio::spawn(async move {
             if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
@@ -132,7 +137,7 @@ impl Membership {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 MembershipRequest::FailureDectector => {
-                    println!("launch failure dector");
+                    launch_failure_detector(&failure_detector_sender).await?;
                 }
                 MembershipRequest::Members => {
                     println!("received members request!");
