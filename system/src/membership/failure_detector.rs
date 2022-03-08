@@ -8,6 +8,7 @@ use crate::channel::{
     get_alive, insert_alive, insert_confirmed, insert_suspected, remove_alive, remove_confirmed,
     remove_suspected,
 };
+use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
 
 use crate::node::Node;
@@ -19,6 +20,7 @@ use std::str::FromStr;
 pub struct FailureDectector {
     protocol_period: Duration,
     list_sender: MembershipListSender,
+    send_udp_message: MembershipCommunicationsSender,
     receiver: MembershipFailureDetectorReceiver,
 }
 
@@ -26,6 +28,7 @@ impl FailureDectector {
     pub async fn init(
         list_sender: MembershipListSender,
         receiver: MembershipFailureDetectorReceiver,
+        send_udp_message: MembershipCommunicationsSender,
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(10);
 
@@ -33,6 +36,7 @@ impl FailureDectector {
             protocol_period,
             list_sender,
             receiver,
+            send_udp_message,
         }
     }
 

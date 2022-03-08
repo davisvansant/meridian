@@ -95,6 +95,7 @@ impl Membership {
         let (send_udp_message, _) = broadcast::channel::<MembershipCommunicationsMessage>(64);
         let membership_communications_sender = send_udp_message.clone();
         let static_join_send_udp_message = send_udp_message.clone();
+        let failure_detector_send_udp_message = send_udp_message.clone();
 
         // let membership_port = self.server.membership_address().await;
         let membership_port = server.membership_address().await;
@@ -120,8 +121,12 @@ impl Membership {
         let (failure_detector_sender, failure_detector_reciever) =
             build_failure_detector_channel().await;
 
-        let mut failure_detector =
-            FailureDectector::init(failure_detector_list_sender, failure_detector_reciever).await;
+        let mut failure_detector = FailureDectector::init(
+            failure_detector_list_sender,
+            failure_detector_reciever,
+            failure_detector_send_udp_message,
+        )
+        .await;
 
         tokio::spawn(async move {
             if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
