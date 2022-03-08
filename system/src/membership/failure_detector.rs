@@ -71,29 +71,20 @@ impl FailureDectector {
     }
 
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
-        sleep(self.protocol_period).await;
-
-        // let alive = get_alive(&self.list_sender).await?;
-
-        // for node in alive {
-        //     // placeholder...
-        //     remove_alive(&self.list_sender, node).await?;
-        //     remove_suspected(&self.list_sender, node).await?;
-        //     insert_confirmed(&self.list_sender, node).await?;
-        // }
         let address = IpAddr::from_str("0.0.0.0")?;
         let placeholder_suspected_node = Node::init(address, 10000, 15000, 25000).await?;
 
-        let (placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
+        let (_placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
 
         match timeout(self.protocol_period, placeholder_receiver.recv()).await {
             Ok(Some(placeholder_node)) => {
-                // remove_suspected(&self.list_sender, node).await?;
-                // remove_confirmed(&self.list_sender, node).await?;
-                // insert_alive(&self.list_sender, node).await?;
-                remove_suspected(&self.list_sender, &placeholder_node).await?;
-                remove_confirmed(&self.list_sender, &placeholder_node).await?;
-                insert_alive(&self.list_sender, &placeholder_node).await?;
+                if placeholder_node == placeholder_suspected_node {
+                    remove_suspected(&self.list_sender, &placeholder_node).await?;
+                    remove_confirmed(&self.list_sender, &placeholder_node).await?;
+                    insert_alive(&self.list_sender, &placeholder_node).await?;
+                } else {
+                    println!("nodes dont match!");
+                }
             }
             Ok(None) => {
                 println!("failed to receive response from suspected node...");
@@ -103,7 +94,10 @@ impl FailureDectector {
                 insert_suspected(&self.list_sender, &placeholder_suspected_node).await?;
             }
             Err(error) => {
-                println!("membership failure detector protocol period expired...");
+                println!(
+                    "membership failure detector protocol period expired... {:?}",
+                    error,
+                );
 
                 remove_alive(&self.list_sender, &placeholder_suspected_node).await?;
                 remove_confirmed(&self.list_sender, &placeholder_suspected_node).await?;
