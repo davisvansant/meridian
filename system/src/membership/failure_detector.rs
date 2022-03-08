@@ -1,9 +1,20 @@
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, timeout, Duration};
+
+use tokio::sync::mpsc;
 
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
-use crate::channel::{get_alive, insert_confirmed, remove_alive, remove_suspected};
+use crate::channel::{
+    get_alive, insert_alive, insert_confirmed, insert_suspected, remove_alive, remove_confirmed,
+    remove_suspected,
+};
 use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
+
+use crate::node::Node;
+
+use std::net::{IpAddr, SocketAddr};
+
+use std::str::FromStr;
 
 pub struct FailureDectector {
     protocol_period: Duration,
@@ -70,6 +81,35 @@ impl FailureDectector {
         //     remove_suspected(&self.list_sender, node).await?;
         //     insert_confirmed(&self.list_sender, node).await?;
         // }
+        let address = IpAddr::from_str("0.0.0.0")?;
+        let placeholder_suspected_node = Node::init(address, 10000, 15000, 25000).await?;
+
+        let (placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
+
+        match timeout(self.protocol_period, placeholder_receiver.recv()).await {
+            Ok(Some(placeholder_node)) => {
+                // remove_suspected(&self.list_sender, node).await?;
+                // remove_confirmed(&self.list_sender, node).await?;
+                // insert_alive(&self.list_sender, node).await?;
+                remove_suspected(&self.list_sender, &placeholder_node).await?;
+                remove_confirmed(&self.list_sender, &placeholder_node).await?;
+                insert_alive(&self.list_sender, &placeholder_node).await?;
+            }
+            Ok(None) => {
+                println!("failed to receive response from suspected node...");
+
+                remove_alive(&self.list_sender, &placeholder_suspected_node).await?;
+                remove_confirmed(&self.list_sender, &placeholder_suspected_node).await?;
+                insert_suspected(&self.list_sender, &placeholder_suspected_node).await?;
+            }
+            Err(error) => {
+                println!("membership failure detector protocol period expired...");
+
+                remove_alive(&self.list_sender, &placeholder_suspected_node).await?;
+                remove_confirmed(&self.list_sender, &placeholder_suspected_node).await?;
+                insert_suspected(&self.list_sender, &placeholder_suspected_node).await?;
+            }
+        }
 
         Ok(())
     }
