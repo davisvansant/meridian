@@ -1,11 +1,18 @@
 use tokio::sync::mpsc;
 
+use crate::node::Node;
+
 pub type MembershipFailureDetectorReceiver = mpsc::Receiver<MembershipFailureDetectorRequest>;
 pub type MembershipFailureDetectorSender = mpsc::Sender<MembershipFailureDetectorRequest>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipFailureDetectorRequest {
     Launch,
+}
+
+#[derive(Clone, Debug)]
+pub enum MembershipFailureDetectorPingTarget {
+    Member(Node),
 }
 
 pub async fn build_failure_detector_channel() -> (
