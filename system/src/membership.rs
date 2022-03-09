@@ -5,7 +5,10 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::channel::MembershipCommunicationsMessage;
 // use crate::channel::ShutdownReceiver;
 use crate::channel::ShutdownSender;
-use crate::channel::{build_failure_detector_channel, launch_failure_detector};
+use crate::channel::{
+    build_failure_detector_channel, build_failure_detector_ping_target_channel,
+    launch_failure_detector,
+};
 use crate::channel::{get_alive, shutdown_membership_list};
 use crate::channel::{MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
@@ -84,6 +87,10 @@ impl Membership {
         let communications_list_sender = list_sender.to_owned();
         let failure_detector_list_sender = list_sender.to_owned();
 
+        let failure_detector_ping_target_sender =
+            build_failure_detector_ping_target_channel().await;
+        let communications_ping_target_sender = failure_detector_ping_target_sender.to_owned();
+
         let mut list = List::init(server, launch_nodes, list_receiver).await?;
 
         tokio::spawn(async move {
@@ -104,6 +111,7 @@ impl Membership {
             membership_port,
             communications_list_sender,
             membership_communications_sender,
+            communications_ping_target_sender,
         )
         .await;
 
@@ -125,6 +133,7 @@ impl Membership {
             failure_detector_list_sender,
             failure_detector_reciever,
             failure_detector_send_udp_message,
+            failure_detector_ping_target_sender,
         )
         .await;
 

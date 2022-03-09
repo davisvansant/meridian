@@ -9,6 +9,9 @@ use crate::channel::{
     insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
+use crate::channel::{
+    MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
+};
 use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
 use crate::membership::Message;
 
@@ -23,6 +26,7 @@ pub struct FailureDectector {
     list_sender: MembershipListSender,
     send_udp_message: MembershipCommunicationsSender,
     receiver: MembershipFailureDetectorReceiver,
+    ping_target_channel: MembershipFailureDetectorPingTargetSender,
 }
 
 impl FailureDectector {
@@ -30,6 +34,7 @@ impl FailureDectector {
         list_sender: MembershipListSender,
         receiver: MembershipFailureDetectorReceiver,
         send_udp_message: MembershipCommunicationsSender,
+        ping_target_channel: MembershipFailureDetectorPingTargetSender,
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(10);
 
@@ -38,6 +43,7 @@ impl FailureDectector {
             list_sender,
             receiver,
             send_udp_message,
+            ping_target_channel,
         }
     }
 
@@ -76,7 +82,8 @@ impl FailureDectector {
     }
 
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let (_placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
+        // let (_placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
+        let mut receive_ping_target_ack = self.ping_target_channel.subscribe();
 
         let alive_list = get_alive(&self.list_sender).await?;
 
@@ -98,9 +105,36 @@ impl FailureDectector {
 
             send_message(&self.send_udp_message, &ping, address).await?;
 
-            match timeout(self.protocol_period, placeholder_receiver.recv()).await {
-                Ok(Some(ping_target)) => {
-                    if member == ping_target {
+            // match timeout(self.protocol_period, placeholder_receiver.recv()).await {
+            match timeout(self.protocol_period, receive_ping_target_ack.recv()).await {
+                // Ok(Some(ping_target)) => {
+                //     if member == ping_target {
+                //         remove_suspected(&self.list_sender, &member).await?;
+                //         remove_confirmed(&self.list_sender, &member).await?;
+                //         insert_alive(&self.list_sender, &member).await?;
+                //     } else {
+                //         println!("nodes dont match!");
+                //     }
+                // }
+                // Ok(None) => {
+                //     println!("failed to receive response from suspected node...");
+
+                //     remove_alive(&self.list_sender, &member).await?;
+                //     remove_confirmed(&self.list_sender, &member).await?;
+                //     insert_suspected(&self.list_sender, &member).await?;
+                // }
+                // Err(error) => {
+                //     println!(
+                //         "membership failure detector protocol period expired... {:?}",
+                //         error,
+                //     );
+
+                //     remove_alive(&self.list_sender, &member).await?;
+                //     remove_confirmed(&self.list_sender, &member).await?;
+                //     insert_suspected(&self.list_sender, &member).await?;
+                // }
+                Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
+                    if address == ping_target {
                         remove_suspected(&self.list_sender, &member).await?;
                         remove_confirmed(&self.list_sender, &member).await?;
                         insert_alive(&self.list_sender, &member).await?;
@@ -108,8 +142,8 @@ impl FailureDectector {
                         println!("nodes dont match!");
                     }
                 }
-                Ok(None) => {
-                    println!("failed to receive response from suspected node...");
+                Ok(Err(error)) => {
+                    println!("error with ping target channel -> {:?}", error);
 
                     remove_alive(&self.list_sender, &member).await?;
                     remove_confirmed(&self.list_sender, &member).await?;
