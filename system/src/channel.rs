@@ -12,6 +12,7 @@ pub use membership_communications::{
     MembershipCommunicationsMessage, MembershipCommunicationsSender,
 };
 pub use membership_failure_detector::{
+    MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
     MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest,
     MembershipFailureDetectorSender,
 };
@@ -26,7 +27,10 @@ pub use state::{StateReceiver, StateRequest, StateResponse, StateSender};
 
 pub use membership::{cluster_members, failure_detector, node, shutdown_membership, static_join};
 pub use membership_communications::send_message;
-pub use membership_failure_detector::{build_failure_detector_channel, launch_failure_detector};
+pub use membership_failure_detector::{
+    build_failure_detector_channel, build_failure_detector_ping_target_channel,
+    launch_failure_detector,
+};
 pub use membership_list::{
     get_alive, get_confirmed, get_initial, get_node, get_suspected, insert_alive, insert_confirmed,
     insert_suspected, remove_alive, remove_confirmed, remove_suspected, shutdown_membership_list,
