@@ -5,11 +5,12 @@ use tokio::sync::mpsc;
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
 use crate::channel::{
-    get_alive, insert_alive, insert_confirmed, insert_suspected, remove_alive, remove_confirmed,
-    remove_suspected,
+    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
+    insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
 };
 use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
 use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
+use crate::membership::Message;
 
 use crate::node::Node;
 
@@ -75,37 +76,55 @@ impl FailureDectector {
     }
 
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let address = IpAddr::from_str("0.0.0.0")?;
-        let placeholder_suspected_node = Node::init(address, 10000, 15000, 25000).await?;
-
         let (_placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
 
-        match timeout(self.protocol_period, placeholder_receiver.recv()).await {
-            Ok(Some(placeholder_node)) => {
-                if placeholder_node == placeholder_suspected_node {
-                    remove_suspected(&self.list_sender, &placeholder_node).await?;
-                    remove_confirmed(&self.list_sender, &placeholder_node).await?;
-                    insert_alive(&self.list_sender, &placeholder_node).await?;
-                } else {
-                    println!("nodes dont match!");
+        let alive_list = get_alive(&self.list_sender).await?;
+
+        for member in alive_list {
+            let address = member.membership_address().await;
+            let node = get_node(&self.list_sender).await?;
+            let local_alive_list = get_alive(&self.list_sender).await?;
+            let local_suspected_list = get_suspected(&self.list_sender).await?;
+            let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+
+            let ping = Message::Ping
+                .build_list(
+                    &node,
+                    &local_alive_list,
+                    &local_suspected_list,
+                    &local_confirmed_list,
+                )
+                .await;
+
+            send_message(&self.send_udp_message, &ping, address).await?;
+
+            match timeout(self.protocol_period, placeholder_receiver.recv()).await {
+                Ok(Some(ping_target)) => {
+                    if member == ping_target {
+                        remove_suspected(&self.list_sender, &member).await?;
+                        remove_confirmed(&self.list_sender, &member).await?;
+                        insert_alive(&self.list_sender, &member).await?;
+                    } else {
+                        println!("nodes dont match!");
+                    }
                 }
-            }
-            Ok(None) => {
-                println!("failed to receive response from suspected node...");
+                Ok(None) => {
+                    println!("failed to receive response from suspected node...");
 
-                remove_alive(&self.list_sender, &placeholder_suspected_node).await?;
-                remove_confirmed(&self.list_sender, &placeholder_suspected_node).await?;
-                insert_suspected(&self.list_sender, &placeholder_suspected_node).await?;
-            }
-            Err(error) => {
-                println!(
-                    "membership failure detector protocol period expired... {:?}",
-                    error,
-                );
+                    remove_alive(&self.list_sender, &member).await?;
+                    remove_confirmed(&self.list_sender, &member).await?;
+                    insert_suspected(&self.list_sender, &member).await?;
+                }
+                Err(error) => {
+                    println!(
+                        "membership failure detector protocol period expired... {:?}",
+                        error,
+                    );
 
-                remove_alive(&self.list_sender, &placeholder_suspected_node).await?;
-                remove_confirmed(&self.list_sender, &placeholder_suspected_node).await?;
-                insert_suspected(&self.list_sender, &placeholder_suspected_node).await?;
+                    remove_alive(&self.list_sender, &member).await?;
+                    remove_confirmed(&self.list_sender, &member).await?;
+                    insert_suspected(&self.list_sender, &member).await?;
+                }
             }
         }
 
