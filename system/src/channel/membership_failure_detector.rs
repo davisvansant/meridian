@@ -1,16 +1,20 @@
 use std::net::SocketAddr;
+use tokio::sync::watch;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::node::Node;
 
-pub type MembershipFailureDetectorReceiver = mpsc::Receiver<MembershipFailureDetectorRequest>;
-pub type MembershipFailureDetectorSender = mpsc::Sender<MembershipFailureDetectorRequest>;
+// pub type MembershipFailureDetectorReceiver = mpsc::Receiver<MembershipFailureDetectorRequest>;
+// pub type MembershipFailureDetectorSender = mpsc::Sender<MembershipFailureDetectorRequest>;
+pub type MembershipFailureDetectorReceiver = watch::Receiver<MembershipFailureDetectorRequest>;
+pub type MembershipFailureDetectorSender = watch::Sender<MembershipFailureDetectorRequest>;
 
 pub type MembershipFailureDetectorPingTargetSender =
     broadcast::Sender<MembershipFailureDetectorPingTarget>;
 
 #[derive(Clone, Debug)]
 pub enum MembershipFailureDetectorRequest {
+    Shutdown,
     Launch,
 }
 
@@ -24,7 +28,9 @@ pub async fn build_failure_detector_channel() -> (
     MembershipFailureDetectorSender,
     MembershipFailureDetectorReceiver,
 ) {
-    let (sender, receiver) = mpsc::channel::<MembershipFailureDetectorRequest>(1);
+    let (sender, receiver) = watch::channel::<MembershipFailureDetectorRequest>(
+        MembershipFailureDetectorRequest::Shutdown,
+    );
 
     (sender, receiver)
 }
@@ -39,9 +45,7 @@ pub async fn build_failure_detector_ping_target_channel(
 pub async fn launch_failure_detector(
     failure_detector: &MembershipFailureDetectorSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    failure_detector
-        .send(MembershipFailureDetectorRequest::Launch)
-        .await?;
+    failure_detector.send(MembershipFailureDetectorRequest::Launch)?;
 
     Ok(())
 }

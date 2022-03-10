@@ -51,12 +51,8 @@ impl FailureDectector {
         &mut self,
         shutdown: &mut ShutdownReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(request) = self.receiver.recv().await {
-            match request {
-                MembershipFailureDetectorRequest::Launch => {
-                    println!("launching membership failure detector!");
-                }
-            }
+        if let Ok(()) = self.receiver.changed().await {
+            println!("launching membership failure detector!");
         }
 
         loop {
@@ -64,8 +60,6 @@ impl FailureDectector {
                 biased;
                 _ = shutdown.recv() => {
                     println!("shutting down failure dectector...");
-
-                    self.receiver.close();
 
                     break
                 }
