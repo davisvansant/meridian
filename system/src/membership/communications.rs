@@ -48,14 +48,14 @@ impl MembershipCommunications {
 
         let mut receiver = self.receiver.subscribe();
 
-        let send_message_list_sender = self.list_sender.to_owned();
+        // let send_message_list_sender = self.list_sender.to_owned();
 
         tokio::spawn(async move {
             while let Ok(incoming_message) = receiver.recv().await {
                 match incoming_message {
                     MembershipCommunicationsMessage::Send(bytes, target) => {
                         if let Err(error) = MembershipCommunications::send_bytes(
-                            &send_message_list_sender,
+                            // &send_message_list_sender,
                             &sending_udp_socket,
                             &bytes,
                             target,
@@ -151,7 +151,7 @@ impl MembershipCommunications {
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
 
-                ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))?;
+                // ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))?;
 
                 remove_confirmed(list_sender, &origin_node).await?;
                 remove_suspected(list_sender, &origin_node).await?;
@@ -198,14 +198,14 @@ impl MembershipCommunications {
     }
 
     async fn send_bytes(
-        list_sender: &MembershipListSender,
+        // list_sender: &MembershipListSender,
         socket: &UdpSocket,
         bytes: &[u8],
         target: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let _alive = get_alive(list_sender).await?;
-        let _suspected = get_suspected(list_sender).await?;
-        let _confirmed = get_confirmed(list_sender).await?;
+        // let _alive = get_alive(list_sender).await?;
+        // let _suspected = get_suspected(list_sender).await?;
+        // let _confirmed = get_confirmed(list_sender).await?;
 
         socket.send_to(bytes, target).await?;
 
@@ -358,39 +358,39 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
-        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
-            MembershipListRequest,
-            oneshot::Sender<MembershipListResponse>,
-        )>(64);
+        // let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+        //     MembershipListRequest,
+        //     oneshot::Sender<MembershipListResponse>,
+        // )>(64);
 
-        tokio::spawn(async move {
-            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
-                match test_request {
-                    MembershipListRequest::GetAlive => {
-                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+        // tokio::spawn(async move {
+        //     while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+        //         match test_request {
+        //             MembershipListRequest::GetAlive => {
+        //                 let test_alive: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Alive(test_alive))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetConfirmed => {
-                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Alive(test_alive))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetConfirmed => {
+        //                 let test_confirmed: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Confirmed(test_confirmed))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetSuspected => {
-                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Confirmed(test_confirmed))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetSuspected => {
+        //                 let test_suspected: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Suspected(test_suspected))
-                            .unwrap();
-                    }
-                    _ => panic!("send bytes ack test"),
-                }
-            }
-        });
+        //                 test_response
+        //                     .send(MembershipListResponse::Suspected(test_suspected))
+        //                     .unwrap();
+        //             }
+        //             _ => panic!("send bytes ack test"),
+        //         }
+        //     }
+        // });
 
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
@@ -399,7 +399,7 @@ mod tests {
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
         let test_send_bytes = MembershipCommunications::send_bytes(
-            &test_list_sender,
+            // &test_list_sender,
             &test_socket,
             b"ack",
             test_origin,
@@ -426,39 +426,39 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
-        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
-            MembershipListRequest,
-            oneshot::Sender<MembershipListResponse>,
-        )>(64);
+        // let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+        //     MembershipListRequest,
+        //     oneshot::Sender<MembershipListResponse>,
+        // )>(64);
 
-        tokio::spawn(async move {
-            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
-                match test_request {
-                    MembershipListRequest::GetAlive => {
-                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+        // tokio::spawn(async move {
+        //     while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+        //         match test_request {
+        //             MembershipListRequest::GetAlive => {
+        //                 let test_alive: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Alive(test_alive))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetConfirmed => {
-                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Alive(test_alive))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetConfirmed => {
+        //                 let test_confirmed: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Confirmed(test_confirmed))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetSuspected => {
-                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Confirmed(test_confirmed))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetSuspected => {
+        //                 let test_suspected: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Suspected(test_suspected))
-                            .unwrap();
-                    }
-                    _ => panic!("send bytes ping test"),
-                }
-            }
-        });
+        //                 test_response
+        //                     .send(MembershipListResponse::Suspected(test_suspected))
+        //                     .unwrap();
+        //             }
+        //             _ => panic!("send bytes ping test"),
+        //         }
+        //     }
+        // });
 
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
@@ -467,7 +467,7 @@ mod tests {
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
         let test_send_bytes = MembershipCommunications::send_bytes(
-            &test_list_sender,
+            // &test_list_sender,
             &test_socket,
             b"ping",
             test_origin,
@@ -494,39 +494,39 @@ mod tests {
             assert_eq!(&test_origin.to_string(), "127.0.0.1:25001");
         });
 
-        let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
-            MembershipListRequest,
-            oneshot::Sender<MembershipListResponse>,
-        )>(64);
+        // let (test_list_sender, mut test_list_receiver) = mpsc::channel::<(
+        //     MembershipListRequest,
+        //     oneshot::Sender<MembershipListResponse>,
+        // )>(64);
 
-        tokio::spawn(async move {
-            while let Some((test_request, test_response)) = test_list_receiver.recv().await {
-                match test_request {
-                    MembershipListRequest::GetAlive => {
-                        let test_alive: Vec<Node> = Vec::with_capacity(0);
+        // tokio::spawn(async move {
+        //     while let Some((test_request, test_response)) = test_list_receiver.recv().await {
+        //         match test_request {
+        //             MembershipListRequest::GetAlive => {
+        //                 let test_alive: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Alive(test_alive))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetConfirmed => {
-                        let test_confirmed: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Alive(test_alive))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetConfirmed => {
+        //                 let test_confirmed: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Confirmed(test_confirmed))
-                            .unwrap();
-                    }
-                    MembershipListRequest::GetSuspected => {
-                        let test_suspected: Vec<Node> = Vec::with_capacity(0);
+        //                 test_response
+        //                     .send(MembershipListResponse::Confirmed(test_confirmed))
+        //                     .unwrap();
+        //             }
+        //             MembershipListRequest::GetSuspected => {
+        //                 let test_suspected: Vec<Node> = Vec::with_capacity(0);
 
-                        test_response
-                            .send(MembershipListResponse::Suspected(test_suspected))
-                            .unwrap();
-                    }
-                    _ => panic!("send bytes ping test"),
-                }
-            }
-        });
+        //                 test_response
+        //                     .send(MembershipListResponse::Suspected(test_suspected))
+        //                     .unwrap();
+        //             }
+        //             _ => panic!("send bytes ping test"),
+        //         }
+        //     }
+        // });
 
         tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
@@ -535,7 +535,7 @@ mod tests {
         let test_origin = SocketAddr::from_str("0.0.0.0:25000").unwrap();
 
         let test_send_bytes = MembershipCommunications::send_bytes(
-            &test_list_sender,
+            // &test_list_sender,
             &test_socket,
             b"ping-req",
             test_origin,
