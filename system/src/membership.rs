@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::channel::MembershipCommunicationsMessage;
-// use crate::channel::ShutdownReceiver;
 use crate::channel::ShutdownSender;
 use crate::channel::{
     build_failure_detector_channel, build_failure_detector_ping_target_channel,
@@ -54,7 +53,6 @@ impl ClusterSize {
 
 pub struct Membership {
     cluster_size: ClusterSize,
-    // server: Node,
     receiver: MembershipReceiver,
     shutdown: ShutdownSender,
 }
@@ -62,13 +60,11 @@ pub struct Membership {
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
-        // server: Node,
         receiver: MembershipReceiver,
         shutdown: ShutdownSender,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         Ok(Membership {
             cluster_size,
-            // server,
             receiver,
             shutdown,
         })
@@ -104,7 +100,6 @@ impl Membership {
         let static_join_send_udp_message = send_udp_message.clone();
         let failure_detector_send_udp_message = send_udp_message.clone();
 
-        // let membership_port = self.server.membership_address().await;
         let membership_port = server.membership_address().await;
 
         let mut communications = MembershipCommunications::init(
@@ -163,7 +158,6 @@ impl Membership {
                     }
                 }
                 MembershipRequest::Node => {
-                    // let node = self.server;
                     let node = server;
 
                     if let Err(error) = response.send(MembershipResponse::Node(node)) {

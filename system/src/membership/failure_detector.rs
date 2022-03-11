@@ -1,6 +1,4 @@
-use tokio::time::{sleep, timeout, Duration};
-
-use tokio::sync::mpsc;
+use tokio::time::{timeout, Duration};
 
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
@@ -14,12 +12,6 @@ use crate::channel::{
 };
 use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
 use crate::membership::Message;
-
-use crate::node::Node;
-
-use std::net::{IpAddr, SocketAddr};
-
-use std::str::FromStr;
 
 pub struct FailureDectector {
     protocol_period: Duration,
@@ -76,7 +68,6 @@ impl FailureDectector {
     }
 
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // let (_placeholder_sender, mut placeholder_receiver) = mpsc::channel::<Node>(1);
         let mut receive_ping_target_ack = self.ping_target_channel.subscribe();
 
         let alive_list = get_alive(&self.list_sender).await?;
@@ -99,34 +90,7 @@ impl FailureDectector {
 
             send_message(&self.send_udp_message, &ping, address).await?;
 
-            // match timeout(self.protocol_period, placeholder_receiver.recv()).await {
             match timeout(self.protocol_period, receive_ping_target_ack.recv()).await {
-                // Ok(Some(ping_target)) => {
-                //     if member == ping_target {
-                //         remove_suspected(&self.list_sender, &member).await?;
-                //         remove_confirmed(&self.list_sender, &member).await?;
-                //         insert_alive(&self.list_sender, &member).await?;
-                //     } else {
-                //         println!("nodes dont match!");
-                //     }
-                // }
-                // Ok(None) => {
-                //     println!("failed to receive response from suspected node...");
-
-                //     remove_alive(&self.list_sender, &member).await?;
-                //     remove_confirmed(&self.list_sender, &member).await?;
-                //     insert_suspected(&self.list_sender, &member).await?;
-                // }
-                // Err(error) => {
-                //     println!(
-                //         "membership failure detector protocol period expired... {:?}",
-                //         error,
-                //     );
-
-                //     remove_alive(&self.list_sender, &member).await?;
-                //     remove_confirmed(&self.list_sender, &member).await?;
-                //     insert_suspected(&self.list_sender, &member).await?;
-                // }
                 Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
                     if address == ping_target {
                         remove_suspected(&self.list_sender, &member).await?;
