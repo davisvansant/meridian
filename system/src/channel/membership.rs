@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::node::Node;
@@ -19,7 +20,7 @@ pub enum MembershipRequest {
 #[derive(Clone, Debug)]
 pub enum MembershipResponse {
     Node(Node),
-    Members(Vec<Node>),
+    Members(VecDeque<Node>),
     Status((usize, usize)),
 }
 
@@ -49,7 +50,7 @@ pub async fn node(membership: &MembershipSender) -> Result<Node, Box<dyn std::er
 
 pub async fn cluster_members(
     membership: &MembershipSender,
-) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+) -> Result<VecDeque<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership

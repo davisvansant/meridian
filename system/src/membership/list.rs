@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 
 use uuid::Uuid;
@@ -53,10 +53,12 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetAlive => {
-                    let mut alive = Vec::with_capacity(self.alive.len());
+                    // let mut alive = Vec::with_capacity(self.alive.len());
+                    let mut alive = VecDeque::with_capacity(self.alive.len());
 
                     for member in self.alive.values() {
-                        alive.push(member.to_owned());
+                        // alive.push(member.to_owned());
+                        alive.push_back(member.to_owned());
                     }
 
                     if let Err(error) = response.send(MembershipListResponse::Alive(alive)) {
@@ -64,10 +66,12 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetSuspected => {
-                    let mut suspected = Vec::with_capacity(self.suspected.len());
+                    // let mut suspected = Vec::with_capacity(self.suspected.len());
+                    let mut suspected = VecDeque::with_capacity(self.suspected.len());
 
                     for node in self.suspected.values() {
-                        suspected.push(node.to_owned());
+                        // suspected.push(node.to_owned());
+                        suspected.push_back(node.to_owned());
                     }
 
                     if let Err(error) = response.send(MembershipListResponse::Suspected(suspected))
@@ -76,10 +80,12 @@ impl List {
                     }
                 }
                 MembershipListRequest::GetConfirmed => {
-                    let mut confirmed = Vec::with_capacity(self.confirmed.len());
+                    // let mut confirmed = Vec::with_capacity(self.confirmed.len());
+                    let mut confirmed = VecDeque::with_capacity(self.confirmed.len());
 
                     for node in self.confirmed.values() {
-                        confirmed.push(node.to_owned());
+                        // confirmed.push(node.to_owned());
+                        confirmed.push_back(node.to_owned());
                     }
 
                     if let Err(error) = response.send(MembershipListResponse::Confirmed(confirmed))

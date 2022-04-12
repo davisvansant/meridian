@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use tokio::sync::{mpsc, oneshot};
 
@@ -32,9 +33,12 @@ pub enum MembershipListRequest {
 pub enum MembershipListResponse {
     Node(Node),
     Initial(Vec<SocketAddr>),
-    Alive(Vec<Node>),
-    Suspected(Vec<Node>),
-    Confirmed(Vec<Node>),
+    // Alive(Vec<Node>),
+    Alive(VecDeque<Node>),
+    // Suspected(Vec<Node>),
+    Suspected(VecDeque<Node>),
+    // Confirmed(Vec<Node>),
+    Confirmed(VecDeque<Node>),
 }
 
 pub async fn get_node(
@@ -71,7 +75,8 @@ pub async fn get_initial(
 
 pub async fn get_alive(
     membership_list: &MembershipListSender,
-) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+    // ) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+) -> Result<VecDeque<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership_list
@@ -87,7 +92,8 @@ pub async fn get_alive(
 
 pub async fn get_suspected(
     membership_list: &MembershipListSender,
-) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+    // ) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+) -> Result<VecDeque<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership_list
@@ -103,7 +109,8 @@ pub async fn get_suspected(
 
 pub async fn get_confirmed(
     membership_list: &MembershipListSender,
-) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+    // ) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+) -> Result<VecDeque<Node>, Box<dyn std::error::Error>> {
     let (request, response) = oneshot::channel();
 
     membership_list
