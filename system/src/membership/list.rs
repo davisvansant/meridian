@@ -125,27 +125,33 @@ impl List {
     }
 
     pub async fn insert_alive(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
-        match self.alive.insert(node.id, node) {
-            Some(value) => println!("updated node! {:?}", value),
-            None => println!("added node !"),
+        if node != self.server {
+            match self.alive.insert(node.id, node) {
+                Some(value) => println!("updated node! {:?}", value),
+                None => println!("added node !"),
+            }
         }
 
         Ok(())
     }
 
     pub async fn insert_supsected(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
-        match self.suspected.insert(node.id, node) {
-            Some(value) => println!("updated node in suspected list! {:?}", value),
-            None => println!("added node to suspected list!"),
+        if node != self.server {
+            match self.suspected.insert(node.id, node) {
+                Some(value) => println!("updated node in suspected list! {:?}", value),
+                None => println!("added node to suspected list!"),
+            }
         }
 
         Ok(())
     }
 
     pub async fn insert_confirmed(&mut self, node: Node) -> Result<(), Box<dyn std::error::Error>> {
-        match self.confirmed.insert(node.id, node) {
-            Some(value) => println!("updated node in confirmed list! {:?}", value),
-            None => println!("added node to confirmed list!"),
+        if node != self.server {
+            match self.confirmed.insert(node.id, node) {
+                Some(value) => println!("updated node in confirmed list! {:?}", value),
+                None => println!("added node to confirmed list!"),
+            }
         }
 
         Ok(())
