@@ -72,10 +72,10 @@ impl FailureDectector {
 
         let mut alive_list = get_alive(&self.list_sender).await?;
 
-        if let Some(alive_node) = alive_list.swap_remove_back(0) {
-            alive_list.push_front(alive_node);
-            alive_list.rotate_right(1);
-        }
+        // if let Some(alive_node) = alive_list.swap_remove_back(0) {
+        //     alive_list.push_front(alive_node);
+        //     alive_list.rotate_right(1);
+        // }
 
         for member in alive_list {
             let address = member.membership_address().await;
