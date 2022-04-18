@@ -1,11 +1,6 @@
 use std::net::SocketAddr;
-use tokio::sync::watch;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, watch};
 
-use crate::node::Node;
-
-// pub type MembershipFailureDetectorReceiver = mpsc::Receiver<MembershipFailureDetectorRequest>;
-// pub type MembershipFailureDetectorSender = mpsc::Sender<MembershipFailureDetectorRequest>;
 pub type MembershipFailureDetectorReceiver = watch::Receiver<MembershipFailureDetectorRequest>;
 pub type MembershipFailureDetectorSender = watch::Sender<MembershipFailureDetectorRequest>;
 
@@ -20,7 +15,6 @@ pub enum MembershipFailureDetectorRequest {
 
 #[derive(Clone, Debug)]
 pub enum MembershipFailureDetectorPingTarget {
-    // Member(Node),
     Member(SocketAddr),
 }
 

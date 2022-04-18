@@ -218,7 +218,7 @@ mod tests {
     use super::*;
     use crate::channel::build_failure_detector_ping_target_channel;
     use crate::channel::{MembershipListRequest, MembershipListResponse};
-    use crate::node::Node;
+    // use crate::node::Node;
     use std::str::FromStr;
     use tokio::sync::{broadcast, mpsc, oneshot};
 

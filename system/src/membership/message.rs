@@ -1,6 +1,5 @@
 use flexbuffers::{Builder, BuilderOptions};
 
-// use std::collections::VecDeque;
 use std::net::IpAddr;
 use std::str::FromStr;
 
@@ -37,9 +36,6 @@ impl Message {
         alive_list: &[Node],
         suspected_list: &[Node],
         confirmed_list: &[Node],
-        // alive_list: &VecDeque<Node>,
-        // suspected_list: &VecDeque<Node>,
-        // confirmed_list: &VecDeque<Node>,
     ) -> Vec<u8> {
         let flexbuffer_options = BuilderOptions::SHARE_NONE;
         let mut flexbuffers_builder = Builder::new(flexbuffer_options);

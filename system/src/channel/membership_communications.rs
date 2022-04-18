@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
 use tokio::sync::broadcast;
 
-// pub type MembershipCommunicationsReceiver = broadcast::Receiver<MembershipCommunicationsMessage>;
 pub type MembershipCommunicationsSender = broadcast::Sender<MembershipCommunicationsMessage>;
 
 #[derive(Clone, Debug)]
