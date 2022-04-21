@@ -2,15 +2,21 @@ use tokio::time::{timeout, Duration};
 
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
+// use crate::channel::{
+//     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
+//     insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
+// };
 use crate::channel::{
-    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
-    insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
+    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_suspected,
+    remove_alive, remove_confirmed, remove_suspected, send_message,
 };
-use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
+// use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
+use crate::channel::MembershipCommunicationsSender;
 use crate::channel::{
     MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
 };
-use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
+// use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
+use crate::channel::MembershipFailureDetectorReceiver;
 use crate::membership::Message;
 
 pub struct FailureDectector {
