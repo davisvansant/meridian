@@ -123,9 +123,9 @@ impl Server {
                 } else {
                     self.server_state = ServerState::Follower;
 
-                    failure_detector(&self.membership).await?;
+                    sleep(Duration::from_secs(10)).await;
 
-                    sleep(Duration::from_secs(5)).await;
+                    failure_detector(&self.membership).await?;
                 }
 
                 Ok(())
