@@ -151,6 +151,15 @@ impl MembershipCommunications {
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
 
+                if let Ok(active_receiver) =
+                    ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
+                {
+                    println!(
+                        "sent {:?} to active reciever {:?}",
+                        &origin, active_receiver,
+                    );
+                }
+
                 // ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))?;
 
                 remove_confirmed(list_sender, &origin_node).await?;
