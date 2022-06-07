@@ -1,6 +1,7 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::{Leader, LeaderReceiver};
+use crate::{error, info};
 
 pub struct Follower {
     pub election_timeout: Duration,
@@ -21,11 +22,13 @@ impl Follower {
             timeout_at(Instant::now() + self.election_timeout, heartbeat.recv()).await
         {
             if let Ok(Leader::Heartbeat) = result {
-                println!("receiving heartbeat...");
+                // println!("receiving heartbeat...");
+                info!("receiving heartbeat...");
             }
         }
 
-        println!("timeout ending...starting election");
+        // println!("timeout ending...starting election");
+        info!("timeout ending...starting election");
 
         Ok(())
     }

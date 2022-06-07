@@ -2,6 +2,7 @@ use tokio::time::{timeout, Duration};
 
 use crate::channel::MembershipListSender;
 use crate::channel::ShutdownReceiver;
+use crate::{error, info, warn};
 // use crate::channel::{
 //     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
 //     insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
@@ -50,21 +51,29 @@ impl FailureDectector {
         shutdown: &mut ShutdownReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(()) = self.receiver.changed().await {
-            println!("launching membership failure detector!");
+            // println!("launching membership failure detector!");
+            info!("launching membership failure detector!");
         }
 
         loop {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    println!("shutting down failure dectector...");
+                    // println!("shutting down failure dectector...");
+                    info!("shutting down failure dectector...");
 
                     break
                 }
                 result = self.probe() => {
                     match result {
-                        Ok(()) => println!("probe complete!"),
-                        Err(error) => println!("probe failed with error -> {:?}", error),
+                        Ok(()) => {
+                            // println!("probe complete!"),
+                            info!("probe complete!");
+                        }
+                        Err(error) => {
+                            // println!("probe failed with error -> {:?}", error),
+                            error!("probe failed with error -> {:?}", error);
+                        }
                     }
                 }
             }
@@ -103,18 +112,24 @@ impl FailureDectector {
                         remove_confirmed(&self.list_sender, &member).await?;
                         insert_alive(&self.list_sender, &member).await?;
                     } else {
-                        println!("nodes dont match!");
+                        // println!("nodes dont match!");
+                        warn!("nodes dont match!");
                     }
                 }
                 Ok(Err(error)) => {
-                    println!("error with ping target channel -> {:?}", error);
+                    // println!("error with ping target channel -> {:?}", error);
+                    error!("error with ping target channel -> {:?}", error);
 
                     remove_alive(&self.list_sender, &member).await?;
                     remove_confirmed(&self.list_sender, &member).await?;
                     insert_suspected(&self.list_sender, &member).await?;
                 }
                 Err(error) => {
-                    println!(
+                    // println!(
+                    //     "membership failure detector protocol period expired... {:?}",
+                    //     error,
+                    // );
+                    error!(
                         "membership failure detector protocol period expired... {:?}",
                         error,
                     );

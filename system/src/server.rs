@@ -9,6 +9,7 @@ use crate::channel::{MembershipSender, RpcClientSender, StateSender};
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
+use crate::{error, info, warn};
 
 mod candidate;
 mod follower;
@@ -67,7 +68,8 @@ impl Server {
             tokio::select! {
                 biased;
                 _ = server_shutdown.recv() => {
-                    println!("shutting down system server...");
+                    // println!("shutting down system server...");
+                    info!("shutting down system server...");
 
                     self.server_state = ServerState::Shutdown;
 
@@ -75,11 +77,13 @@ impl Server {
                 }
                 server_state = self.server_state() => {
                     if self.server_state == ServerState::Shutdown {
-                        println!("server > shutdown...");
+                        // println!("server > shutdown...");
+                        info!("server > shutdown...");
 
                         break;
                     } else {
-                        println!("output of server state -> {:?}", server_state);
+                        // println!("output of server state -> {:?}", server_state);
+                        info!("output of server state -> {:?}", server_state);
                     }
                 }
             }
@@ -95,20 +99,24 @@ impl Server {
     async fn server_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         match self.server_state {
             ServerState::Preflight => {
-                println!("running preflight tasks...");
+                // println!("running preflight tasks...");
+                info!("running preflight tasks...");
 
                 let mut errors = 0;
 
                 while errors <= 2 {
                     match preflight::run(&self.membership).await {
                         Ok(()) => {
-                            println!("launching...");
+                            // println!("launching...");
+                            info!("launching...");
 
                             break;
                         }
                         Err(error) => {
-                            println!("preflight error -> {:?}", error);
-                            println!("attempting preflight again -> {:?}", &error);
+                            // println!("preflight error -> {:?}", error);
+                            // println!("attempting preflight again -> {:?}", &error);
+                            error!("preflight error -> {:?}", error);
+                            error!("attempting preflight again -> {:?}", &error);
 
                             errors += 1;
                         }
@@ -117,7 +125,8 @@ impl Server {
                 }
 
                 if errors >= 2 {
-                    println!("preflight tasks failed...shutting down...");
+                    // println!("preflight tasks failed...shutting down...");
+                    warn!("preflight tasks failed...shutting down...");
 
                     self.server_state = ServerState::Shutdown;
                 } else {
@@ -131,7 +140,8 @@ impl Server {
                 Ok(())
             }
             ServerState::Follower => {
-                println!("server > follower!");
+                // println!("server > follower!");
+                info!("server > follower!");
 
                 let mut heartbeat = self.heartbeat.subscribe();
                 let mut follower = Follower::init().await?;
@@ -143,7 +153,8 @@ impl Server {
                 Ok(())
             }
             ServerState::Candidate => {
-                println!("server > candidate!");
+                // println!("server > candidate!");
+                info!("server > candidate!");
 
                 let mut candidate_receiver = self.candidate_sender.subscribe();
                 let mut candidate = Candidate::init().await?;
@@ -156,7 +167,8 @@ impl Server {
                         self.server_state = ServerState::Leader;
                     }
                     Err(error) => {
-                        println!("candidate error -> {:?}", error);
+                        // println!("candidate error -> {:?}", error);
+                        error!("candidate error -> {:?}", error);
 
                         self.server_state = ServerState::Candidate;
                     }
@@ -165,7 +177,8 @@ impl Server {
                 Ok(())
             }
             ServerState::Leader => {
-                println!("server > leader!");
+                // println!("server > leader!");
+                info!("server > leader!");
 
                 let shutdown = self.shutdown.subscribe();
                 let mut leader = Leader::init(shutdown).await?;
@@ -177,7 +190,8 @@ impl Server {
                 Ok(())
             }
             ServerState::Shutdown => {
-                println!("server > shutdown...");
+                // println!("server > shutdown...");
+                info!("server > shutdown...");
 
                 self.server_state = ServerState::Shutdown;
 

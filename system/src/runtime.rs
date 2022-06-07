@@ -14,6 +14,7 @@ use crate::node::Node;
 use crate::rpc::{Client, Server};
 use crate::server::Server as SystemServer;
 use crate::state::State;
+use crate::{error, info};
 
 pub async fn launch(
     cluster_size: &str,
@@ -87,7 +88,8 @@ pub async fn launch(
 
     let membership_handle = tokio::spawn(async move {
         if let Err(error) = membership.run(node, peers).await {
-            println!("error running membership -> {:?}", error);
+            // println!("error running membership -> {:?}", error);
+            error!("membership -> {:?}", error);
         }
     });
 
@@ -107,7 +109,8 @@ pub async fn launch(
 
     let system_server_handle = tokio::spawn(async move {
         if let Err(error) = system_server.run().await {
-            println!("error running server -> {:?}", error);
+            // println!("error running server -> {:?}", error);
+            error!("server -> {:?}", error);
         }
     });
 
@@ -119,7 +122,8 @@ pub async fn launch(
 
     let state_handle = tokio::spawn(async move {
         if let Err(error) = state.run().await {
-            println!("error with state -> {:?}", error);
+            // println!("error with state -> {:?}", error);
+            error!("state -> {:?}", error);
         }
     });
 
@@ -139,7 +143,8 @@ pub async fn launch(
 
     let rpc_communications_server_handle = tokio::spawn(async move {
         if let Err(error) = rpc_communications_server.run().await {
-            println!("error with rpc communications server {:?}", error);
+            // println!("error with rpc communications server {:?}", error);
+            error!("rpc communications server -> {:?}", error);
         }
     });
 
@@ -157,7 +162,8 @@ pub async fn launch(
 
     let client_handle = tokio::spawn(async move {
         if let Err(error) = client.run().await {
-            println!("error running client... {:?}", error);
+            // println!("error running client... {:?}", error);
+            error!("client -> {:?}", error);
         }
     });
 
@@ -170,29 +176,36 @@ pub async fn launch(
             tokio::select! {
                 // biased;
                 ctrl_c = ctrl_c() => {
-                    println!("received shutdown signal {:?}", ctrl_c);
-                    println!("shutting down...");
+                    // println!("received shutdown signal {:?}", ctrl_c);
+                    // println!("shutting down...");
+                    info!("received shutdown signal {:?}", ctrl_c);
+                    info!("shutting down...");
 
                 if let Err(error) = shutdown(&another_shutdown_signal).await {
-                    println!("error sending shutdown signal! -> {:?}", error);
+                    // println!("error sending shutdown signal! -> {:?}", error);
+                    error!("error sending shutdown signal! -> {:?}", error);
                 }
 
                 if let Ok(()) = crate::channel::shutdown_state(&shutdown_state).await {
-                    println!("system state shutdown...");
+                    // println!("system state shutdown...");
+                    info!("system state shutdown...");
                 }
 
                 if let Ok(()) = crate::channel::shutdown_rpc_client(&shutdown_client).await {
-                    println!("rpc client shutdown...");
+                    // println!("rpc client shutdown...");
+                    info!("rpc client shutdown...");
                 }
 
                 if let Ok(()) = crate::channel::shutdown_membership(&shutdown_membership).await {
-                    println!("initiating membership shutdown...");
+                    // println!("initiating membership shutdown...");
+                    info!("initiating membership shutdown...");
                 }
 
                     break
                 }
                 _ = system_shutdown.recv() => {
-                    println!("shutting down...");
+                    // println!("shutting down...");
+                    info!("shutting down...");
 
                     break
                 }

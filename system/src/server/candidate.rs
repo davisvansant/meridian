@@ -2,6 +2,7 @@ use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::start_election;
 use crate::channel::{CandidateReceiver, CandidateTransition, RpcClientSender};
+use crate::{error, info};
 
 pub struct Candidate {
     pub election_timeout: Duration,
@@ -22,7 +23,8 @@ impl Candidate {
 
         tokio::spawn(async move {
             if let Err(error) = start_election(&client_owner).await {
-                println!("election error -> {:?}", error);
+                // println!("election error -> {:?}", error);
+                error!("election error -> {:?}", error);
             }
         });
 
@@ -30,21 +32,24 @@ impl Candidate {
             match timeout_at(Instant::now() + self.election_timeout, transition.recv()).await {
                 Ok(state) => match state {
                     Ok(CandidateTransition::Follower) => {
-                        println!("received heartbeat...stepping down");
+                        // println!("received heartbeat...stepping down");
+                        info!("received heartbeat...stepping down");
 
                         return Ok(CandidateTransition::Follower);
                     }
                     Ok(CandidateTransition::Leader) => {
-                        println!("transitioning server to leader...");
+                        // println!("transitioning server to leader...");
+                        info!("transitioning server to leader...");
 
                         return Ok(CandidateTransition::Leader);
                     }
                     Err(error) => {
-                        println!("error receiving candidate transition... -> {:?}", error);
+                        // println!("error receiving candidate transition... -> {:?}", error);
+                        error!("error receiving candidate transition... -> {:?}", error);
                         continue;
                     }
                 },
-                Err(error) => println!(
+                Err(error) => error!(
                     "candidate election timeout lapsed...trying again...{:?}",
                     error,
                 ),

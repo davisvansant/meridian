@@ -12,6 +12,7 @@ use crate::channel::{get_alive, shutdown_membership_list};
 use crate::channel::{MembershipListRequest, MembershipListResponse};
 use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::node::Node;
+use crate::{error, info, warn};
 
 use communications::MembershipCommunications;
 use failure_detector::FailureDectector;
@@ -101,7 +102,8 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = list.run().await {
-                println!("membership list error -> {:?}", error);
+                // println!("membership list error -> {:?}", error);
+                error!("membership list -> {:?}", error);
             }
         });
 
@@ -127,7 +129,8 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = communications.run(&mut communications_shutdown).await {
-                println!("error with membership communications -> {:?}", error);
+                // println!("error with membership communications -> {:?}", error);
+                error!("membership communications -> {:?}", error);
             }
         });
 
@@ -144,14 +147,16 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
-                println!("error with membership failure dector -> {:?}", error);
+                // println!("error with membership failure dector -> {:?}", error);
+                error!("membership failure detector -> {:?}", error);
             }
         });
 
         let mut static_join =
             StaticJoin::init(static_join_send_udp_message, static_join_send_list).await;
 
-        println!("membership initialized and running...");
+        // println!("membership initialized and running...");
+        info!("membership initialized and running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
@@ -159,19 +164,22 @@ impl Membership {
                     launch_failure_detector(&failure_detector_sender).await?;
                 }
                 MembershipRequest::Members => {
-                    println!("received members request!");
+                    // println!("received members request!");
+                    info!("received members request!");
 
                     let members = get_alive(&list_sender).await?;
 
                     if let Err(error) = response.send(MembershipResponse::Members(members)) {
-                        println!("error sending membership response -> {:?}", error);
+                        // println!("error sending membership response -> {:?}", error);
+                        error!("error sending membership response -> {:?}", error);
                     }
                 }
                 MembershipRequest::Node => {
                     let node = server;
 
                     if let Err(error) = response.send(MembershipResponse::Node(node)) {
-                        println!("error sending membership response -> {:?}", error);
+                        // println!("error sending membership response -> {:?}", error);
+                        error!("error sending membership response -> {:?}", error);
                     }
                 }
                 MembershipRequest::StaticJoin => {
@@ -183,7 +191,8 @@ impl Membership {
                     if let Err(error) =
                         response.send(MembershipResponse::Status((alive.len(), expected)))
                     {
-                        println!("error sending membership response -> {:?}", error);
+                        // println!("error sending membership response -> {:?}", error);
+                        error!("error sending membership response -> {:?}", error);
                     }
                 }
                 // MembershipRequest::Status => {
@@ -201,7 +210,8 @@ impl Membership {
                 //     }
                 // }
                 MembershipRequest::Shutdown => {
-                    println!("shutting down membership...");
+                    // println!("shutting down membership...");
+                    info!("shutting down membership...");
 
                     shutdown_membership_list(&list_sender).await?;
 

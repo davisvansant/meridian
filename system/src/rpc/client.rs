@@ -5,6 +5,7 @@ use tokio::net::TcpSocket;
 
 use crate::channel::MembershipSender;
 use crate::channel::StateSender;
+use crate::{error, info, warn};
 // use crate::channel::{candidate, cluster_members, get_node, heartbeat};
 use crate::channel::{candidate, cluster_members, heartbeat, node};
 use crate::channel::{CandidateSender, CandidateTransition};
@@ -48,7 +49,8 @@ impl Client {
                             let socket_address = peer.build_address(peer.cluster_port).await;
                             let result = self.request_vote(socket_address).await?;
 
-                            println!("results -> {:?}", &result);
+                            // println!("results -> {:?}", &result);
+                            info!("results -> {:?}", &result);
 
                             if result.vote_granted {
                                 vote.push(1);
@@ -63,7 +65,8 @@ impl Client {
                     }
                 }
                 RpcClientRequest::SendHeartbeat => {
-                    println!("sending heartbeat");
+                    // println!("sending heartbeat");
+                    info!("sending heartbeat");
 
                     let cluster_member = cluster_members(&self.membership_sender).await?;
 
@@ -73,7 +76,8 @@ impl Client {
                     }
                 }
                 RpcClientRequest::Shutdown => {
-                    println!("shutting down client...");
+                    // println!("shutting down client...");
+                    info!("shutting down client...");
 
                     self.receiver.close();
                 }

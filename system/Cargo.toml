@@ -13,6 +13,8 @@ path = "../bin/meridian.rs"
 [dependencies]
 clap = { version = "3.1.18", default-features = false, features = [ "std", "suggestions" ] }
 flexbuffers = { version = "2.0.0", default-features = false }
+tracing = "0.1.34"
+tracing-subscriber = "0.3.11"
 tokio = { version = "1.19.2", default-features = false, features = [
     "io-util",
     "macros",
