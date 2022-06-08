@@ -30,7 +30,7 @@ pub async fn build() -> (MembershipSender, MembershipReceiver) {
     (membership_sender, membership_receiver)
 }
 
-pub async fn failure_detector(
+pub async fn launch_failure_detector(
     membership: &MembershipSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (_request, _response) = oneshot::channel();
