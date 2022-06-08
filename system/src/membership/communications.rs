@@ -31,6 +31,8 @@ impl MembershipCommunications {
         receiver: MembershipCommunicationsSender,
         ping_target_channel: MembershipFailureDetectorPingTargetSender,
     ) -> MembershipCommunications {
+        info!("initialized!");
+
         MembershipCommunications {
             socket_address,
             list_sender,
@@ -52,6 +54,8 @@ impl MembershipCommunications {
         let mut receiver = self.receiver.subscribe();
 
         // let send_message_list_sender = self.list_sender.to_owned();
+
+        info!("running!");
 
         tokio::spawn(async move {
             while let Ok(incoming_message) = receiver.recv().await {
@@ -76,7 +80,7 @@ impl MembershipCommunications {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    error!("shutting down membership interface..");
+                    info!("shutting down...");
 
                     break
                 }

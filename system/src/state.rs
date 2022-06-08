@@ -24,6 +24,8 @@ impl State {
         let persistent = Persistent::init().await?;
         let volatile = Volatile::init().await?;
 
+        info!("initialized!");
+
         Ok(State {
             persistent,
             volatile,
@@ -33,6 +35,8 @@ impl State {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        info!("running!");
+
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 StateRequest::AppendEntries(arguments) => {
@@ -74,9 +78,9 @@ impl State {
                     }
                 }
                 StateRequest::Shutdown => {
-                    self.receiver.close();
+                    info!("shutting down...");
 
-                    info!("state shutdown...");
+                    self.receiver.close();
                 }
             }
         }

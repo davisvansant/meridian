@@ -28,6 +28,8 @@ impl List {
         let suspected = HashMap::with_capacity(10);
         let confirmed = HashMap::with_capacity(10);
 
+        info!("initialized!");
+
         Ok(List {
             server,
             initial,
@@ -39,6 +41,8 @@ impl List {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        info!("running...");
+
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 MembershipListRequest::GetNode => {
@@ -111,7 +115,7 @@ impl List {
                     self.remove_confirmed(&node).await?;
                 }
                 MembershipListRequest::Shutdown => {
-                    info!("shutting down membership list");
+                    info!("shutting down...");
 
                     self.receiver.close();
                 }

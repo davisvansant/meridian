@@ -32,6 +32,8 @@ impl FailureDectector {
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(10);
 
+        info!("initialized!");
+
         FailureDectector {
             protocol_period,
             list_sender,
@@ -53,7 +55,7 @@ impl FailureDectector {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    info!("shutting down failure dectector...");
+                    info!("shutting down...");
 
                     break
                 }

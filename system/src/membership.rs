@@ -67,6 +67,8 @@ impl Membership {
         receiver: MembershipReceiver,
         shutdown: ShutdownSender,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
+        info!("initialized!");
+
         Ok(Membership {
             cluster_size,
             receiver,
@@ -140,7 +142,7 @@ impl Membership {
         let mut static_join =
             StaticJoin::init(static_join_send_udp_message, static_join_send_list).await;
 
-        info!("membership initialized and running...");
+        info!("running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
@@ -190,7 +192,7 @@ impl Membership {
                 //     }
                 // }
                 MembershipRequest::Shutdown => {
-                    info!("shutting down membership...");
+                    info!("shutting down...");
 
                     shutdown(&list_sender).await?;
 

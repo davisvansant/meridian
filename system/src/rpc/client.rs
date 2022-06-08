@@ -26,6 +26,8 @@ impl Client {
         state_sender: StateSender,
         candidate_sender: CandidateSender,
     ) -> Result<Client, Box<dyn std::error::Error>> {
+        info!("initialized!");
+
         Ok(Client {
             receiver,
             membership_sender,
@@ -35,6 +37,8 @@ impl Client {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        info!("running!");
+
         while let Some(request) = self.receiver.recv().await {
             match request {
                 RpcClientRequest::StartElection => {
@@ -74,7 +78,7 @@ impl Client {
                     }
                 }
                 RpcClientRequest::Shutdown => {
-                    info!("shutting down client...");
+                    info!("shutting down...");
 
                     self.receiver.close();
                 }

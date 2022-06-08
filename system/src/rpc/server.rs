@@ -27,6 +27,8 @@ impl Server {
         socket_address: SocketAddr,
         shutdown: ShutdownReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
+        info!("initialized!");
+
         Ok(Server {
             socket_address,
             state_sender,
@@ -36,6 +38,8 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        info!("running!");
+
         let tcp_socket = build_tcp_socket().await?;
 
         tcp_socket.set_reuseaddr(true)?;
@@ -49,7 +53,7 @@ impl Server {
             tokio::select! {
                 biased;
                  _ = self.shutdown.recv() => {
-                    info!("shutting down rpc server interface...");
+                    info!("shutting down...");
 
                     break
                 }
