@@ -7,7 +7,7 @@ use crate::channel::membership_list::{
     MembershipListReceiver, MembershipListRequest, MembershipListResponse,
 };
 use crate::node::Node;
-use crate::{error, info, warn};
+use crate::{error, info};
 
 pub struct List {
     server: Node,
@@ -45,7 +45,6 @@ impl List {
                     let node = self.server;
 
                     if let Err(error) = response.send(MembershipListResponse::Node(node)) {
-                        // println!("error sending membership list response -> {:?}", error);
                         error!("error sending membership list response -> {:?}", error);
                     }
                 }
@@ -53,7 +52,6 @@ impl List {
                     let initial = self.initial.to_vec();
 
                     if let Err(error) = response.send(MembershipListResponse::Initial(initial)) {
-                        // println!("error sending membership list response -> {:?}", error);
                         error!("error sending membership list response -> {:?}", error);
                     }
                 }
@@ -65,7 +63,6 @@ impl List {
                     }
 
                     if let Err(error) = response.send(MembershipListResponse::Alive(alive)) {
-                        // println!("error sending membership list response -> {:?}", error);
                         error!("error sending membership list response -> {:?}", error);
                     }
                 }
@@ -78,7 +75,6 @@ impl List {
 
                     if let Err(error) = response.send(MembershipListResponse::Suspected(suspected))
                     {
-                        // println!("error sending membership list response -> {:?}", error);
                         error!("error sending membership list response -> {:?}", error);
                     }
                 }
@@ -91,7 +87,6 @@ impl List {
 
                     if let Err(error) = response.send(MembershipListResponse::Confirmed(confirmed))
                     {
-                        // println!("error sending membership list response -> {:?}", error);
                         error!("error sending membership list response -> {:?}", error);
                     }
                 }
@@ -116,7 +111,6 @@ impl List {
                     self.remove_confirmed(&node).await?;
                 }
                 MembershipListRequest::Shutdown => {
-                    // println!("shutting down membership list");
                     info!("shutting down membership list");
 
                     self.receiver.close();
@@ -131,11 +125,9 @@ impl List {
         if node != self.server {
             match self.alive.insert(node.id, node) {
                 Some(value) => {
-                    // println!("updated node! {:?}", value)
                     info!("updated node! {:?}", value);
                 }
                 None => {
-                    // println!("added node !"),
                     info!("added node !");
                 }
             }
@@ -148,11 +140,9 @@ impl List {
         if node != self.server {
             match self.suspected.insert(node.id, node) {
                 Some(value) => {
-                    // println!("updated node in suspected list! {:?}", value),
                     info!("updated node in suspected list! {:?}", value);
                 }
                 None => {
-                    // println!("added node to suspected list!"),
                     info!("added node to suspected list!");
                 }
             }
@@ -165,11 +155,9 @@ impl List {
         if node != self.server {
             match self.confirmed.insert(node.id, node) {
                 Some(value) => {
-                    // println!("updated node in confirmed list! {:?}", value),
                     info!("updated node in confirmed list! {:?}", value);
                 }
                 None => {
-                    // println!("added node to confirmed list!"),
                     info!("added node to confirmed list!");
                 }
             }
@@ -180,7 +168,6 @@ impl List {
 
     pub async fn remove_alive(&mut self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(remove_alive) = self.alive.remove(&node.id) {
-            // println!("removed from alive group - > {:?}", remove_alive);
             info!("removed from alive group - > {:?}", remove_alive);
         }
 
@@ -192,7 +179,6 @@ impl List {
         node: &Node,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(remove_suspected) = self.suspected.remove(&node.id) {
-            // println!("removed from suspected group - > {:?}", remove_suspected);
             info!("removed from suspected group - > {:?}", remove_suspected);
         }
 
@@ -204,7 +190,6 @@ impl List {
         node: &Node,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(remove_confirmed) = self.confirmed.remove(&node.id) {
-            // println!("removed from confirmed group - > {:?}", remove_confirmed);
             info!("removed from confirmed group - > {:?}", remove_confirmed);
         }
 

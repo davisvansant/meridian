@@ -9,8 +9,8 @@ use crate::channel::rpc_client::{RpcClientReceiver, RpcClientRequest};
 use crate::channel::server::{CandidateSender, CandidateTransition};
 use crate::channel::state::StateSender;
 use crate::channel::state::{candidate, heartbeat};
+use crate::info;
 use crate::rpc::{Data, RequestVoteResults};
-use crate::{error, info, warn};
 
 pub struct Client {
     receiver: RpcClientReceiver,
@@ -49,7 +49,6 @@ impl Client {
                             let socket_address = peer.build_address(peer.cluster_port).await;
                             let result = self.request_vote(socket_address).await?;
 
-                            // println!("results -> {:?}", &result);
                             info!("results -> {:?}", &result);
 
                             if result.vote_granted {
@@ -65,7 +64,6 @@ impl Client {
                     }
                 }
                 RpcClientRequest::SendHeartbeat => {
-                    // println!("sending heartbeat");
                     info!("sending heartbeat");
 
                     let cluster_member = cluster_members(&self.membership_sender).await?;
@@ -76,7 +74,6 @@ impl Client {
                     }
                 }
                 RpcClientRequest::Shutdown => {
-                    // println!("shutting down client...");
                     info!("shutting down client...");
 
                     self.receiver.close();

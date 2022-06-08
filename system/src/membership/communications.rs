@@ -15,7 +15,7 @@ use crate::channel::membership_list::{
 };
 use crate::channel::shutdown::ShutdownReceiver;
 use crate::membership::Message;
-use crate::{error, info, warn};
+use crate::{error, info};
 
 pub struct MembershipCommunications {
     socket_address: SocketAddr,
@@ -65,7 +65,6 @@ impl MembershipCommunications {
                         )
                         .await
                         {
-                            // println!("error sending message -> {:?}", error);
                             error!("error sending message -> {:?}", error);
                         }
                     }
@@ -77,7 +76,6 @@ impl MembershipCommunications {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    // println!("shutting down membership interface..");
                     error!("shutting down membership interface..");
 
                     break
@@ -85,8 +83,6 @@ impl MembershipCommunications {
                 result = receiving_udp_socket.recv_from(&mut buffer) => {
                     match result {
                         Ok((bytes, origin)) => {
-                            // println!("received bytes -> {:?}", bytes);
-                            // println!("received from origin -> {:?}", origin);
                             info!("received bytes -> {:?}", bytes);
                             info!("received from origin -> {:?}", origin);
 
@@ -104,13 +100,11 @@ impl MembershipCommunications {
                                     &ping_target_sender,
                                 )
                                 .await {
-                                    // println!("error with running receive bytes -> {:?}", error);
                                     error!("error with running receive bytes -> {:?}", error);
                                 }
                             });
                         }
                         Err(error) => {
-                            // println!("error receiving UDP message -> {:?}", error);
                             error!("error receiving UDP message -> {:?}", error);
                         }
                     }
@@ -133,7 +127,6 @@ impl MembershipCommunications {
 
         match message {
             Message::Ack => {
-                // println!("received ack!");
                 info!("received ack!");
 
                 insert_alive(list_sender, &origin_node).await?;
@@ -143,7 +136,6 @@ impl MembershipCommunications {
                 }
             }
             Message::Ping => {
-                // println!("received ping!");
                 info!("received ping!");
 
                 let node = get_node(list_sender).await?;
@@ -165,10 +157,6 @@ impl MembershipCommunications {
                 if let Ok(active_receiver) =
                     ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
                 {
-                    // println!(
-                    //     "sent {:?} to active reciever {:?}",
-                    //     &origin, active_receiver,
-                    // );
                     info!(
                         "sent {:?} to active reciever {:?}",
                         &origin, active_receiver,
@@ -186,7 +174,6 @@ impl MembershipCommunications {
                 }
             }
             Message::PingReq => {
-                // println!("received ping request!");
                 info!("received ping request!");
 
                 let node = get_node(list_sender).await?;

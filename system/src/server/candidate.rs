@@ -24,7 +24,6 @@ impl Candidate {
 
         tokio::spawn(async move {
             if let Err(error) = rpc_client::start_election(&client_owner).await {
-                // println!("election error -> {:?}", error);
                 error!("election error -> {:?}", error);
             }
         });
@@ -33,19 +32,16 @@ impl Candidate {
             match timeout_at(Instant::now() + self.election_timeout, transition.recv()).await {
                 Ok(state) => match state {
                     Ok(CandidateTransition::Follower) => {
-                        // println!("received heartbeat...stepping down");
                         info!("received heartbeat...stepping down");
 
                         return Ok(CandidateTransition::Follower);
                     }
                     Ok(CandidateTransition::Leader) => {
-                        // println!("transitioning server to leader...");
                         info!("transitioning server to leader...");
 
                         return Ok(CandidateTransition::Leader);
                     }
                     Err(error) => {
-                        // println!("error receiving candidate transition... -> {:?}", error);
                         error!("error receiving candidate transition... -> {:?}", error);
                         continue;
                     }

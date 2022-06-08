@@ -10,7 +10,7 @@ mod volatile;
 use crate::state::leader_volatile::LeaderVolatile;
 use crate::state::persistent::Persistent;
 use crate::state::volatile::Volatile;
-use crate::{error, info, warn};
+use crate::{error, info};
 
 pub struct State {
     persistent: Persistent,
@@ -36,13 +36,11 @@ impl State {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 StateRequest::AppendEntries(arguments) => {
-                    // println!("received append entires request - {:?}", &arguments);
                     info!("received append entires request - {:?}", &arguments);
 
                     let results = self.append_entries(arguments).await?;
 
                     if let Err(error) = response.send(StateResponse::AppendEntries(results)) {
-                        // println!("state > error sending append entries response {:?}", error);
                         error!("append entries response -> {:?}", error);
                     }
                 }
@@ -53,7 +51,6 @@ impl State {
                     let arguments = self.build_request_vote_arguments(&candidate_id).await?;
 
                     if let Err(error) = response.send(StateResponse::Candidate(arguments)) {
-                        // println!("state > error sending request vote arguments {:?}", error);
                         error!("sending request vote arguments -> {:?}", error);
                     }
                 }
@@ -61,7 +58,6 @@ impl State {
                     let heartbeat = self.heartbeat(leader_id).await?;
 
                     if let Err(error) = response.send(StateResponse::Heartbeat(heartbeat)) {
-                        // println!("state > error sending heartbeat arguments {:?}", error);
                         println!("sending heartbeat arguments -> {:?}", error);
                     }
                 }
@@ -69,20 +65,17 @@ impl State {
                     self.init_leader_volatile_state().await?;
                 }
                 StateRequest::RequestVote(arguments) => {
-                    // println!("received request vote {:?}", &arguments);
                     info!("received request vote {:?}", &arguments);
 
                     let results = self.request_vote(arguments).await?;
 
                     if let Err(error) = response.send(StateResponse::RequestVote(results)) {
-                        // println!("state > error sending request vote response {:?}", error);
                         error!("sending request vote response -> {:?}", error);
                     }
                 }
                 StateRequest::Shutdown => {
                     self.receiver.close();
 
-                    // println!("system state shutdown...");
                     info!("state shutdown...");
                 }
             }
@@ -213,7 +206,7 @@ impl State {
 
     async fn init_leader_volatile_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.leader_volatile.is_none() {
-            println!("initialing leader volatile state ...");
+            info!("initialing leader volatile state ...");
             let leader_volatile = LeaderVolatile::init().await?;
             self.leader_volatile = Some(leader_volatile);
         }

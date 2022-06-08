@@ -2,7 +2,7 @@ use crate::channel::rpc_client::{send_heartbeat, RpcClientSender};
 use crate::channel::shutdown::ShutdownReceiver;
 use crate::channel::state::leader;
 use crate::channel::state::StateSender;
-use crate::{error, info};
+use crate::info;
 
 pub struct Leader {
     shutdown: ShutdownReceiver,
@@ -24,7 +24,6 @@ impl Leader {
             tokio::select! {
                 biased;
                 _ = self.shutdown.recv() => {
-                    // println!("shutting down leader heartbeat...");
                     info!("shutting down leader heartbeat...");
 
                     break

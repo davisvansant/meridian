@@ -46,7 +46,6 @@ impl FailureDectector {
         shutdown: &mut ShutdownReceiver,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(()) = self.receiver.changed().await {
-            // println!("launching membership failure detector!");
             info!("launching membership failure detector!");
         }
 
@@ -54,7 +53,6 @@ impl FailureDectector {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    // println!("shutting down failure dectector...");
                     info!("shutting down failure dectector...");
 
                     break
@@ -62,11 +60,9 @@ impl FailureDectector {
                 result = self.probe() => {
                     match result {
                         Ok(()) => {
-                            // println!("probe complete!"),
                             info!("probe complete!");
                         }
                         Err(error) => {
-                            // println!("probe failed with error -> {:?}", error),
                             error!("probe failed with error -> {:?}", error);
                         }
                     }
@@ -107,12 +103,10 @@ impl FailureDectector {
                         remove_confirmed(&self.list_sender, &member).await?;
                         insert_alive(&self.list_sender, &member).await?;
                     } else {
-                        // println!("nodes dont match!");
                         warn!("nodes dont match!");
                     }
                 }
                 Ok(Err(error)) => {
-                    // println!("error with ping target channel -> {:?}", error);
                     error!("error with ping target channel -> {:?}", error);
 
                     remove_alive(&self.list_sender, &member).await?;
@@ -120,10 +114,6 @@ impl FailureDectector {
                     insert_suspected(&self.list_sender, &member).await?;
                 }
                 Err(error) => {
-                    // println!(
-                    //     "membership failure detector protocol period expired... {:?}",
-                    //     error,
-                    // );
                     error!(
                         "membership failure detector protocol period expired... {:?}",
                         error,

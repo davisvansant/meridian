@@ -93,25 +93,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ip_address_value = run.value_of("ip_address").unwrap();
         let ip_address = IpAddr::from_str(ip_address_value)?;
 
-        // println!("set ip address - {:?}", &ip_address);
         info!("set ip address - {:?}", &ip_address);
 
         let cluster_port_value = run.value_of("cluster_port").unwrap();
         let cluster_port = u16::from_str(cluster_port_value)?;
 
-        // println!("launching cluster on {:?}", &cluster_port);
         info!("launching cluster on {:?}", &cluster_port);
 
         let client_port_value = run.value_of("client_port").unwrap();
         let client_port = u16::from_str(client_port_value)?;
 
-        // println!("launching client on {:?}", &client_port);
         info!("launching client on {:?}", &client_port);
 
         let membership_port_value = run.value_of("membership_port").unwrap();
         let membership_port = u16::from_str(membership_port_value)?;
 
-        // println!("launching membership on {:?}", &membership_port);
         info!("launching membership on {:?}", &membership_port);
 
         let node = Node::init(ip_address, client_port, cluster_port, membership_port).await?;

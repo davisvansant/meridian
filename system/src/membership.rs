@@ -5,7 +5,7 @@ use crate::channel::membership_failure_detector::{build, build_ping_target, laun
 use crate::channel::membership_list::{get_alive, shutdown};
 use crate::channel::shutdown::ShutdownSender;
 use crate::node::Node;
-use crate::{error, info, warn};
+use crate::{error, info};
 
 use communications::MembershipCommunications;
 use failure_detector::FailureDectector;
@@ -91,7 +91,6 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = list.run().await {
-                // println!("membership list error -> {:?}", error);
                 error!("membership list -> {:?}", error);
             }
         });
@@ -118,7 +117,6 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = communications.run(&mut communications_shutdown).await {
-                // println!("error with membership communications -> {:?}", error);
                 error!("membership communications -> {:?}", error);
             }
         });
@@ -135,7 +133,6 @@ impl Membership {
 
         tokio::spawn(async move {
             if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
-                // println!("error with membership failure dector -> {:?}", error);
                 error!("membership failure detector -> {:?}", error);
             }
         });
@@ -143,7 +140,6 @@ impl Membership {
         let mut static_join =
             StaticJoin::init(static_join_send_udp_message, static_join_send_list).await;
 
-        // println!("membership initialized and running...");
         info!("membership initialized and running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
@@ -152,13 +148,11 @@ impl Membership {
                     launch(&failure_detector_sender).await?;
                 }
                 MembershipRequest::Members => {
-                    // println!("received members request!");
                     info!("received members request!");
 
                     let members = get_alive(&list_sender).await?;
 
                     if let Err(error) = response.send(MembershipResponse::Members(members)) {
-                        // println!("error sending membership response -> {:?}", error);
                         error!("error sending membership response -> {:?}", error);
                     }
                 }
@@ -166,7 +160,6 @@ impl Membership {
                     let node = server;
 
                     if let Err(error) = response.send(MembershipResponse::Node(node)) {
-                        // println!("error sending membership response -> {:?}", error);
                         error!("error sending membership response -> {:?}", error);
                     }
                 }
@@ -179,7 +172,6 @@ impl Membership {
                     if let Err(error) =
                         response.send(MembershipResponse::Status((alive.len(), expected)))
                     {
-                        // println!("error sending membership response -> {:?}", error);
                         error!("error sending membership response -> {:?}", error);
                     }
                 }
@@ -198,7 +190,6 @@ impl Membership {
                 //     }
                 // }
                 MembershipRequest::Shutdown => {
-                    // println!("shutting down membership...");
                     info!("shutting down membership...");
 
                     shutdown(&list_sender).await?;

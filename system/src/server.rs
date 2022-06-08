@@ -69,7 +69,6 @@ impl Server {
             tokio::select! {
                 biased;
                 _ = server_shutdown.recv() => {
-                    // println!("shutting down system server...");
                     info!("shutting down system server...");
 
                     self.server_state = ServerState::Shutdown;
@@ -78,12 +77,10 @@ impl Server {
                 }
                 server_state = self.server_state() => {
                     if self.server_state == ServerState::Shutdown {
-                        // println!("server > shutdown...");
                         info!("server > shutdown...");
 
                         break;
                     } else {
-                        // println!("output of server state -> {:?}", server_state);
                         info!("output of server state -> {:?}", server_state);
                     }
                 }
@@ -100,7 +97,6 @@ impl Server {
     async fn server_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         match self.server_state {
             ServerState::Preflight => {
-                // println!("running preflight tasks...");
                 info!("running preflight tasks...");
 
                 let mut errors = 0;
@@ -108,14 +104,11 @@ impl Server {
                 while errors <= 2 {
                     match preflight::run(&self.membership).await {
                         Ok(()) => {
-                            // println!("launching...");
                             info!("launching...");
 
                             break;
                         }
                         Err(error) => {
-                            // println!("preflight error -> {:?}", error);
-                            // println!("attempting preflight again -> {:?}", &error);
                             error!("preflight error -> {:?}", error);
                             error!("attempting preflight again -> {:?}", &error);
 
@@ -126,7 +119,6 @@ impl Server {
                 }
 
                 if errors >= 2 {
-                    // println!("preflight tasks failed...shutting down...");
                     warn!("preflight tasks failed...shutting down...");
 
                     self.server_state = ServerState::Shutdown;
@@ -141,7 +133,6 @@ impl Server {
                 Ok(())
             }
             ServerState::Follower => {
-                // println!("server > follower!");
                 info!("server > follower!");
 
                 let mut heartbeat = self.heartbeat.subscribe();
@@ -154,7 +145,6 @@ impl Server {
                 Ok(())
             }
             ServerState::Candidate => {
-                // println!("server > candidate!");
                 info!("server > candidate!");
 
                 let mut candidate_receiver = self.candidate_sender.subscribe();
@@ -168,7 +158,6 @@ impl Server {
                         self.server_state = ServerState::Leader;
                     }
                     Err(error) => {
-                        // println!("candidate error -> {:?}", error);
                         error!("candidate error -> {:?}", error);
 
                         self.server_state = ServerState::Candidate;
@@ -178,7 +167,6 @@ impl Server {
                 Ok(())
             }
             ServerState::Leader => {
-                // println!("server > leader!");
                 info!("server > leader!");
 
                 let shutdown = self.shutdown.subscribe();
@@ -191,7 +179,6 @@ impl Server {
                 Ok(())
             }
             ServerState::Shutdown => {
-                // println!("server > shutdown...");
                 info!("server > shutdown...");
 
                 self.server_state = ServerState::Shutdown;
@@ -203,11 +190,8 @@ impl Server {
 
     async fn run_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
         crate::channel::shutdown::shutdown(&self.shutdown).await?;
-
-        // crate::channel::shutdown_state(&self.state).await?;
         crate::channel::state::shutdown(&self.state).await?;
         crate::channel::rpc_client::shutdown(&self.client).await?;
-        // crate::channel::shutdown_membership(&self.membership).await?;
         crate::channel::membership::shutdown(&self.membership).await?;
 
         Ok(())

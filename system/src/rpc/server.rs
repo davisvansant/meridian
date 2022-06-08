@@ -49,16 +49,12 @@ impl Server {
             tokio::select! {
                 biased;
                  _ = self.shutdown.recv() => {
-                    // println!("shutting down rpc server interface...");
                     info!("shutting down rpc server interface...");
 
                     break
                 }
 
                 Ok((mut tcp_stream, socket_address)) = tcp_listener.accept() => {
-                    // println!("processing incoming connection...");
-                    // println!("stream -> {:?}", &tcp_stream);
-                    // println!("socket address -> {:?}", &socket_address);
                     info!("processing incoming connection...");
                     info!("stream -> {:?}", &tcp_stream);
                     info!("socket address -> {:?}", &socket_address);
@@ -80,31 +76,26 @@ impl Server {
                         {
                             Ok(send_result) => send_result,
                             Err(error) => {
-                                // println!("error routing request ! {:?}", error);
                                 error!("error routing request ! {:?}", error);
                                 return;
                             }
                         };
 
                         if let Err(error) = tcp_stream.write_all(&send_result).await {
-                            // println!("tcp stream write error ! {:?}", error);
                             error!("tcp stream write error ! {:?}", error);
                         };
 
                         if let Err(error) = tcp_stream.shutdown().await {
-                            // println!("tcp stream shutdown error! {:?}", error);
                             error!("tcp stream shutdown error! {:?}", error);
                         };
                         }
                             Err(error) => {
-                                // println!("{:?}", error);
                                 error!("{:?}", error);
                             }
                         }
                     });
                 }
                 Err(error) = tcp_listener.accept() => {
-                    // println!("error with tcp listener -> {:?}", error);
                     error!("error with tcp listener -> {:?}", error);
                 }
             }
@@ -126,7 +117,6 @@ impl Server {
 
         match flexbuffers_root.as_map().idx("data").as_str() {
             "append_entries_arguments" => {
-                // println!("received append entries arguments!");
                 info!("received append entries arguments!");
 
                 let request_details = flexbuffers_root.as_map().idx("details").as_map();
@@ -145,7 +135,7 @@ impl Server {
                 let leader_commit = request_details.idx("leader_commit").as_u32();
 
                 if entries.is_empty() {
-                    println!("sending heartbeat from server ...");
+                    info!("sending heartbeat from server ...");
 
                     heartbeat.send(Leader::Heartbeat)?;
                 }
@@ -165,7 +155,6 @@ impl Server {
                 Ok(append_entries_results)
             }
             "request_vote_arguments" => {
-                // println!("received request vote arguments!");
                 info!("received request vote arguments!");
 
                 let request_details = flexbuffers_root.as_map().idx("details").as_map();
@@ -187,7 +176,6 @@ impl Server {
                 Ok(request_vote_results)
             }
             _ => {
-                // println!("currently unknown ...");
                 warn!("currently unknown ...");
 
                 Ok(String::from("unknown").as_bytes().to_vec())
