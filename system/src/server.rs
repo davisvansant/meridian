@@ -1,6 +1,6 @@
 use tokio::time::{sleep, Duration};
 
-use crate::channel::membership::failure_detector;
+// use crate::channel::membership::failure_detector;
 use crate::channel::membership::MembershipSender;
 use crate::channel::rpc_client::RpcClientSender;
 use crate::channel::server::LeaderSender;
@@ -59,8 +59,6 @@ impl Server {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        sleep(Duration::from_secs(5)).await;
-
         let mut server_shutdown = self.shutdown.subscribe();
 
         self.server_state = ServerState::Preflight;
@@ -97,37 +95,23 @@ impl Server {
     async fn server_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         match self.server_state {
             ServerState::Preflight => {
-                info!("running preflight tasks...");
+                sleep(Duration::from_secs(5)).await;
 
-                let mut errors = 0;
+                info!("preparing to run preflight tasks...");
 
-                while errors <= 2 {
-                    match preflight::run(&self.membership).await {
-                        Ok(()) => {
-                            info!("launching...");
+                sleep(Duration::from_secs(5)).await;
 
-                            break;
-                        }
-                        Err(error) => {
-                            error!("preflight error -> {:?}", error);
-                            error!("attempting preflight again -> {:?}", &error);
+                match preflight::run(&self.membership).await {
+                    Ok(()) => {
+                        info!("launching!");
 
-                            errors += 1;
-                        }
+                        self.server_state = ServerState::Follower;
                     }
-                    sleep(Duration::from_secs(10)).await;
-                }
+                    Err(error) => {
+                        error!("{}", error);
 
-                if errors >= 2 {
-                    warn!("preflight tasks failed...shutting down...");
-
-                    self.server_state = ServerState::Shutdown;
-                } else {
-                    self.server_state = ServerState::Follower;
-
-                    sleep(Duration::from_secs(10)).await;
-
-                    failure_detector(&self.membership).await?;
+                        self.server_state = ServerState::Shutdown;
+                    }
                 }
 
                 Ok(())
