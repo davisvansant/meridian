@@ -1,4 +1,5 @@
-use crate::channel::{StateReceiver, StateRequest, StateResponse};
+// use crate::channel::{StateReceiver, StateRequest, StateResponse};
+use crate::channel::state::{StateReceiver, StateRequest, StateResponse};
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
 use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
 
@@ -224,12 +225,10 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::{mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         assert_eq!(test_state.persistent.current_term, 0);
@@ -243,8 +242,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_leader_volatile_state() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         assert!(test_state.leader_volatile.is_none());
@@ -258,8 +256,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_append_entries_arguments = AppendEntriesArguments {
@@ -283,8 +280,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn heartbeat() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_leader_id = String::from("some_leader_id");
@@ -306,8 +302,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_request_vote_arguments = RequestVoteArguments {
@@ -328,8 +323,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         assert!(test_state.check_term(1).await);
@@ -339,8 +333,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         assert!(!test_state.check_term(0).await);
@@ -350,8 +343,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_candidate_id_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         assert!(test_state.check_candidate_id("some_candidate_id").await);
@@ -361,8 +353,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn check_candidate_id_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.voted_for = Some(String::from("some_test_uuid"));
@@ -374,8 +365,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn build_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_candidate_id = String::from("some_candidate_id");

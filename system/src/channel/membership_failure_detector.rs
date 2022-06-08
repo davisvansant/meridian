@@ -18,7 +18,7 @@ pub enum MembershipFailureDetectorPingTarget {
     Member(SocketAddr),
 }
 
-pub async fn build_failure_detector_channel() -> (
+pub async fn build() -> (
     MembershipFailureDetectorSender,
     MembershipFailureDetectorReceiver,
 ) {
@@ -29,14 +29,13 @@ pub async fn build_failure_detector_channel() -> (
     (sender, receiver)
 }
 
-pub async fn build_failure_detector_ping_target_channel(
-) -> MembershipFailureDetectorPingTargetSender {
+pub async fn build_ping_target() -> MembershipFailureDetectorPingTargetSender {
     let (sender, _receiver) = broadcast::channel::<MembershipFailureDetectorPingTarget>(1);
 
     sender
 }
 
-pub async fn launch_failure_detector(
+pub async fn launch(
     failure_detector: &MembershipFailureDetectorSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
     failure_detector.send(MembershipFailureDetectorRequest::Launch)?;

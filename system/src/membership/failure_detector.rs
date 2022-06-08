@@ -1,24 +1,19 @@
 use tokio::time::{timeout, Duration};
 
-use crate::channel::MembershipListSender;
-use crate::channel::ShutdownReceiver;
-use crate::{error, info, warn};
-// use crate::channel::{
-//     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
-//     insert_suspected, remove_alive, remove_confirmed, remove_suspected, send_message,
-// };
-use crate::channel::{
-    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_suspected,
-    remove_alive, remove_confirmed, remove_suspected, send_message,
-};
-// use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
-use crate::channel::MembershipCommunicationsSender;
-use crate::channel::{
+use crate::channel::membership_communications::send_message;
+use crate::channel::membership_communications::MembershipCommunicationsSender;
+use crate::channel::membership_failure_detector::{
     MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
+    MembershipFailureDetectorReceiver,
 };
-// use crate::channel::{MembershipFailureDetectorReceiver, MembershipFailureDetectorRequest};
-use crate::channel::MembershipFailureDetectorReceiver;
+use crate::channel::membership_list::MembershipListSender;
+use crate::channel::membership_list::{
+    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_suspected,
+    remove_alive, remove_confirmed, remove_suspected,
+};
+use crate::channel::shutdown::ShutdownReceiver;
 use crate::membership::Message;
+use crate::{error, info, warn};
 
 pub struct FailureDectector {
     protocol_period: Duration,

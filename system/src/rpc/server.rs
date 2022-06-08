@@ -4,10 +4,10 @@ use std::net::SocketAddr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::channel::ShutdownReceiver;
-use crate::channel::StateSender;
-use crate::channel::{append_entries, request_vote};
-use crate::channel::{Leader, LeaderSender};
+use crate::channel::server::{Leader, LeaderSender};
+use crate::channel::shutdown::ShutdownReceiver;
+use crate::channel::state::StateSender;
+use crate::channel::state::{append_entries, request_vote};
 use crate::rpc::build_tcp_socket;
 use crate::rpc::Data;
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
@@ -199,19 +199,14 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::build_shutdown_channel;
-    use crate::channel::Leader;
-    use crate::channel::{StateRequest, StateResponse};
     use std::str::FromStr;
-    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_state_sender, _test_state_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
+        let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
+        let test_leader_sender = crate::channel::server::build_leader_heartbeat().await;
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
-        let test_shutdown_sender = build_shutdown_channel().await;
+        let test_shutdown_sender = crate::channel::shutdown::build().await;
         let test_shutdown_receiver = test_shutdown_sender.subscribe();
 
         drop(test_shutdown_sender);

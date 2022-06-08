@@ -16,3 +16,15 @@ pub enum CandidateTransition {
 pub enum Leader {
     Heartbeat,
 }
+
+pub async fn build_candidate_transition() -> CandidateSender {
+    let (candidate_sender, _candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
+
+    candidate_sender
+}
+
+pub async fn build_leader_heartbeat() -> LeaderSender {
+    let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
+
+    leader_sender
+}

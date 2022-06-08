@@ -3,14 +3,14 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 
-use crate::channel::MembershipSender;
-use crate::channel::StateSender;
-use crate::{error, info, warn};
-// use crate::channel::{candidate, cluster_members, get_node, heartbeat};
-use crate::channel::{candidate, cluster_members, heartbeat, node};
-use crate::channel::{CandidateSender, CandidateTransition};
-use crate::channel::{RpcClientReceiver, RpcClientRequest};
+use crate::channel::membership::MembershipSender;
+use crate::channel::membership::{cluster_members, node};
+use crate::channel::rpc_client::{RpcClientReceiver, RpcClientRequest};
+use crate::channel::server::{CandidateSender, CandidateTransition};
+use crate::channel::state::StateSender;
+use crate::channel::state::{candidate, heartbeat};
 use crate::rpc::{Data, RequestVoteResults};
+use crate::{error, info, warn};
 
 pub struct Client {
     receiver: RpcClientReceiver,
@@ -157,21 +157,15 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::CandidateTransition;
-    use crate::channel::RpcClientRequest;
-    use crate::channel::{MembershipRequest, MembershipResponse};
-    use crate::channel::{StateRequest, StateResponse};
-    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_client_sender, test_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
+        let (test_client_sender, test_client_receiver) = crate::channel::rpc_client::build().await;
         let (test_membership_sender, _test_membership_receiver) =
-            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
-        let (test_state_sender, _test_state_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        let (test_candidate_sender, _test_candidate_receiver) =
-            broadcast::channel::<CandidateTransition>(64);
+            crate::channel::membership::build().await;
+        let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
+        let test_candidate_sender = crate::channel::server::build_candidate_transition().await;
+        let _test_candidate_receiver = test_candidate_sender.subscribe();
 
         let test_client = Client::init(
             test_client_receiver,

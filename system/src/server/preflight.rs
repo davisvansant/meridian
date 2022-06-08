@@ -1,11 +1,5 @@
-// use tokio::time::{sleep, timeout, timeout_at, Duration, Instant};
-// use tokio::time::{sleep, Duration};
-
-// use crate::channel::{get_node, join_cluster, launch_nodes, peer_nodes};
-// use crate::channel::{ClientSender, MembershipSender};
-
-use crate::channel::static_join;
-use crate::channel::MembershipSender;
+use crate::channel::membership::static_join;
+use crate::channel::membership::MembershipSender;
 
 pub async fn run(
     // client: &ClientSender,

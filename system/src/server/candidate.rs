@@ -1,7 +1,8 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::start_election;
-use crate::channel::{CandidateReceiver, CandidateTransition, RpcClientSender};
+use crate::channel::rpc_client;
+use crate::channel::rpc_client::RpcClientSender;
+use crate::channel::server::{CandidateReceiver, CandidateTransition};
 use crate::{error, info};
 
 pub struct Candidate {
@@ -22,7 +23,7 @@ impl Candidate {
         let client_owner = client.to_owned();
 
         tokio::spawn(async move {
-            if let Err(error) = start_election(&client_owner).await {
+            if let Err(error) = rpc_client::start_election(&client_owner).await {
                 // println!("election error -> {:?}", error);
                 error!("election error -> {:?}", error);
             }

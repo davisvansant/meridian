@@ -1,16 +1,9 @@
 use std::net::SocketAddr;
 
-use tokio::sync::{broadcast, mpsc, oneshot};
-
-use crate::channel::MembershipCommunicationsMessage;
-use crate::channel::ShutdownSender;
-use crate::channel::{
-    build_failure_detector_channel, build_failure_detector_ping_target_channel,
-    launch_failure_detector,
-};
-use crate::channel::{get_alive, shutdown_membership_list};
-use crate::channel::{MembershipListRequest, MembershipListResponse};
-use crate::channel::{MembershipReceiver, MembershipRequest, MembershipResponse};
+use crate::channel::membership::{MembershipReceiver, MembershipRequest, MembershipResponse};
+use crate::channel::membership_failure_detector::{build, build_ping_target, launch};
+use crate::channel::membership_list::{get_alive, shutdown};
+use crate::channel::shutdown::ShutdownSender;
 use crate::node::Node;
 use crate::{error, info, warn};
 
@@ -86,16 +79,12 @@ impl Membership {
         server: Node,
         launch_nodes: Vec<SocketAddr>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let (list_sender, list_receiver) = mpsc::channel::<(
-            MembershipListRequest,
-            oneshot::Sender<MembershipListResponse>,
-        )>(64);
+        let (list_sender, list_receiver) = crate::channel::membership_list::build().await;
         let static_join_send_list = list_sender.to_owned();
         let communications_list_sender = list_sender.to_owned();
         let failure_detector_list_sender = list_sender.to_owned();
 
-        let failure_detector_ping_target_sender =
-            build_failure_detector_ping_target_channel().await;
+        let failure_detector_ping_target_sender = build_ping_target().await;
         let communications_ping_target_sender = failure_detector_ping_target_sender.to_owned();
 
         let mut list = List::init(server, launch_nodes, list_receiver).await?;
@@ -107,7 +96,7 @@ impl Membership {
             }
         });
 
-        let (send_udp_message, _) = broadcast::channel::<MembershipCommunicationsMessage>(64);
+        let send_udp_message = crate::channel::membership_communications::build().await;
         let membership_communications_sender = send_udp_message.clone();
         let static_join_send_udp_message = send_udp_message.clone();
         let failure_detector_send_udp_message = send_udp_message.clone();
@@ -134,8 +123,7 @@ impl Membership {
             }
         });
 
-        let (failure_detector_sender, failure_detector_reciever) =
-            build_failure_detector_channel().await;
+        let (failure_detector_sender, failure_detector_reciever) = build().await;
 
         let mut failure_detector = FailureDectector::init(
             failure_detector_list_sender,
@@ -161,7 +149,7 @@ impl Membership {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 MembershipRequest::FailureDectector => {
-                    launch_failure_detector(&failure_detector_sender).await?;
+                    launch(&failure_detector_sender).await?;
                 }
                 MembershipRequest::Members => {
                     // println!("received members request!");
@@ -213,7 +201,7 @@ impl Membership {
                     // println!("shutting down membership...");
                     info!("shutting down membership...");
 
-                    shutdown_membership_list(&list_sender).await?;
+                    shutdown(&list_sender).await?;
 
                     self.receiver.close();
                 }

@@ -23,6 +23,13 @@ pub enum MembershipResponse {
     Status((usize, usize)),
 }
 
+pub async fn build() -> (MembershipSender, MembershipReceiver) {
+    let (membership_sender, membership_receiver) =
+        mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
+
+    (membership_sender, membership_receiver)
+}
+
 pub async fn failure_detector(
     membership: &MembershipSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -40,9 +47,8 @@ pub async fn node(membership: &MembershipSender) -> Result<Node, Box<dyn std::er
 
     membership.send((MembershipRequest::Node, request)).await?;
 
-    match response.await {
-        Ok(MembershipResponse::Node(node)) => Ok(node),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        MembershipResponse::Node(node) => Ok(node),
         _ => panic!("unexpected response!"),
     }
 }
@@ -56,9 +62,8 @@ pub async fn cluster_members(
         .send((MembershipRequest::Members, request))
         .await?;
 
-    match response.await {
-        Ok(MembershipResponse::Members(cluster_members)) => Ok(cluster_members),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        MembershipResponse::Members(cluster_members) => Ok(cluster_members),
         _ => panic!("unexpected response!"),
     }
 }
@@ -72,11 +77,10 @@ pub async fn static_join(
         .send((MembershipRequest::StaticJoin, request))
         .await?;
 
-    match response.await {
-        Ok(MembershipResponse::Status((active_peers, expected_peers))) => {
+    match response.await? {
+        MembershipResponse::Status((active_peers, expected_peers)) => {
             Ok((active_peers, expected_peers))
         }
-        Err(error) => Err(Box::new(error)),
         _ => panic!("unexpected response!"),
     }
 }
@@ -95,9 +99,7 @@ pub async fn static_join(
 //     }
 // }
 
-pub async fn shutdown_membership(
-    membership: &MembershipSender,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn shutdown(membership: &MembershipSender) -> Result<(), Box<dyn std::error::Error>> {
     let (request, _response) = oneshot::channel();
 
     membership

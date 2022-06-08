@@ -8,6 +8,13 @@ pub enum MembershipCommunicationsMessage {
     Send(Vec<u8>, SocketAddr),
 }
 
+pub async fn build() -> MembershipCommunicationsSender {
+    let (membership_communications_sender, _) =
+        broadcast::channel::<MembershipCommunicationsMessage>(64);
+
+    membership_communications_sender
+}
+
 pub async fn send_message(
     membership_communications: &MembershipCommunicationsSender,
     bytes: &[u8],

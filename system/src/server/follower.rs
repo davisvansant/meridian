@@ -1,6 +1,6 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::{Leader, LeaderReceiver};
+use crate::channel::server::{Leader, LeaderReceiver};
 use crate::{error, info};
 
 pub struct Follower {

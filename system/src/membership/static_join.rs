@@ -1,12 +1,10 @@
-use crate::channel::MembershipCommunicationsSender;
-use crate::channel::MembershipListSender;
-use crate::channel::{get_initial, send_message};
+use crate::channel::membership_communications::send_message;
+use crate::channel::membership_communications::MembershipCommunicationsSender;
+use crate::channel::membership_list::MembershipListSender;
+use crate::channel::membership_list::{
+    get_alive, get_confirmed, get_initial, get_node, get_suspected,
+};
 use crate::membership::Message;
-
-use crate::channel::get_alive;
-use crate::channel::get_confirmed;
-use crate::channel::get_node;
-use crate::channel::get_suspected;
 
 pub struct StaticJoin {
     membership_communications_sender: MembershipCommunicationsSender,

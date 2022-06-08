@@ -10,6 +10,12 @@ pub enum RpcClientRequest {
     Shutdown,
 }
 
+pub async fn build() -> (RpcClientSender, RpcClientReceiver) {
+    let (rpc_client_sender, rpc_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
+
+    (rpc_client_sender, rpc_client_receiver)
+}
+
 pub async fn start_election(
     rpc_client: &RpcClientSender,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -26,9 +32,7 @@ pub async fn send_heartbeat(
     Ok(())
 }
 
-pub async fn shutdown_rpc_client(
-    rpc_client: &RpcClientSender,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn shutdown(rpc_client: &RpcClientSender) -> Result<(), Box<dyn std::error::Error>> {
     rpc_client.send(RpcClientRequest::Shutdown).await?;
 
     Ok(())

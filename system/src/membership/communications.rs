@@ -2,16 +2,18 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
-use crate::channel::MembershipListSender;
-use crate::channel::ShutdownReceiver;
-use crate::channel::{
+use crate::channel::membership_communications::{
+    MembershipCommunicationsMessage, MembershipCommunicationsSender,
+};
+use crate::channel::membership_failure_detector::{
+    MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
+};
+use crate::channel::membership_list::MembershipListSender;
+use crate::channel::membership_list::{
     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
     insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
-use crate::channel::{MembershipCommunicationsMessage, MembershipCommunicationsSender};
-use crate::channel::{
-    MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
-};
+use crate::channel::shutdown::ShutdownReceiver;
 use crate::membership::Message;
 use crate::{error, info, warn};
 
@@ -239,22 +241,16 @@ impl MembershipCommunications {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::build_failure_detector_ping_target_channel;
-    use crate::channel::{MembershipListRequest, MembershipListResponse};
-    // use crate::node::Node;
     use std::str::FromStr;
-    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_socket_address = SocketAddr::from_str("0.0.0.0:25000")?;
-        let (test_list_sender, _test_list_receiver) = mpsc::channel::<(
-            MembershipListRequest,
-            oneshot::Sender<MembershipListResponse>,
-        )>(1);
-        let (test_sender, _test_receiver) =
-            broadcast::channel::<MembershipCommunicationsMessage>(1);
-        let test_ping_target_sender = build_failure_detector_ping_target_channel().await;
+        let (test_list_sender, _test_list_receiver) =
+            crate::channel::membership_list::build().await;
+        let test_sender = crate::channel::membership_communications::build().await;
+        let test_ping_target_sender =
+            crate::channel::membership_failure_detector::build_ping_target().await;
 
         let test_membership_communications = MembershipCommunications::init(
             test_socket_address,

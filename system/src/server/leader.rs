@@ -1,6 +1,7 @@
-use crate::channel::ShutdownReceiver;
-use crate::channel::{leader, send_heartbeat};
-use crate::channel::{RpcClientSender, StateSender};
+use crate::channel::rpc_client::{send_heartbeat, RpcClientSender};
+use crate::channel::shutdown::ShutdownReceiver;
+use crate::channel::state::leader;
+use crate::channel::state::StateSender;
 use crate::{error, info};
 
 pub struct Leader {
@@ -39,11 +40,10 @@ impl Leader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::build_shutdown_channel;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let test_shutdown_sender = build_shutdown_channel().await;
+        let test_shutdown_sender = crate::channel::shutdown::build().await;
         let test_shutdown_receiver = test_shutdown_sender.subscribe();
 
         drop(test_shutdown_sender);

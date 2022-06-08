@@ -1,11 +1,12 @@
 use tokio::time::{sleep, Duration};
 
-use crate::channel::failure_detector;
-use crate::channel::shutdown;
-use crate::channel::LeaderSender;
-use crate::channel::ShutdownSender;
-use crate::channel::{CandidateSender, CandidateTransition};
-use crate::channel::{MembershipSender, RpcClientSender, StateSender};
+use crate::channel::membership::failure_detector;
+use crate::channel::membership::MembershipSender;
+use crate::channel::rpc_client::RpcClientSender;
+use crate::channel::server::LeaderSender;
+use crate::channel::server::{CandidateSender, CandidateTransition};
+use crate::channel::shutdown::ShutdownSender;
+use crate::channel::state::StateSender;
 use crate::server::candidate::Candidate;
 use crate::server::follower::Follower;
 use crate::server::leader::Leader;
@@ -201,11 +202,13 @@ impl Server {
     }
 
     async fn run_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
-        shutdown(&self.shutdown).await?;
+        crate::channel::shutdown::shutdown(&self.shutdown).await?;
 
-        crate::channel::shutdown_state(&self.state).await?;
-        crate::channel::shutdown_rpc_client(&self.client).await?;
-        crate::channel::shutdown_membership(&self.membership).await?;
+        // crate::channel::shutdown_state(&self.state).await?;
+        crate::channel::state::shutdown(&self.state).await?;
+        crate::channel::rpc_client::shutdown(&self.client).await?;
+        // crate::channel::shutdown_membership(&self.membership).await?;
+        crate::channel::membership::shutdown(&self.membership).await?;
 
         Ok(())
     }
@@ -214,25 +217,18 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::build_shutdown_channel;
-    use crate::channel::CandidateTransition;
-    use crate::channel::Leader;
-    use crate::channel::RpcClientRequest;
-    use crate::channel::{MembershipRequest, MembershipResponse};
-    use crate::channel::{StateRequest, StateResponse};
-    use tokio::sync::{broadcast, mpsc, oneshot};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_client_sender, _test_client_receiver) = mpsc::channel::<RpcClientRequest>(64);
+        let (test_client_sender, _test_client_receiver) = crate::channel::rpc_client::build().await;
         let (test_membership_sender, _test_membership_receiver) =
-            mpsc::channel::<(MembershipRequest, oneshot::Sender<MembershipResponse>)>(64);
-        let (test_state_sender, _test_state_receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-        let (test_candidate_sender, _test_candidate_receiver) =
-            broadcast::channel::<CandidateTransition>(64);
-        let (test_leader_sender, _test_leader_receiver) = broadcast::channel::<Leader>(64);
-        let test_shutdown_sender = build_shutdown_channel().await;
+            crate::channel::membership::build().await;
+        let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
+        let test_candidate_sender = crate::channel::server::build_candidate_transition().await;
+        let _test_candidate_receiver = test_candidate_sender.subscribe();
+        let test_leader_sender = crate::channel::server::build_leader_heartbeat().await;
+        let _test_leader_receiver = test_leader_sender.subscribe();
+        let test_shutdown_sender = crate::channel::shutdown::build().await;
 
         let test_server = Server::init(
             test_client_sender,

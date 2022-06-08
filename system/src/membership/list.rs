@@ -3,7 +3,9 @@ use std::net::SocketAddr;
 
 use uuid::Uuid;
 
-use crate::channel::{MembershipListReceiver, MembershipListRequest, MembershipListResponse};
+use crate::channel::membership_list::{
+    MembershipListReceiver, MembershipListRequest, MembershipListResponse,
+};
 use crate::node::Node;
 use crate::{error, info, warn};
 

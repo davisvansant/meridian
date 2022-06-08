@@ -20,9 +20,15 @@ pub enum StateRequest {
 pub enum StateResponse {
     AppendEntries(AppendEntriesResults),
     RequestVote(RequestVoteResults),
-    // Follower,
     Candidate(RequestVoteArguments),
     Heartbeat(AppendEntriesArguments),
+}
+
+pub async fn build() -> (StateSender, StateReceiver) {
+    let (state_sender, state_receiver) =
+        mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+
+    (state_sender, state_receiver)
 }
 
 pub async fn candidate(
@@ -35,9 +41,8 @@ pub async fn candidate(
         .send((StateRequest::Candidate(candidate_id), request))
         .await?;
 
-    match response.await {
-        Ok(StateResponse::Candidate(request_vote_arguments)) => Ok(request_vote_arguments),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        StateResponse::Candidate(request_vote_arguments) => Ok(request_vote_arguments),
         _ => panic!("unexpected response!"),
     }
 }
@@ -52,9 +57,8 @@ pub async fn request_vote(
         .send((StateRequest::RequestVote(arguments), request))
         .await?;
 
-    match response.await {
-        Ok(StateResponse::RequestVote(results)) => Ok(results),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        StateResponse::RequestVote(results) => Ok(results),
         _ => panic!("unexpected response!"),
     }
 }
@@ -69,9 +73,8 @@ pub async fn append_entries(
         .send((StateRequest::AppendEntries(arguments), request))
         .await?;
 
-    match response.await {
-        Ok(StateResponse::AppendEntries(results)) => Ok(results),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        StateResponse::AppendEntries(results) => Ok(results),
         _ => panic!("unexpected response!"),
     }
 }
@@ -86,9 +89,8 @@ pub async fn heartbeat(
         .send((StateRequest::Heartbeat(leader_id), request))
         .await?;
 
-    match response.await {
-        Ok(StateResponse::Heartbeat(heartbeat)) => Ok(heartbeat),
-        Err(error) => Err(Box::new(error)),
+    match response.await? {
+        StateResponse::Heartbeat(heartbeat) => Ok(heartbeat),
         _ => panic!("unexpected response!"),
     }
 }
@@ -101,7 +103,7 @@ pub async fn leader(state: &StateSender) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-pub async fn shutdown_state(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn shutdown(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
     let (request, _response) = oneshot::channel();
 
     state.send((StateRequest::Shutdown, request)).await?;
