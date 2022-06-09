@@ -1,4 +1,4 @@
-use tokio::time::{timeout, Duration};
+use tokio::time::{sleep, timeout, Duration};
 
 use crate::channel::membership_communications::send_message;
 use crate::channel::membership_communications::MembershipCommunicationsSender;
@@ -76,6 +76,8 @@ impl FailureDectector {
     }
 
     async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
+        sleep(Duration::from_secs(5)).await;
+
         let mut receive_ping_target_ack = self.ping_target_channel.subscribe();
 
         let alive_list = get_alive(&self.list_sender).await?;
