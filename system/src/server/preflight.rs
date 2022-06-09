@@ -13,7 +13,7 @@ pub async fn run(membership: &MembershipSender) -> Result<(), Box<dyn std::error
         if active == expected {
             launch_failure_detector(membership).await?;
 
-            return Ok(());
+            break;
         } else {
             error!("expecting {} peers | {} active peers", &expected, &active);
             error!("attempting preflight again...");
