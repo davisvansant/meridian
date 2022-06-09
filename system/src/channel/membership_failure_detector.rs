@@ -30,7 +30,7 @@ pub async fn build() -> (
 }
 
 pub async fn build_ping_target() -> MembershipFailureDetectorPingTargetSender {
-    let (sender, _receiver) = broadcast::channel::<MembershipFailureDetectorPingTarget>(1);
+    let (sender, _receiver) = broadcast::channel::<MembershipFailureDetectorPingTarget>(64);
 
     sender
 }
