@@ -3,6 +3,7 @@ use crate::channel::shutdown::ShutdownReceiver;
 use crate::channel::state::leader;
 use crate::channel::state::StateSender;
 use crate::info;
+use tokio::time::{sleep, Duration};
 
 pub struct Leader {
     shutdown: ShutdownReceiver,
@@ -28,9 +29,17 @@ impl Leader {
 
                     break
                 }
-                _ = send_heartbeat(rpc_client) => {}
+                _ = Leader::heartbeat(rpc_client) => {}
             }
         }
+
+        Ok(())
+    }
+
+    async fn heartbeat(rpc_client: &RpcClientSender) -> Result<(), Box<dyn std::error::Error>> {
+        sleep(Duration::from_secs(15)).await;
+
+        send_heartbeat(rpc_client).await?;
 
         Ok(())
     }
