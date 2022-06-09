@@ -46,10 +46,12 @@ impl Candidate {
                         continue;
                     }
                 },
-                Err(error) => error!(
-                    "candidate election timeout lapsed...trying again...{:?}",
-                    error,
-                ),
+                Err(error) => {
+                    error!("{:?}", error);
+                    let error = String::from("candidate election timeout lapsed...trying again...");
+
+                    return Err(Box::from(error));
+                }
             }
         }
     }
