@@ -11,7 +11,7 @@ pub struct Candidate {
 
 impl Candidate {
     pub async fn init() -> Result<Candidate, Box<dyn std::error::Error>> {
-        let election_timeout = Duration::from_millis(150);
+        let election_timeout = Duration::from_millis(15000);
         Ok(Candidate { election_timeout })
     }
 
@@ -62,7 +62,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_candidate = Candidate::init().await?;
-        assert_eq!(test_candidate.election_timeout.as_millis(), 150);
+        assert_eq!(test_candidate.election_timeout.as_millis(), 15000);
         Ok(())
     }
 }

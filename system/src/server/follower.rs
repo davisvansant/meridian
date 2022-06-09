@@ -9,7 +9,7 @@ pub struct Follower {
 
 impl Follower {
     pub async fn init() -> Result<Follower, Box<dyn std::error::Error>> {
-        let election_timeout = Duration::from_millis(150);
+        let election_timeout = Duration::from_millis(30000);
 
         Ok(Follower { election_timeout })
     }
@@ -39,7 +39,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let test_follower = Follower::init().await?;
-        assert_eq!(test_follower.election_timeout.as_millis(), 150);
+        assert_eq!(test_follower.election_timeout.as_millis(), 30000);
         Ok(())
     }
 }
