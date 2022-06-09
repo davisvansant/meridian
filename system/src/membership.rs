@@ -36,16 +36,6 @@ impl ClusterSize {
         }
     }
 
-    // pub async fn len(&self) -> usize {
-    //     match self {
-    //         // ClusterSize::One => 1,
-    //         // ClusterSize::Three => 3,
-    //         // ClusterSize::Five => 5,
-    //         ClusterSize::One => 0,
-    //         ClusterSize::Three => 2,
-    //         ClusterSize::Five => 3,
-    //     }
-    // }
     pub async fn majority(&self) -> usize {
         match self {
             ClusterSize::One => 0,
