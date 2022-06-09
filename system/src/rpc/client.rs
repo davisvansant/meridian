@@ -92,10 +92,7 @@ impl Client {
         &self,
         socket_address: SocketAddr,
     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        // let candidate_id = get_node(&self.membership_sender).await?;
         let node = node(&self.membership_sender).await?;
-        // let request_vote_arguments =
-        //     candidate(&self.state_sender, candidate_id.id.to_string()).await?;
         let request_vote_arguments = candidate(&self.state_sender, node.id.to_string()).await?;
         let data = Data::RequestVoteArguments(request_vote_arguments)
             .build()
@@ -122,9 +119,7 @@ impl Client {
         &self,
         socket_address: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // let leader = get_node(&self.membership_sender).await?;
         let node = node(&self.membership_sender).await?;
-        // let heartbeat = heartbeat(&self.state_sender, leader.id.to_string()).await?;
         let heartbeat = heartbeat(&self.state_sender, node.id.to_string()).await?;
         let data = Data::AppendEntriesArguments(heartbeat).build().await?;
 
