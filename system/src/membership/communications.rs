@@ -133,6 +133,15 @@ impl MembershipCommunications {
             Message::Ack => {
                 info!("received ack!");
 
+                if let Ok(active_receiver) =
+                    ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
+                {
+                    info!(
+                        "sent {:?} to active reciever {:?}",
+                        &origin, active_receiver,
+                    );
+                }
+
                 insert_alive(list_sender, &origin_node).await?;
 
                 for alive_node in &peer_active_list {
@@ -158,14 +167,14 @@ impl MembershipCommunications {
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
 
-                if let Ok(active_receiver) =
-                    ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
-                {
-                    info!(
-                        "sent {:?} to active reciever {:?}",
-                        &origin, active_receiver,
-                    );
-                }
+                // if let Ok(active_receiver) =
+                //     ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
+                // {
+                //     info!(
+                //         "sent {:?} to active reciever {:?}",
+                //         &origin, active_receiver,
+                //     );
+                // }
 
                 // ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))?;
 
