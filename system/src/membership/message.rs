@@ -15,21 +15,6 @@ pub enum Message {
 }
 
 impl Message {
-    // pub async fn build(&self) -> &[u8] {
-    //     match self {
-    //         Message::Ack => "ack".as_bytes(),
-    //         Message::Ping => "ping".as_bytes(),
-    //         Message::PingReq => "ping-req".as_bytes(),
-    //     }
-    // }
-    // pub async fn from_bytes(bytes: &[u8]) -> Message {
-    //     match bytes {
-    //         b"ack" => Message::Ack,
-    //         b"ping" => Message::Ping,
-    //         b"ping-req" => Message::PingReq,
-    //         _ => panic!("cannot build requested bytes into message"),
-    //     }
-    // }
     pub async fn build_list(
         &self,
         node: &Node,

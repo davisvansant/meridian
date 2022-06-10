@@ -53,8 +53,6 @@ impl MembershipCommunications {
 
         let mut receiver = self.receiver.subscribe();
 
-        // let send_message_list_sender = self.list_sender.to_owned();
-
         info!("running!");
 
         tokio::spawn(async move {
@@ -62,7 +60,6 @@ impl MembershipCommunications {
                 match incoming_message {
                     MembershipCommunicationsMessage::Send(bytes, target) => {
                         if let Err(error) = MembershipCommunications::send_bytes(
-                            // &send_message_list_sender,
                             &sending_udp_socket,
                             &bytes,
                             target,
@@ -167,17 +164,6 @@ impl MembershipCommunications {
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
 
-                // if let Ok(active_receiver) =
-                //     ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
-                // {
-                //     info!(
-                //         "sent {:?} to active reciever {:?}",
-                //         &origin, active_receiver,
-                //     );
-                // }
-
-                // ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))?;
-
                 remove_confirmed(list_sender, &origin_node).await?;
                 remove_suspected(list_sender, &origin_node).await?;
                 insert_alive(list_sender, &origin_node).await?;
@@ -223,15 +209,10 @@ impl MembershipCommunications {
     }
 
     async fn send_bytes(
-        // list_sender: &MembershipListSender,
         socket: &UdpSocket,
         bytes: &[u8],
         target: SocketAddr,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // let _alive = get_alive(list_sender).await?;
-        // let _suspected = get_suspected(list_sender).await?;
-        // let _confirmed = get_confirmed(list_sender).await?;
-
         socket.send_to(bytes, target).await?;
 
         Ok(())
