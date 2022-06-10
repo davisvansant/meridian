@@ -17,6 +17,9 @@ pub async fn launch(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let cluster_size = ClusterSize::from_str(cluster_size).await;
 
+    info!("cluster size -> {:?}", &cluster_size);
+    info!("node id -> {:?}", &node.id);
+
     let another_shutdown_signal = channel::shutdown::build().await;
     let shutdown_membership_tasks = another_shutdown_signal.to_owned();
     let shutdown_rpc_server_task = another_shutdown_signal.subscribe();
