@@ -172,7 +172,8 @@ impl State {
     }
 
     async fn check_term(&self, term: u32) -> bool {
-        let current_term = 0;
+        let current_term = self.persistent.current_term;
+
         term > current_term
     }
 
