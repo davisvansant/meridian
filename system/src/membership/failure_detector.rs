@@ -1,3 +1,6 @@
+use std::net::IpAddr;
+use std::str::FromStr;
+
 use tokio::time::{sleep, timeout, Duration};
 
 use crate::channel::membership_communications::send_message;
@@ -83,7 +86,7 @@ impl FailureDectector {
         let alive_list = get_alive(&self.list_sender).await?;
 
         for member in alive_list {
-            let address = member.membership_address().await;
+            let mut address = member.membership_address().await;
             let node = get_node(&self.list_sender).await?;
             let local_alive_list = get_alive(&self.list_sender).await?;
             let local_suspected_list = get_suspected(&self.list_sender).await?;
@@ -98,6 +101,11 @@ impl FailureDectector {
                 )
                 .await;
 
+            // For local testing, incoming UDP socket recv_from socket address is 127.0.0.1
+            address.set_ip(IpAddr::from_str("127.0.0.1")?);
+
+            info!("sending message to -> {:?}", &address);
+
             send_message(&self.send_udp_message, &ping, address).await?;
 
             match timeout(self.protocol_period, receive_ping_target_ack.recv()).await {
@@ -108,6 +116,10 @@ impl FailureDectector {
                         insert_alive(&self.list_sender, &member).await?;
                     } else {
                         warn!("nodes dont match!");
+                        warn!(
+                            "sent address = {:?} | received address {:?}",
+                            &address, &ping_target,
+                        );
                     }
                 }
                 Ok(Err(error)) => {
