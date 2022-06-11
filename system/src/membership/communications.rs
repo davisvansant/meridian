@@ -142,7 +142,21 @@ impl MembershipCommunications {
                 insert_alive(list_sender, &origin_node).await?;
 
                 for alive_node in &peer_active_list {
+                    remove_confirmed(list_sender, alive_node).await?;
+                    remove_suspected(list_sender, alive_node).await?;
                     insert_alive(list_sender, alive_node).await?;
+                }
+
+                for suspected_node in &peer_suspected_list {
+                    remove_alive(list_sender, suspected_node).await?;
+                    remove_confirmed(list_sender, suspected_node).await?;
+                    insert_suspected(list_sender, suspected_node).await?;
+                }
+
+                for confirmed_node in &peer_confirmed_list {
+                    remove_alive(list_sender, confirmed_node).await?;
+                    remove_suspected(list_sender, confirmed_node).await?;
+                    insert_confirmed(list_sender, confirmed_node).await?;
                 }
             }
             Message::Ping => {
