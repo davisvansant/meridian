@@ -42,9 +42,11 @@ impl Client {
         while let Some(request) = self.receiver.recv().await {
             match request {
                 RpcClientRequest::StartElection => {
-                    let mut vote = Vec::with_capacity(2);
+                    let mut leader_votes = Vec::with_capacity(5);
 
                     let peers = cluster_members(&self.membership_sender).await?;
+
+                    let quorum = peers.len() / 2 + 1;
 
                     if peers.is_empty() {
                         self.candidate_sender.send(CandidateTransition::Leader)?;
@@ -56,11 +58,11 @@ impl Client {
                             info!("results -> {:?}", &result);
 
                             if result.vote_granted {
-                                vote.push(1);
+                                leader_votes.push(1);
                             }
                         }
 
-                        if vote.len() == 2 {
+                        if leader_votes.len() >= quorum {
                             self.candidate_sender.send(CandidateTransition::Leader)?;
                         } else {
                             self.candidate_sender.send(CandidateTransition::Follower)?;
