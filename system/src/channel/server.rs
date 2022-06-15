@@ -1,15 +1,24 @@
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 
-pub type CandidateReceiver = broadcast::Receiver<CandidateTransition>;
-pub type CandidateSender = broadcast::Sender<CandidateTransition>;
+pub type ElectionResultReceiver = mpsc::Receiver<ElectionResult>;
+pub type ElectionResultSender = mpsc::Sender<ElectionResult>;
 
 pub type LeaderReceiver = broadcast::Receiver<Leader>;
 pub type LeaderSender = broadcast::Sender<Leader>;
 
 #[derive(Clone, Debug)]
-pub enum CandidateTransition {
+pub enum ElectionResult {
     Follower,
     Leader,
+}
+
+impl ElectionResult {
+    pub async fn build() -> (ElectionResultSender, ElectionResultReceiver) {
+        let (election_result_sender, election_result_receiver) =
+            mpsc::channel::<ElectionResult>(64);
+
+        (election_result_sender, election_result_receiver)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -17,14 +26,10 @@ pub enum Leader {
     Heartbeat,
 }
 
-pub async fn build_candidate_transition() -> CandidateSender {
-    let (candidate_sender, _candidate_receiver) = broadcast::channel::<CandidateTransition>(64);
+impl Leader {
+    pub async fn build() -> LeaderSender {
+        let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
 
-    candidate_sender
-}
-
-pub async fn build_leader_heartbeat() -> LeaderSender {
-    let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
-
-    leader_sender
+        leader_sender
+    }
 }
