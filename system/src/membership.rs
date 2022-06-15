@@ -3,7 +3,8 @@ use std::net::SocketAddr;
 use crate::channel::membership::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::channel::membership_failure_detector::{build, build_ping_target, launch};
 use crate::channel::membership_list::{get_alive, shutdown};
-use crate::channel::shutdown::ShutdownSender;
+// use crate::channel::shutdown::ShutdownSender;
+use crate::channel::transition::ShutdownSender;
 use crate::node::Node;
 use crate::{error, info};
 
