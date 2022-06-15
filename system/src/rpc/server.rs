@@ -4,10 +4,11 @@ use std::net::SocketAddr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::channel::server::{Leader, LeaderSender};
-use crate::channel::shutdown::ShutdownReceiver;
+// use crate::channel::server::{Leader, LeaderSender};
+// use crate::channel::shutdown::ShutdownReceiver;
 use crate::channel::state::StateSender;
 use crate::channel::state::{append_entries, request_vote};
+use crate::channel::transition::ShutdownReceiver;
 use crate::rpc::build_tcp_socket;
 use crate::rpc::Data;
 use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
@@ -16,14 +17,16 @@ use crate::{error, info, warn};
 pub struct Server {
     socket_address: SocketAddr,
     state_sender: StateSender,
-    heartbeat: LeaderSender,
+    // heartbeat: LeaderSender,
+    leader_heartbeat: crate::channel::server::LeaderSender,
     shutdown: ShutdownReceiver,
 }
 
 impl Server {
     pub async fn init(
         state_sender: StateSender,
-        heartbeat: LeaderSender,
+        // heartbeat: LeaderSender,
+        leader_heartbeat: crate::channel::server::LeaderSender,
         socket_address: SocketAddr,
         shutdown: ShutdownReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
@@ -32,7 +35,8 @@ impl Server {
         Ok(Server {
             socket_address,
             state_sender,
-            heartbeat,
+            // heartbeat,
+            leader_heartbeat,
             shutdown,
         })
     }
@@ -64,7 +68,7 @@ impl Server {
                     info!("socket address -> {:?}", &socket_address);
 
                     let state_sender = self.state_sender.to_owned();
-                    let heartbeat = self.heartbeat.to_owned();
+                    let heartbeat = self.leader_heartbeat.to_owned();
 
                     tokio::spawn(async move {
                         let mut buffer = [0; 1024];
@@ -111,7 +115,8 @@ impl Server {
     async fn route_incoming(
         data: &[u8],
         state_sender: &StateSender,
-        heartbeat: &LeaderSender,
+        // heartbeat: &LeaderSender,
+        heartbeat: &crate::channel::server::LeaderSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -141,7 +146,8 @@ impl Server {
                 if entries.is_empty() {
                     info!("sending heartbeat from server ...");
 
-                    heartbeat.send(Leader::Heartbeat)?;
+                    // heartbeat.send(Leader::Heartbeat)?;
+                    heartbeat.send(crate::channel::server::Leader::Heartbeat)?;
                 }
 
                 let arguments = AppendEntriesArguments {
@@ -196,9 +202,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
-        let test_leader_sender = crate::channel::server::build_leader_heartbeat().await;
+        // let test_leader_sender = crate::channel::server::build_leader_heartbeat().await;
+        let test_leader_sender = crate::channel::server::Leader::build().await;
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
-        let test_shutdown_sender = crate::channel::shutdown::build().await;
+        let test_shutdown_sender = crate::channel::transition::Shutdown::build().await;
         let test_shutdown_receiver = test_shutdown_sender.subscribe();
 
         drop(test_shutdown_sender);
