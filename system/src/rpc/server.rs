@@ -1,16 +1,10 @@
 use flexbuffers::{Builder, BuilderOptions, Pushable};
-
 use std::net::SocketAddr;
-
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-// use crate::channel::state::StateSender;
-// use crate::channel::state::{append_entries, request_vote};
-// use crate::channel::transition::ShutdownReceiver;
 use crate::channel::{server, state, transition};
 use crate::rpc::build_tcp_socket;
-use crate::rpc::Data;
-use crate::rpc::{AppendEntriesArguments, RequestVoteArguments};
+use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
 use crate::{error, info, warn};
 
 pub struct Server {
