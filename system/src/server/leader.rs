@@ -79,13 +79,20 @@ impl Leader {
         for follower in cluster_members {
             let socket_address = follower.build_address(follower.cluster_port).await;
 
+            info!(
+                "sending heartbeat to socket address -> {:?}",
+                &socket_address,
+            );
+
             let mut client = rpc::Client::init(socket_address).await;
 
-            let append_entries_results = client
+            match client
                 .send_append_entries(append_entries_arguments.to_owned())
-                .await?;
-
-            info!("append entries results! -> {:?}", append_entries_results);
+                .await
+            {
+                Ok(append_entries_results) => info!("result -> {:?}", append_entries_results),
+                Err(error) => error!("result -> {:?}", error),
+            }
         }
 
         Ok(())
