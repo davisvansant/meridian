@@ -1,3 +1,5 @@
+use crate::info;
+
 #[derive(Copy, Clone)]
 pub struct LeaderVolatile {
     pub next_index: u32,
@@ -9,7 +11,7 @@ impl LeaderVolatile {
         let next_index = 0;
         let match_index = 0;
 
-        println!("leader volatile state initialized ...");
+        info!("leader volatile state initialized ...");
 
         Ok(LeaderVolatile {
             next_index,
