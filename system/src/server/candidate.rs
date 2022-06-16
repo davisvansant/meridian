@@ -156,15 +156,33 @@ impl Candidate {
             for peer in peers {
                 let socket_address = peer.build_address(peer.cluster_port).await;
 
-                let mut client = rpc::Client::init(socket_address).await;
-                let request_vote_result = client
-                    .send_request_vote(request_vote_arguments.to_owned())
-                    .await?;
+                info!(
+                    "sending election request to socket address -> {:?}",
+                    &socket_address,
+                );
 
-                if request_vote_result.vote_granted {
-                    leader_votes.push(1);
+                let mut client = rpc::Client::init(socket_address).await;
+
+                match client
+                    .send_request_vote(request_vote_arguments.to_owned())
+                    .await
+                {
+                    Ok(request_vote_results) => {
+                        info!("result -> {:?}", request_vote_results);
+
+                        if request_vote_results.vote_granted {
+                            leader_votes.push(1);
+                        }
+                    }
+                    Err(error) => error!("result -> {:?}", error),
                 }
             }
+
+            info!(
+                "election result -> leader votes {:?} | quorum {:?}",
+                &leader_votes.len(),
+                &quorum,
+            );
 
             if leader_votes.len() >= quorum {
                 election_result.send(server::ElectionResult::Leader).await?;
