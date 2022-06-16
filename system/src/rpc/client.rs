@@ -3,13 +3,6 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 
-// use crate::channel::membership::MembershipSender;
-// use crate::channel::membership::{cluster_members, node};
-// use crate::channel::rpc_client::{RpcClientReceiver, RpcClientRequest};
-// use crate::channel::server::{CandidateSender, CandidateTransition};
-// use crate::channel::state::StateSender;
-// use crate::channel::state::{candidate, heartbeat};
-// use crate::info;
 use crate::rpc::{
     AppendEntriesArguments, AppendEntriesResults, Data, RequestVoteArguments, RequestVoteResults,
 };
@@ -27,13 +20,10 @@ impl Client {
         &mut self,
         append_entries_arguments: AppendEntriesArguments,
     ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
-        // let node = node(&self.membership_sender).await?;
-        // let heartbeat = heartbeat(&self.state_sender, node.id.to_string()).await?;
         let data = Data::AppendEntriesArguments(append_entries_arguments)
             .build()
             .await?;
 
-        // Client::transmit(socket_address, &data).await?;
         let response = self.transmit(&data).await?;
 
         let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
@@ -55,13 +45,10 @@ impl Client {
         &mut self,
         request_vote_arguments: RequestVoteArguments,
     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        // let node = node(&self.membership_sender).await?;
-        // let request_vote_arguments = candidate(&self.state_sender, node.id.to_string()).await?;
         let data = Data::RequestVoteArguments(request_vote_arguments)
             .build()
             .await?;
 
-        // let response = Client::transmit(socket_address, &data).await?;
         let response = self.transmit(&data).await?;
 
         let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
@@ -96,149 +83,6 @@ impl Client {
         Ok(buffer[0..received_data].to_vec())
     }
 }
-
-// pub struct Client {
-//     receiver: RpcClientReceiver,
-//     membership_sender: MembershipSender,
-//     state_sender: StateSender,
-//     // candidate_sender: CandidateSender,
-// }
-
-// impl Client {
-//     pub async fn init(
-//         receiver: RpcClientReceiver,
-//         membership_sender: MembershipSender,
-//         state_sender: StateSender,
-//         // candidate_sender: CandidateSender,
-//     ) -> Result<Client, Box<dyn std::error::Error>> {
-//         info!("initialized!");
-
-//         Ok(Client {
-//             receiver,
-//             membership_sender,
-//             state_sender,
-//             // candidate_sender,
-//         })
-//     }
-
-//     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-//         info!("running!");
-
-//         while let Some(request) = self.receiver.recv().await {
-//             match request {
-//                 RpcClientRequest::StartElection => {
-//                     let mut leader_votes = Vec::with_capacity(5);
-
-//                     let peers = cluster_members(&self.membership_sender).await?;
-
-//                     let quorum = peers.len() / 2 + 1;
-
-//                     if peers.is_empty() {
-//                         // self.candidate_sender.send(CandidateTransition::Leader)?;
-//                         info!("this is changing...");
-//                     } else {
-//                         for peer in peers {
-//                             let socket_address = peer.build_address(peer.cluster_port).await;
-//                             let result = self.request_vote(socket_address).await?;
-
-//                             info!("results -> {:?}", &result);
-
-//                             if result.vote_granted {
-//                                 leader_votes.push(1);
-//                             }
-//                         }
-
-//                         if leader_votes.len() >= quorum {
-//                             // self.candidate_sender.send(CandidateTransition::Leader)?;
-//                             info!("this is changing!");
-//                         } else {
-//                             // self.candidate_sender.send(CandidateTransition::Follower)?;
-//                             info!("this is changing...")
-//                         }
-//                     }
-//                 }
-//                 RpcClientRequest::SendHeartbeat => {
-//                     info!("sending heartbeat");
-
-//                     let cluster_member = cluster_members(&self.membership_sender).await?;
-
-//                     for follower in cluster_member {
-//                         let socket_address = follower.build_address(follower.cluster_port).await;
-//                         self.send_heartbeat(socket_address).await?;
-//                     }
-//                 }
-//                 RpcClientRequest::Shutdown => {
-//                     info!("shutting down...");
-
-//                     self.receiver.close();
-//                 }
-//             }
-//         }
-
-//         Ok(())
-//     }
-
-//     pub async fn request_vote(
-//         &self,
-//         socket_address: SocketAddr,
-//     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-//         let node = node(&self.membership_sender).await?;
-//         let request_vote_arguments = candidate(&self.state_sender, node.id.to_string()).await?;
-//         let data = Data::RequestVoteArguments(request_vote_arguments)
-//             .build()
-//             .await?;
-
-//         let response = Client::transmit(socket_address, &data).await?;
-
-//         let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-//         response.push_to_builder(&mut flexbuffer_builder);
-
-//         let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
-//         let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
-
-//         let request_vote_results = RequestVoteResults {
-//             term: flexbuffer_root_details.idx("term").as_u32(),
-//             vote_granted: flexbuffer_root_details.idx("vote_granted").as_bool(),
-//         };
-
-//         Ok(request_vote_results)
-//     }
-
-//     pub async fn send_heartbeat(
-//         &self,
-//         socket_address: SocketAddr,
-//     ) -> Result<(), Box<dyn std::error::Error>> {
-//         let node = node(&self.membership_sender).await?;
-//         let heartbeat = heartbeat(&self.state_sender, node.id.to_string()).await?;
-//         let data = Data::AppendEntriesArguments(heartbeat).build().await?;
-
-//         Client::transmit(socket_address, &data).await?;
-
-//         Ok(())
-//     }
-
-//     async fn transmit(
-//         socket_address: SocketAddr,
-//         data: &[u8],
-//     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-//         let mut buffer = [0; 1024];
-
-//         let tcp_socket = TcpSocket::new_v4()?;
-
-//         tcp_socket.set_reuseaddr(true)?;
-//         tcp_socket.set_reuseport(true)?;
-
-//         let mut tcp_stream = tcp_socket.connect(socket_address).await?;
-
-//         tcp_stream.write_all(data).await?;
-//         tcp_stream.shutdown().await?;
-
-//         let received_data = tcp_stream.read(&mut buffer).await?;
-
-//         Ok(buffer[0..received_data].to_vec())
-//     }
-// }
 
 // #[cfg(test)]
 // mod tests {
