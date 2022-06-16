@@ -1,23 +1,22 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
+use crate::channel::{server, transition};
 use crate::{error, info, warn};
 
 pub struct Follower {
-    pub election_timeout: Duration,
-    enter_state: crate::channel::transition::FollowerReceiver,
-    leader_heartbeat: crate::channel::server::LeaderSender,
-    // shutdown: crate::channel::shutdown::ShutdownSender,
-    shutdown: crate::channel::transition::ShutdownSender,
-    exit_state: crate::channel::transition::ServerStateSender,
+    election_timeout: Duration,
+    enter_state: transition::FollowerReceiver,
+    leader_heartbeat: server::LeaderSender,
+    shutdown: transition::ShutdownSender,
+    exit_state: transition::ServerStateSender,
 }
 
 impl Follower {
     pub async fn init(
-        enter_state: crate::channel::transition::FollowerReceiver,
-        leader_heartbeat: crate::channel::server::LeaderSender,
-        // shutdown: crate::channel::shutdown::ShutdownSender,
-        shutdown: crate::channel::transition::ShutdownSender,
-        exit_state: crate::channel::transition::ServerStateSender,
+        enter_state: transition::FollowerReceiver,
+        leader_heartbeat: server::LeaderSender,
+        shutdown: transition::ShutdownSender,
+        exit_state: transition::ServerStateSender,
     ) -> Result<Follower, Box<dyn std::error::Error>> {
         let election_timeout = Duration::from_millis(30000);
 
@@ -48,7 +47,7 @@ impl Follower {
 
                     loop {
                         match timeout_at(Instant::now() + self.election_timeout, leader_heartbeat.recv()).await {
-                            Ok(Ok(crate::channel::server::Leader::Heartbeat)) => {
+                            Ok(Ok(server::Leader::Heartbeat)) => {
                                     info!("receiving heartbeat...");
                             }
                             Ok(Err(error)) => {
@@ -59,7 +58,7 @@ impl Follower {
                             Err(error) => {
                                 warn!("timeout ending... starting election! {:?}", error);
 
-                                self.exit_state.send(crate::channel::transition::ServerState::Candidate).await?;
+                                self.exit_state.send(transition::ServerState::Candidate).await?;
 
                                 break;
                             }

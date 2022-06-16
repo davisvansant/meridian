@@ -3,7 +3,6 @@ use tokio::sync::{broadcast, mpsc};
 pub type ElectionResultReceiver = mpsc::Receiver<ElectionResult>;
 pub type ElectionResultSender = mpsc::Sender<ElectionResult>;
 
-pub type LeaderReceiver = broadcast::Receiver<Leader>;
 pub type LeaderSender = broadcast::Sender<Leader>;
 
 #[derive(Clone, Debug)]

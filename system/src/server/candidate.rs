@@ -1,29 +1,27 @@
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::membership::{cluster_members, node};
-use crate::channel::state::candidate;
+use crate::channel::{membership, server, state, transition};
+use crate::rpc;
 use crate::{error, info, warn};
 
 pub struct Candidate {
-    pub election_timeout: Duration,
-    enter_state: crate::channel::transition::CandidateReceiver,
-    exit_state: crate::channel::transition::ServerStateSender,
-    // shutdown: crate::channel::shutdown::ShutdownSender,
-    shutdown: crate::channel::transition::ShutdownSender,
-    heartbeat: crate::channel::server::LeaderSender,
-    membership: crate::channel::membership::MembershipSender,
-    state: crate::channel::state::StateSender,
+    election_timeout: Duration,
+    enter_state: transition::CandidateReceiver,
+    exit_state: transition::ServerStateSender,
+    shutdown: transition::ShutdownSender,
+    heartbeat: server::LeaderSender,
+    membership: membership::MembershipSender,
+    state: state::StateSender,
 }
 
 impl Candidate {
     pub async fn init(
-        enter_state: crate::channel::transition::CandidateReceiver,
-        exit_state: crate::channel::transition::ServerStateSender,
-        // shutdown: crate::channel::shutdown::ShutdownSender,
-        shutdown: crate::channel::transition::ShutdownSender,
-        heartbeat: crate::channel::server::LeaderSender,
-        membership: crate::channel::membership::MembershipSender,
-        state: crate::channel::state::StateSender,
+        enter_state: transition::CandidateReceiver,
+        exit_state: transition::ServerStateSender,
+        shutdown: transition::ShutdownSender,
+        heartbeat: server::LeaderSender,
+        membership: membership::MembershipSender,
+        state: state::StateSender,
     ) -> Result<Candidate, Box<dyn std::error::Error>> {
         let election_timeout = Duration::from_millis(15000);
 
@@ -44,7 +42,7 @@ impl Candidate {
         let start_election_membership_sender = self.membership.to_owned();
 
         let (election_result_sender, mut election_result_receiver) =
-            crate::channel::server::ElectionResult::build().await;
+            server::ElectionResult::build().await;
 
         let heartbeat = self.heartbeat.to_owned();
         let receive_heartbeat_election_result_sender = election_result_sender.to_owned();
@@ -59,25 +57,11 @@ impl Candidate {
 
         let start_election_state = self.state.to_owned();
 
-        // let start_election_handle = tokio::spawn(async move {
-        //     if let Err(error) = Self::start_election(
-        //         &start_election_membership_sender,
-        //         &start_election_state,
-        //         &election_result_sender.to_owned(),
-        //     )
-        //     .await
-        //     {
-        //         error!("{:?}", error);
-        //     }
-        // });
-
         tokio::select! {
             biased;
 
              _ = shutdown.recv() => {
                 info!("shutting down candidate");
-
-
             }
 
             Some(run) = self.enter_state.recv() => {
@@ -97,20 +81,20 @@ impl Candidate {
 
                 match timeout_at(Instant::now() + self.election_timeout, election_result_receiver.recv()).await {
                     Ok(election_result) => match election_result {
-                        Some(crate::channel::server::ElectionResult::Follower) => {
+                        Some(server::ElectionResult::Follower) => {
                             info!("received heartbeat...stepping down");
 
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(crate::channel::transition::ServerState::Follower).await?;
+                            self.exit_state.send(transition::ServerState::Follower).await?;
                         }
                         Some(crate::channel::server::ElectionResult::Leader) => {
                             info!("transitioning server to leader...");
 
                             heartbeat_handle.abort();
 
-                            self.exit_state.send(crate::channel::transition::ServerState::Leader).await?;
+                            self.exit_state.send(transition::ServerState::Leader).await?;
                         }
                         None => {
                             warn!("candidate election timeout lapsed...trying again...");
@@ -118,7 +102,7 @@ impl Candidate {
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(crate::channel::transition::ServerState::Candidate).await?;
+                            self.exit_state.send(transition::ServerState::Candidate).await?;
                         }
                     },
                     Err(error) => {
@@ -129,7 +113,7 @@ impl Candidate {
                         heartbeat_handle.abort();
                         start_election_handle.abort();
 
-                        self.exit_state.send(crate::channel::transition::ServerState::Candidate).await?;
+                        self.exit_state.send(transition::ServerState::Candidate).await?;
                     }
                 }
             }
@@ -139,45 +123,40 @@ impl Candidate {
     }
 
     async fn receive_heartbeat(
-        heartbeat: crate::channel::server::LeaderSender,
-        election_result: crate::channel::server::ElectionResultSender,
+        heartbeat: server::LeaderSender,
+        election_result: server::ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut heartbeat = heartbeat.subscribe();
 
         heartbeat.recv().await?;
 
         election_result
-            .send(crate::channel::server::ElectionResult::Follower)
+            .send(server::ElectionResult::Follower)
             .await?;
 
         Ok(())
     }
 
     async fn start_election(
-        membership: &crate::channel::membership::MembershipSender,
-        state: &crate::channel::state::StateSender,
-        election_result: &crate::channel::server::ElectionResultSender,
+        membership: &membership::MembershipSender,
+        state: &state::StateSender,
+        election_result: &server::ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut leader_votes = Vec::with_capacity(5);
 
-        let node = node(membership).await?;
-        let request_vote_arguments = candidate(state, node.id.to_string()).await?;
-
-        let peers = cluster_members(membership).await?;
-
-        error!("peers length! -> {:?}", &peers.len());
+        let node = membership::node(membership).await?;
+        let request_vote_arguments = state::candidate(state, node.id.to_string()).await?;
+        let peers = membership::cluster_members(membership).await?;
 
         let quorum = peers.len() / 2 + 1;
 
         if peers.is_empty() {
-            election_result
-                .send(crate::channel::server::ElectionResult::Leader)
-                .await?;
+            election_result.send(server::ElectionResult::Leader).await?;
         } else {
             for peer in peers {
                 let socket_address = peer.build_address(peer.cluster_port).await;
 
-                let mut client = crate::rpc::Client::init(socket_address).await;
+                let mut client = rpc::Client::init(socket_address).await;
                 let request_vote_result = client
                     .send_request_vote(request_vote_arguments.to_owned())
                     .await?;
@@ -188,12 +167,10 @@ impl Candidate {
             }
 
             if leader_votes.len() >= quorum {
-                election_result
-                    .send(crate::channel::server::ElectionResult::Leader)
-                    .await?;
+                election_result.send(server::ElectionResult::Leader).await?;
             } else {
                 election_result
-                    .send(crate::channel::server::ElectionResult::Follower)
+                    .send(server::ElectionResult::Follower)
                     .await?;
             }
         }

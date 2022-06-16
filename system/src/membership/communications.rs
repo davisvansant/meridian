@@ -13,7 +13,6 @@ use crate::channel::membership_list::{
     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
     insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
-// use crate::channel::shutdown::ShutdownReceiver;
 use crate::channel::transition::ShutdownReceiver;
 use crate::membership::Message;
 use crate::{error, info};

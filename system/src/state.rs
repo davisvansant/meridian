@@ -1,16 +1,15 @@
-// use crate::channel::{StateReceiver, StateRequest, StateResponse};
 use crate::channel::state::{StateReceiver, StateRequest, StateResponse};
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
 use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
+use crate::{error, info};
+
+use leader_volatile::LeaderVolatile;
+use persistent::Persistent;
+use volatile::Volatile;
 
 mod leader_volatile;
 mod persistent;
 mod volatile;
-
-use crate::state::leader_volatile::LeaderVolatile;
-use crate::state::persistent::Persistent;
-use crate::state::volatile::Volatile;
-use crate::{error, info};
 
 pub struct State {
     persistent: Persistent,

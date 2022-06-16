@@ -1,24 +1,21 @@
 use tokio::time::{sleep, Duration};
 
-use crate::channel::membership::MembershipSender;
-use crate::channel::membership::{launch_failure_detector, static_join};
-use crate::{error, info, warn};
+use crate::channel::{membership, transition};
+use crate::{error, info};
 
 pub struct Preflight {
-    enter_state: crate::channel::transition::PreflightReceiver,
-    exit_state: crate::channel::transition::ServerStateSender,
-    // shutdown: crate::channel::shutdown::ShutdownSender,
-    shutdown: crate::channel::transition::ShutdownSender,
-    membership: crate::channel::membership::MembershipSender,
+    enter_state: transition::PreflightReceiver,
+    exit_state: transition::ServerStateSender,
+    shutdown: transition::ShutdownSender,
+    membership: membership::MembershipSender,
 }
 
 impl Preflight {
     pub async fn init(
-        enter_state: crate::channel::transition::PreflightReceiver,
-        exit_state: crate::channel::transition::ServerStateSender,
-        // shutdown: crate::channel::shutdown::ShutdownSender,
-        shutdown: crate::channel::transition::ShutdownSender,
-        membership: crate::channel::membership::MembershipSender,
+        enter_state: transition::PreflightReceiver,
+        exit_state: transition::ServerStateSender,
+        shutdown: transition::ShutdownSender,
+        membership: membership::MembershipSender,
     ) -> Result<Preflight, Box<dyn std::error::Error>> {
         Ok(Preflight {
             enter_state,
@@ -35,8 +32,6 @@ impl Preflight {
             biased;
             _ = shutdown.recv() => {
                 info!("shutting down preflight task...");
-
-                // break
             }
             Some(run) = self.enter_state.recv() => {
                 info!("preflight! -> {:?}", run);
@@ -52,13 +47,13 @@ impl Preflight {
         let mut errors = 0;
 
         while errors <= 4 {
-            let (active, expected) = static_join(&self.membership).await?;
+            let (active, expected) = membership::static_join(&self.membership).await?;
 
             if active == expected {
-                launch_failure_detector(&self.membership).await?;
+                membership::launch_failure_detector(&self.membership).await?;
 
                 self.exit_state
-                    .send(crate::channel::transition::ServerState::Follower)
+                    .send(transition::ServerState::Follower)
                     .await?;
 
                 break;
@@ -84,7 +79,7 @@ impl Preflight {
                         error!("preflight tasks failed...shutting down...");
 
                         self.exit_state
-                            .send(crate::channel::transition::ServerState::Shutdown)
+                            .send(transition::ServerState::Shutdown)
                             .await?;
                     }
                     _ => {}
