@@ -83,8 +83,8 @@ impl Client {
         let mut buffer = [0; 1024];
         let tcp_socket = TcpSocket::new_v4()?;
 
-        tcp_socket.set_reuseaddr(true)?;
-        tcp_socket.set_reuseport(true)?;
+        tcp_socket.set_reuseaddr(false)?;
+        tcp_socket.set_reuseport(false)?;
 
         let mut tcp_stream = tcp_socket.connect(self.socket_address).await?;
 
