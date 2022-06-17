@@ -171,9 +171,7 @@ impl State {
     }
 
     async fn check_term(&self, term: u32) -> bool {
-        let current_term = self.persistent.current_term;
-
-        term > current_term
+        term > self.persistent.current_term
     }
 
     async fn check_candidate_id(&self, candidate_id: &str) -> bool {
@@ -252,12 +250,12 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
+    async fn append_entries_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_append_entries_arguments = AppendEntriesArguments {
-            term: 0,
+            term: 1,
             leader_id: String::from("some_leader_id"),
             prev_log_index: 0,
             prev_log_term: 0,
@@ -270,6 +268,32 @@ mod tests {
             .await?;
 
         assert_eq!(test_append_entries_results.term, 0);
+        assert!(test_append_entries_results.success);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 2;
+
+        let test_append_entries_arguments = AppendEntriesArguments {
+            term: 1,
+            leader_id: String::from("some_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        };
+
+        let test_append_entries_results = test_state
+            .append_entries(test_append_entries_arguments)
+            .await?;
+
+        assert_eq!(test_append_entries_results.term, 2);
         assert!(!test_append_entries_results.success);
 
         Ok(())
@@ -298,12 +322,12 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
+    async fn request_vote_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_request_vote_arguments = RequestVoteArguments {
-            term: 0,
+            term: 1,
             candidate_id: String::from("some_candidate_id"),
             last_log_index: 0,
             last_log_term: 0,
@@ -313,6 +337,29 @@ mod tests {
             test_state.request_vote(test_request_vote_arguments).await?;
 
         assert_eq!(test_request_vote_results.term, 0);
+        assert!(test_request_vote_results.vote_granted);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 2;
+
+        let test_request_vote_arguments = RequestVoteArguments {
+            term: 1,
+            candidate_id: String::from("some_candidate_id"),
+            last_log_index: 0,
+            last_log_term: 0,
+        };
+
+        let test_request_vote_results =
+            test_state.request_vote(test_request_vote_arguments).await?;
+
+        assert_eq!(test_request_vote_results.term, 2);
         assert!(!test_request_vote_results.vote_granted);
 
         Ok(())
@@ -331,7 +378,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 1;
 
         assert!(!test_state.check_term(0).await);
 
