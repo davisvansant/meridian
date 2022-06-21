@@ -141,11 +141,11 @@ impl MembershipCommunications {
 
                 insert_alive(list_sender, &origin_node).await?;
 
-                for alive_node in &peer_active_list {
-                    remove_confirmed(list_sender, alive_node).await?;
-                    remove_suspected(list_sender, alive_node).await?;
-                    insert_alive(list_sender, alive_node).await?;
-                }
+                // for alive_node in &peer_active_list {
+                //     remove_confirmed(list_sender, alive_node).await?;
+                //     remove_suspected(list_sender, alive_node).await?;
+                //     insert_alive(list_sender, alive_node).await?;
+                // }
 
                 for suspected_node in &peer_suspected_list {
                     remove_alive(list_sender, suspected_node).await?;
