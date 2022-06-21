@@ -33,7 +33,7 @@ impl FailureDectector {
         send_udp_message: MembershipCommunicationsSender,
         ping_target_channel: MembershipFailureDetectorPingTargetSender,
     ) -> FailureDectector {
-        let protocol_period = Duration::from_secs(10);
+        let protocol_period = Duration::from_secs(2);
 
         info!("initialized!");
 
