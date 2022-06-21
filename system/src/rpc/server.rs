@@ -148,6 +148,13 @@ impl Server {
                 };
 
                 let results = state::append_entries(state_sender, arguments).await?;
+
+                if term > results.term {
+                    info!("request term is higher than current term!");
+
+                    heartbeat.send(server::Leader::Heartbeat)?;
+                }
+
                 let append_entries_results = Data::AppendEntriesResults(results).build().await?;
 
                 Ok(append_entries_results)
@@ -169,6 +176,13 @@ impl Server {
                 };
 
                 let results = state::request_vote(state_sender, arguments).await?;
+
+                if term > results.term {
+                    info!("request term is higher than current term!");
+
+                    heartbeat.send(server::Leader::Heartbeat)?;
+                }
+
                 let request_vote_results = Data::RequestVoteResults(results).build().await?;
 
                 Ok(request_vote_results)
