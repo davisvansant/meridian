@@ -1,3 +1,4 @@
+use rand::{thread_rng, Rng};
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::{server, transition};
@@ -18,7 +19,12 @@ impl Follower {
         shutdown: transition::ShutdownSender,
         exit_state: transition::ServerStateSender,
     ) -> Result<Follower, Box<dyn std::error::Error>> {
-        let election_timeout = Duration::from_millis(30000);
+        let mut rng = thread_rng();
+
+        let election_timeout =
+            rng.gen_range(Duration::from_millis(15000)..Duration::from_millis(30000));
+
+        info!("election timeoute value -> {:?}", &election_timeout);
 
         Ok(Follower {
             election_timeout,
