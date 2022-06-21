@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 
 use crate::channel::{membership, state, transition};
@@ -79,21 +80,37 @@ impl Leader {
         for follower in cluster_members {
             let socket_address = follower.build_address(follower.cluster_port).await;
 
-            info!(
-                "sending heartbeat to socket address -> {:?}",
-                &socket_address,
-            );
-
-            let mut client = rpc::Client::init(socket_address).await;
-
-            match client
-                .send_append_entries(append_entries_arguments.to_owned())
+            match Self::append_entries(socket_address, append_entries_arguments.to_owned(), state)
                 .await
             {
-                Ok(append_entries_results) => info!("result -> {:?}", append_entries_results),
-                Err(error) => error!("result -> {:?}", error),
+                Ok(()) => info!("heartbeat sent!"),
+                Err(error) => {
+                    error!("append entries heartbeart -> {:?}", error);
+
+                    continue;
+                }
             }
         }
+
+        Ok(())
+    }
+
+    async fn append_entries(
+        socket_address: SocketAddr,
+        arguments: rpc::append_entries::AppendEntriesArguments,
+        state: &state::StateSender,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        info!(
+            "sending heartbeat to socket address -> {:?}",
+            &socket_address,
+        );
+
+        let mut client = rpc::Client::init(socket_address).await;
+        let append_entries_results = client.send_append_entries(arguments).await?;
+
+        info!("append entries results -> {:?}", &append_entries_results);
+
+        state::append_entries_results(state, append_entries_results).await?;
 
         Ok(())
     }
