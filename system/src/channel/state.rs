@@ -9,7 +9,9 @@ pub type StateSender = mpsc::Sender<(StateRequest, oneshot::Sender<StateResponse
 #[derive(Clone, Debug)]
 pub enum StateRequest {
     AppendEntries(AppendEntriesArguments),
+    AppendEntriesResults(AppendEntriesResults),
     RequestVote(RequestVoteArguments),
+    RequestVoteResults(RequestVoteResults),
     Candidate(String),
     Leader,
     Heartbeat(String),
@@ -22,6 +24,7 @@ pub enum StateResponse {
     RequestVote(RequestVoteResults),
     Candidate(RequestVoteArguments),
     Heartbeat(AppendEntriesArguments),
+    Follower(bool),
 }
 
 pub async fn build() -> (StateSender, StateReceiver) {
@@ -63,6 +66,22 @@ pub async fn request_vote(
     }
 }
 
+pub async fn request_vote_results(
+    state: &StateSender,
+    results: RequestVoteResults,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    state
+        .send((StateRequest::RequestVoteResults(results), request))
+        .await?;
+
+    match response.await? {
+        StateResponse::Follower(transition) => Ok(transition),
+        _ => panic!("unexpected response!"),
+    }
+}
+
 pub async fn append_entries(
     state: &StateSender,
     arguments: AppendEntriesArguments,
@@ -75,6 +94,22 @@ pub async fn append_entries(
 
     match response.await? {
         StateResponse::AppendEntries(results) => Ok(results),
+        _ => panic!("unexpected response!"),
+    }
+}
+
+pub async fn append_entries_results(
+    state: &StateSender,
+    results: AppendEntriesResults,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let (request, response) = oneshot::channel();
+
+    state
+        .send((StateRequest::AppendEntriesResults(results), request))
+        .await?;
+
+    match response.await? {
+        StateResponse::Follower(transition) => Ok(transition),
         _ => panic!("unexpected response!"),
     }
 }
