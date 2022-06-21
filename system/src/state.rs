@@ -1,7 +1,7 @@
 use crate::channel::state::{StateReceiver, StateRequest, StateResponse};
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
 use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
-use crate::{error, info};
+use crate::{error, info, warn};
 
 use leader_volatile::LeaderVolatile;
 use persistent::Persistent;
@@ -47,6 +47,22 @@ impl State {
                         error!("append entries response -> {:?}", error);
                     }
                 }
+                StateRequest::AppendEntriesResults(results) => {
+                    info!("received append entries results -> {:?}", &results);
+
+                    match self.check_term(results.term).await {
+                        true => {
+                            if let Err(error) = response.send(StateResponse::Follower(false)) {
+                                error!("check term true response -> {:?}", error);
+                            }
+                        }
+                        false => {
+                            if let Err(error) = response.send(StateResponse::Follower(true)) {
+                                error!("check term false response -> {:?}", error);
+                            }
+                        }
+                    }
+                }
                 StateRequest::Candidate(candidate_id) => {
                     self.persistent.increment_current_term().await?;
                     self.persistent.vote_for_self(candidate_id.as_str()).await?;
@@ -72,8 +88,26 @@ impl State {
 
                     let results = self.request_vote(arguments).await?;
 
+                    error!("testing request vote results -> {:?}", &results);
+
                     if let Err(error) = response.send(StateResponse::RequestVote(results)) {
                         error!("sending request vote response -> {:?}", error);
+                    }
+                }
+                StateRequest::RequestVoteResults(results) => {
+                    info!("received request vote results -> {:?}", &results);
+
+                    match self.check_term(results.term).await {
+                        true => {
+                            if let Err(error) = response.send(StateResponse::Follower(true)) {
+                                error!("check term true response -> {:?}", error);
+                            }
+                        }
+                        false => {
+                            if let Err(error) = response.send(StateResponse::Follower(false)) {
+                                error!("check term false response -> {:?}", error);
+                            }
+                        }
                     }
                 }
                 StateRequest::Shutdown => {
@@ -88,7 +122,7 @@ impl State {
     }
 
     async fn append_entries(
-        &self,
+        &mut self,
         request: AppendEntriesArguments,
     ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
         let true_response = AppendEntriesResults {
@@ -142,7 +176,7 @@ impl State {
     }
 
     async fn request_vote(
-        &self,
+        &mut self,
         request: RequestVoteArguments,
     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
         let true_response = RequestVoteResults {
@@ -170,8 +204,38 @@ impl State {
         }
     }
 
-    async fn check_term(&self, term: u32) -> bool {
-        term > self.persistent.current_term
+    async fn check_term(&mut self, term: u32) -> bool {
+        match term < self.persistent.current_term {
+            true => {
+                info!(
+                    "current term higher than incoming -> current {:?} | incoming {:?}",
+                    self.persistent.current_term, term,
+                );
+
+                false
+            }
+            false => match term == self.persistent.current_term {
+                true => {
+                    info!(
+                        "terms are equal! current {:?} | {:?}",
+                        self.persistent.current_term, term,
+                    );
+
+                    true
+                }
+                false => {
+                    warn!(
+                        "adjusting term! current {:?} | {:?}",
+                        self.persistent.current_term, term,
+                    );
+
+                    self.persistent.current_term = term;
+                    self.persistent.voted_for = None;
+
+                    true
+                }
+            },
+        }
     }
 
     async fn check_candidate_id(&self, candidate_id: &str) -> bool {
@@ -252,7 +316,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 1;
 
         let test_append_entries_arguments = AppendEntriesArguments {
             term: 1,
@@ -267,7 +333,7 @@ mod tests {
             .append_entries(test_append_entries_arguments)
             .await?;
 
-        assert_eq!(test_append_entries_results.term, 0);
+        assert_eq!(test_append_entries_results.term, 1);
         assert!(test_append_entries_results.success);
 
         Ok(())
@@ -324,7 +390,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 1;
 
         let test_request_vote_arguments = RequestVoteArguments {
             term: 1,
@@ -336,7 +404,7 @@ mod tests {
         let test_request_vote_results =
             test_state.request_vote(test_request_vote_arguments).await?;
 
-        assert_eq!(test_request_vote_results.term, 0);
+        assert_eq!(test_request_vote_results.term, 1);
         assert!(test_request_vote_results.vote_granted);
 
         Ok(())
@@ -368,9 +436,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
+        let mut test_state = State::init(test_receiver).await?;
 
-        assert!(test_state.check_term(1).await);
+        assert!(test_state.check_term(0).await);
 
         Ok(())
     }
