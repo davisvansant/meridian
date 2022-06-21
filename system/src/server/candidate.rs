@@ -1,3 +1,5 @@
+use rand::{thread_rng, Rng};
+use std::net::SocketAddr;
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::{membership, server, state, transition};
@@ -23,7 +25,10 @@ impl Candidate {
         membership: membership::MembershipSender,
         state: state::StateSender,
     ) -> Result<Candidate, Box<dyn std::error::Error>> {
-        let election_timeout = Duration::from_millis(15000);
+        let mut rng = thread_rng();
+
+        let election_timeout =
+            rng.gen_range(Duration::from_millis(15000)..Duration::from_millis(30000));
 
         Ok(Candidate {
             election_timeout,
@@ -156,25 +161,26 @@ impl Candidate {
             for peer in peers {
                 let socket_address = peer.build_address(peer.cluster_port).await;
 
-                info!(
-                    "sending election request to socket address -> {:?}",
-                    &socket_address,
-                );
-
-                let mut client = rpc::Client::init(socket_address).await;
-
-                match client
-                    .send_request_vote(request_vote_arguments.to_owned())
-                    .await
+                match Self::request_vote(
+                    socket_address,
+                    request_vote_arguments.to_owned(),
+                    state,
+                    election_result,
+                )
+                .await
                 {
-                    Ok(request_vote_results) => {
-                        info!("result -> {:?}", request_vote_results);
-
-                        if request_vote_results.vote_granted {
+                    Ok(vote_granted) => {
+                        if vote_granted {
                             leader_votes.push(1);
+                        } else {
+                            break;
                         }
                     }
-                    Err(error) => error!("result -> {:?}", error),
+                    Err(error) => {
+                        error!("request vote results -> {:?}", error);
+
+                        continue;
+                    }
                 }
             }
 
@@ -194,6 +200,43 @@ impl Candidate {
         }
 
         Ok(())
+    }
+
+    async fn request_vote(
+        socket_address: SocketAddr,
+        arguments: rpc::request_vote::RequestVoteArguments,
+        state: &state::StateSender,
+        election_result: &server::ElectionResultSender,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        info!(
+            "sending election request to socket address -> {:?}",
+            &socket_address,
+        );
+
+        let mut client = rpc::Client::init(socket_address).await;
+        let request_vote_results = client.send_request_vote(arguments).await?;
+
+        info!("request vote results -> {:?}", &request_vote_results);
+
+        let vote_granted = request_vote_results.vote_granted;
+        let transition = state::request_vote_results(state, request_vote_results).await?;
+
+        match transition {
+            true => {
+                info!("peer at heigher term, transition to follower...");
+
+                election_result
+                    .send(server::ElectionResult::Follower)
+                    .await?;
+
+                Ok(false)
+            }
+            false => {
+                info!("continuing vote results...");
+
+                Ok(vote_granted)
+            }
+        }
     }
 }
 
