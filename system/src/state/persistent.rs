@@ -1,3 +1,5 @@
+use crate::{info, warn};
+
 pub struct LogEntry {
     pub term: u32,
     pub command: String,
@@ -34,6 +36,37 @@ impl Persistent {
 
     pub async fn check_candidate_id(&self, candidate_id: &str) -> bool {
         self.voted_for == None || self.voted_for == Some(candidate_id.to_string())
+    }
+
+    pub async fn check_term(&mut self, term: u32) -> bool {
+        match term.cmp(&self.current_term) {
+            std::cmp::Ordering::Less => {
+                info!(
+                    "current term higher than incoming -> current {:?} | incoming {:?}",
+                    self.current_term, term,
+                );
+
+                false
+            }
+            std::cmp::Ordering::Equal => {
+                info!(
+                    "terms are equal! current {:?} | {:?}",
+                    self.current_term, term,
+                );
+
+                true
+            }
+            std::cmp::Ordering::Greater => {
+                warn!(
+                    "adjusting term! current {:?} | {:?}",
+                    self.current_term, term,
+                );
+
+                self.adjust_term(term).await;
+
+                true
+            }
+        }
     }
 
     pub async fn increment_current_term(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -148,6 +181,31 @@ mod tests {
                 .check_candidate_id("some_candidate_id")
                 .await
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+
+        assert!(test_persistent_state.check_term(0).await);
+
+        test_persistent_state.current_term = 1;
+
+        assert!(test_persistent_state.check_term(2).await);
+        assert_eq!(test_persistent_state.current_term, 2);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+
+        test_persistent_state.current_term = 1;
+
+        assert!(!test_persistent_state.check_term(0).await);
 
         Ok(())
     }

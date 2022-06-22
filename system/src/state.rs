@@ -1,7 +1,7 @@
 use crate::channel::state::{StateReceiver, StateRequest, StateResponse};
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
 use crate::rpc::request_vote::{RequestVoteArguments, RequestVoteResults};
-use crate::{error, info, warn};
+use crate::{error, info};
 
 use leader_volatile::LeaderVolatile;
 use persistent::Persistent;
@@ -50,7 +50,7 @@ impl State {
                 StateRequest::AppendEntriesResults(results) => {
                     info!("received append entries results -> {:?}", &results);
 
-                    match self.check_term(results.term).await {
+                    match self.persistent.check_term(results.term).await {
                         true => {
                             if let Err(error) = response.send(StateResponse::Follower(false)) {
                                 error!("check term true response -> {:?}", error);
@@ -97,7 +97,7 @@ impl State {
                 StateRequest::RequestVoteResults(results) => {
                     info!("received request vote results -> {:?}", &results);
 
-                    match self.check_term(results.term).await {
+                    match self.persistent.check_term(results.term).await {
                         true => {
                             if let Err(error) = response.send(StateResponse::Follower(true)) {
                                 error!("check term true response -> {:?}", error);
@@ -134,7 +134,7 @@ impl State {
             success: false,
         };
 
-        match self.check_term(request.term).await {
+        match self.persistent.check_term(request.term).await {
             false => Ok(false_response),
             true => {
                 match self
@@ -190,7 +190,7 @@ impl State {
             vote_granted: false,
         };
 
-        match self.check_term(request.term).await {
+        match self.persistent.check_term(request.term).await {
             false => Ok(false_response),
             true => {
                 match self
@@ -205,37 +205,6 @@ impl State {
                     true => Ok(true_response),
                     false => Ok(false_response),
                 }
-            }
-        }
-    }
-
-    async fn check_term(&mut self, term: u32) -> bool {
-        match term.cmp(&self.persistent.current_term) {
-            std::cmp::Ordering::Less => {
-                info!(
-                    "current term higher than incoming -> current {:?} | incoming {:?}",
-                    self.persistent.current_term, term,
-                );
-
-                false
-            }
-            std::cmp::Ordering::Equal => {
-                info!(
-                    "terms are equal! current {:?} | {:?}",
-                    self.persistent.current_term, term,
-                );
-
-                true
-            }
-            std::cmp::Ordering::Greater => {
-                warn!(
-                    "adjusting term! current {:?} | {:?}",
-                    self.persistent.current_term, term,
-                );
-
-                self.persistent.adjust_term(term).await;
-
-                true
             }
         }
     }
@@ -422,33 +391,6 @@ mod tests {
 
         assert_eq!(test_request_vote_results.term, 2);
         assert!(!test_request_vote_results.vote_granted);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn check_term_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let mut test_state = State::init(test_receiver).await?;
-
-        assert!(test_state.check_term(0).await);
-
-        test_state.persistent.current_term = 1;
-
-        assert!(test_state.check_term(2).await);
-        assert_eq!(test_state.persistent.current_term, 2);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn check_term_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let mut test_state = State::init(test_receiver).await?;
-
-        test_state.persistent.current_term = 1;
-
-        assert!(!test_state.check_term(0).await);
 
         Ok(())
     }
