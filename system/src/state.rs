@@ -138,7 +138,8 @@ impl State {
             false => Ok(false_response),
             true => {
                 match self
-                    .check_candidate_log(self.persistent.current_term, request.prev_log_term)
+                    .persistent
+                    .check_candidate_log(request.prev_log_term)
                     .await
                 {
                     false => Ok(false_response),
@@ -197,7 +198,8 @@ impl State {
                     .check_candidate_id(request.candidate_id.as_str())
                     .await
                     && self
-                        .check_candidate_log(self.persistent.current_term, request.last_log_term)
+                        .persistent
+                        .check_candidate_log(request.last_log_term)
                         .await
                 {
                     true => Ok(true_response),
@@ -238,9 +240,9 @@ impl State {
         }
     }
 
-    async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
-        log >= candidate_log
-    }
+    // async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
+    //     log >= candidate_log
+    // }
 
     async fn build_request_vote_arguments(
         &self,
