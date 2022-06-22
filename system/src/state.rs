@@ -192,7 +192,10 @@ impl State {
         match self.check_term(request.term).await {
             false => Ok(false_response),
             true => {
-                match self.check_candidate_id(request.candidate_id.as_str()).await
+                match self
+                    .persistent
+                    .check_candidate_id(request.candidate_id.as_str())
+                    .await
                     && self
                         .check_candidate_log(self.persistent.current_term, request.last_log_term)
                         .await
@@ -233,11 +236,6 @@ impl State {
                 true
             }
         }
-    }
-
-    async fn check_candidate_id(&self, candidate_id: &str) -> bool {
-        self.persistent.voted_for == None
-            || self.persistent.voted_for == Some(candidate_id.to_string())
     }
 
     async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
@@ -453,28 +451,6 @@ mod tests {
         test_state.persistent.current_term = 1;
 
         assert!(!test_state.check_term(0).await);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn check_candidate_id_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
-
-        assert!(test_state.check_candidate_id("some_candidate_id").await);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn check_candidate_id_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let mut test_state = State::init(test_receiver).await?;
-
-        test_state.persistent.voted_for = Some(String::from("some_test_uuid"));
-
-        assert!(!test_state.check_candidate_id("some_candidate_id").await);
 
         Ok(())
     }

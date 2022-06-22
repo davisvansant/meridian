@@ -28,6 +28,10 @@ impl Persistent {
         self.voted_for = None;
     }
 
+    pub async fn check_candidate_id(&self, candidate_id: &str) -> bool {
+        self.voted_for == None || self.voted_for == Some(candidate_id.to_string())
+    }
+
     pub async fn increment_current_term(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.current_term += 1;
 
@@ -80,6 +84,43 @@ mod tests {
         test_persistent_state.adjust_term(1).await;
         assert_eq!(test_persistent_state.current_term, 1);
         assert!(test_persistent_state.voted_for.is_none());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_true() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+
+        assert!(test_persistent_state.voted_for.is_none());
+        assert!(
+            test_persistent_state
+                .check_candidate_id("some_candidate_id")
+                .await
+        );
+
+        test_persistent_state.voted_for = Some(String::from("test_vote_for_self"));
+
+        assert!(
+            test_persistent_state
+                .check_candidate_id("test_vote_for_self")
+                .await
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn check_candidate_id_false() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+
+        test_persistent_state.voted_for = Some(String::from("some_test_uuid"));
+
+        assert!(
+            !test_persistent_state
+                .check_candidate_id("some_candidate_id")
+                .await
+        );
+
         Ok(())
     }
 
