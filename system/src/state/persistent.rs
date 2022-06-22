@@ -23,6 +23,11 @@ impl Persistent {
         })
     }
 
+    pub async fn adjust_term(&mut self, term: u32) {
+        self.current_term = term;
+        self.voted_for = None;
+    }
+
     pub async fn increment_current_term(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.current_term += 1;
 
@@ -60,6 +65,21 @@ mod tests {
         assert_eq!(test_persistent_state.voted_for, None);
         assert_eq!(test_persistent_state.log.len(), 0);
         assert_eq!(test_persistent_state.log.capacity(), 4096);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn adjust_term() -> Result<(), Box<dyn std::error::Error>> {
+        let mut test_persistent_state = Persistent::init().await?;
+        test_persistent_state.voted_for = Some(String::from("test_candidate_id"));
+        assert_eq!(test_persistent_state.current_term, 0);
+        assert_eq!(
+            test_persistent_state.voted_for.as_ref().unwrap().as_str(),
+            "test_candidate_id",
+        );
+        test_persistent_state.adjust_term(1).await;
+        assert_eq!(test_persistent_state.current_term, 1);
+        assert!(test_persistent_state.voted_for.is_none());
         Ok(())
     }
 
