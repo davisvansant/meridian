@@ -39,9 +39,11 @@ impl State {
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 StateRequest::AppendEntries(arguments) => {
-                    info!("received append entires request - {:?}", &arguments);
+                    info!("received append entries request -> {:?}", &arguments);
 
-                    let results = self.append_entries(arguments).await?;
+                    let results = self.append_entries_results(arguments).await?;
+
+                    info!("sending append entries results -> {:?}", &results);
 
                     if let Err(error) = response.send(StateResponse::AppendEntries(results)) {
                         error!("append entries response -> {:?}", error);
@@ -67,14 +69,14 @@ impl State {
                     self.persistent.increment_current_term().await?;
                     self.persistent.vote_for_self(candidate_id.as_str()).await?;
 
-                    let arguments = self.build_request_vote_arguments(&candidate_id).await?;
+                    let arguments = self.request_vote_arguments(&candidate_id).await?;
 
                     if let Err(error) = response.send(StateResponse::Candidate(arguments)) {
                         error!("sending request vote arguments -> {:?}", error);
                     }
                 }
                 StateRequest::Heartbeat(leader_id) => {
-                    let heartbeat = self.heartbeat(leader_id).await?;
+                    let heartbeat = self.append_entries_heartbeat(leader_id).await?;
 
                     if let Err(error) = response.send(StateResponse::Heartbeat(heartbeat)) {
                         println!("sending heartbeat arguments -> {:?}", error);
@@ -84,11 +86,11 @@ impl State {
                     self.init_leader_volatile_state().await?;
                 }
                 StateRequest::RequestVote(arguments) => {
-                    info!("received request vote {:?}", &arguments);
+                    info!("received request vote arguments -> {:?}", &arguments);
 
-                    let results = self.request_vote(arguments).await?;
+                    let results = self.request_vote_results(arguments).await?;
 
-                    error!("testing request vote results -> {:?}", &results);
+                    info!("sending request vote results -> {:?}", &results);
 
                     if let Err(error) = response.send(StateResponse::RequestVote(results)) {
                         error!("sending request vote response -> {:?}", error);
@@ -121,40 +123,7 @@ impl State {
         Ok(())
     }
 
-    async fn append_entries(
-        &mut self,
-        request: AppendEntriesArguments,
-    ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
-        let true_response = AppendEntriesResults {
-            term: self.persistent.current_term,
-            success: true,
-        };
-        let false_response = AppendEntriesResults {
-            term: self.persistent.current_term,
-            success: false,
-        };
-
-        match self.persistent.check_term(request.term).await {
-            false => Ok(false_response),
-            true => {
-                match self
-                    .persistent
-                    .check_candidate_log(request.prev_log_term)
-                    .await
-                {
-                    false => Ok(false_response),
-                    true => {
-                        // do some delete stuff here
-                        // do some appending stuff here
-                        // do some setting of commit_index here
-                        Ok(true_response)
-                    }
-                }
-            }
-        }
-    }
-
-    async fn heartbeat(
+    async fn append_entries_heartbeat(
         &self,
         leader_id: String,
     ) -> Result<AppendEntriesArguments, Box<dyn std::error::Error>> {
@@ -176,40 +145,39 @@ impl State {
         Ok(heartbeat)
     }
 
-    async fn request_vote(
+    async fn append_entries_results(
         &mut self,
-        request: RequestVoteArguments,
-    ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        let true_response = RequestVoteResults {
+        request: AppendEntriesArguments,
+    ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
+        let true_response = AppendEntriesResults {
             term: self.persistent.current_term,
-            vote_granted: true,
+            success: true,
+        };
+        let false_response = AppendEntriesResults {
+            term: self.persistent.current_term,
+            success: false,
         };
 
-        let false_response = RequestVoteResults {
-            term: self.persistent.current_term,
-            vote_granted: false,
-        };
-
-        match self.persistent.check_term(request.term).await {
-            false => Ok(false_response),
-            true => {
-                match self
-                    .persistent
-                    .check_candidate_id(request.candidate_id.as_str())
-                    .await
-                    && self
-                        .persistent
-                        .check_candidate_log(request.last_log_term)
-                        .await
-                {
-                    true => Ok(true_response),
-                    false => Ok(false_response),
+        if !self.persistent.check_term(request.term).await {
+            Ok(false_response)
+        } else {
+            match self
+                .persistent
+                .check_candidate_log(request.prev_log_term)
+                .await
+            {
+                true => {
+                    // do some delete stuff here
+                    // do some appending stuff here
+                    // do some setting of commit_index here
+                    Ok(true_response)
                 }
+                false => Ok(false_response),
             }
         }
     }
 
-    async fn build_request_vote_arguments(
+    async fn request_vote_arguments(
         &self,
         candidate_id: &str,
     ) -> Result<RequestVoteArguments, Box<dyn std::error::Error>> {
@@ -230,6 +198,39 @@ impl State {
         };
 
         Ok(request_vote_arguments)
+    }
+
+    async fn request_vote_results(
+        &mut self,
+        request: RequestVoteArguments,
+    ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
+        let true_response = RequestVoteResults {
+            term: self.persistent.current_term,
+            vote_granted: true,
+        };
+
+        let false_response = RequestVoteResults {
+            term: self.persistent.current_term,
+            vote_granted: false,
+        };
+
+        if !self.persistent.check_term(request.term).await {
+            Ok(false_response)
+        } else {
+            let check_candidate_id = self
+                .persistent
+                .check_candidate_id(request.candidate_id.as_str())
+                .await;
+            let check_candidate_log = self
+                .persistent
+                .check_candidate_log(request.last_log_term)
+                .await;
+
+            match check_candidate_id && check_candidate_log {
+                true => Ok(true_response),
+                false => Ok(false_response),
+            }
+        }
     }
 
     async fn init_leader_volatile_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -276,65 +277,14 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn append_entries_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let mut test_state = State::init(test_receiver).await?;
-
-        test_state.persistent.current_term = 1;
-
-        let test_append_entries_arguments = AppendEntriesArguments {
-            term: 1,
-            leader_id: String::from("some_leader_id"),
-            prev_log_index: 0,
-            prev_log_term: 0,
-            entries: Vec::with_capacity(0),
-            leader_commit: 0,
-        };
-
-        let test_append_entries_results = test_state
-            .append_entries(test_append_entries_arguments)
-            .await?;
-
-        assert_eq!(test_append_entries_results.term, 1);
-        assert!(test_append_entries_results.success);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn append_entries_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let mut test_state = State::init(test_receiver).await?;
-
-        test_state.persistent.current_term = 2;
-
-        let test_append_entries_arguments = AppendEntriesArguments {
-            term: 1,
-            leader_id: String::from("some_leader_id"),
-            prev_log_index: 0,
-            prev_log_term: 0,
-            entries: Vec::with_capacity(0),
-            leader_commit: 0,
-        };
-
-        let test_append_entries_results = test_state
-            .append_entries(test_append_entries_arguments)
-            .await?;
-
-        assert_eq!(test_append_entries_results.term, 2);
-        assert!(!test_append_entries_results.success);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn heartbeat() -> Result<(), Box<dyn std::error::Error>> {
+    async fn append_entries_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_leader_id = String::from("some_leader_id");
 
-        let test_append_entries_arguments = test_state.heartbeat(test_leader_id).await?;
+        let test_append_entries_arguments =
+            test_state.append_entries_heartbeat(test_leader_id).await?;
 
         assert_eq!(test_append_entries_arguments.term, 0);
         assert_eq!(
@@ -350,7 +300,81 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn request_vote_true() -> Result<(), Box<dyn std::error::Error>> {
+    async fn append_entries_results_true() -> Result<(), Box<dyn std::error::Error>> {
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 1;
+
+        let test_append_entries_arguments = AppendEntriesArguments {
+            term: 1,
+            leader_id: String::from("some_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        };
+
+        let test_append_entries_results = test_state
+            .append_entries_results(test_append_entries_arguments)
+            .await?;
+
+        assert_eq!(test_append_entries_results.term, 1);
+        assert!(test_append_entries_results.success);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn append_entries_results_false() -> Result<(), Box<dyn std::error::Error>> {
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let mut test_state = State::init(test_receiver).await?;
+
+        test_state.persistent.current_term = 2;
+
+        let test_append_entries_arguments = AppendEntriesArguments {
+            term: 1,
+            leader_id: String::from("some_leader_id"),
+            prev_log_index: 0,
+            prev_log_term: 0,
+            entries: Vec::with_capacity(0),
+            leader_commit: 0,
+        };
+
+        let test_append_entries_results = test_state
+            .append_entries_results(test_append_entries_arguments)
+            .await?;
+
+        assert_eq!(test_append_entries_results.term, 2);
+        assert!(!test_append_entries_results.success);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
+        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let test_state = State::init(test_receiver).await?;
+
+        let test_candidate_id = String::from("some_candidate_id");
+
+        let test_request_vote_arguments = test_state
+            .request_vote_arguments(&test_candidate_id)
+            .await?;
+
+        assert_eq!(test_request_vote_arguments.term, 0);
+        assert_eq!(
+            test_request_vote_arguments.candidate_id.as_str(),
+            "some_candidate_id",
+        );
+        assert_eq!(test_request_vote_arguments.last_log_index, 0);
+        assert_eq!(test_request_vote_arguments.last_log_term, 0);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn request_vote_results_true() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
@@ -363,8 +387,9 @@ mod tests {
             last_log_term: 0,
         };
 
-        let test_request_vote_results =
-            test_state.request_vote(test_request_vote_arguments).await?;
+        let test_request_vote_results = test_state
+            .request_vote_results(test_request_vote_arguments)
+            .await?;
 
         assert_eq!(test_request_vote_results.term, 1);
         assert!(test_request_vote_results.vote_granted);
@@ -373,7 +398,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn request_vote_false() -> Result<(), Box<dyn std::error::Error>> {
+    async fn request_vote_results_false() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = crate::channel::state::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
@@ -386,33 +411,12 @@ mod tests {
             last_log_term: 0,
         };
 
-        let test_request_vote_results =
-            test_state.request_vote(test_request_vote_arguments).await?;
+        let test_request_vote_results = test_state
+            .request_vote_results(test_request_vote_arguments)
+            .await?;
 
         assert_eq!(test_request_vote_results.term, 2);
         assert!(!test_request_vote_results.vote_granted);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn build_request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
-        let test_state = State::init(test_receiver).await?;
-
-        let test_candidate_id = String::from("some_candidate_id");
-
-        let test_request_vote_arguments = test_state
-            .build_request_vote_arguments(&test_candidate_id)
-            .await?;
-
-        assert_eq!(test_request_vote_arguments.term, 0);
-        assert_eq!(
-            test_request_vote_arguments.candidate_id.as_str(),
-            "some_candidate_id",
-        );
-        assert_eq!(test_request_vote_arguments.last_log_index, 0);
-        assert_eq!(test_request_vote_arguments.last_log_term, 0);
 
         Ok(())
     }
