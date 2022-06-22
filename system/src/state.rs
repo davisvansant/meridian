@@ -240,10 +240,6 @@ impl State {
         }
     }
 
-    // async fn check_candidate_log(&self, log: u32, candidate_log: u32) -> bool {
-    //     log >= candidate_log
-    // }
-
     async fn build_request_vote_arguments(
         &self,
         candidate_id: &str,
