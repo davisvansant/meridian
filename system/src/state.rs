@@ -205,8 +205,8 @@ impl State {
     }
 
     async fn check_term(&mut self, term: u32) -> bool {
-        match term < self.persistent.current_term {
-            true => {
+        match term.cmp(&self.persistent.current_term) {
+            std::cmp::Ordering::Less => {
                 info!(
                     "current term higher than incoming -> current {:?} | incoming {:?}",
                     self.persistent.current_term, term,
@@ -214,27 +214,24 @@ impl State {
 
                 false
             }
-            false => match term == self.persistent.current_term {
-                true => {
-                    info!(
-                        "terms are equal! current {:?} | {:?}",
-                        self.persistent.current_term, term,
-                    );
+            std::cmp::Ordering::Equal => {
+                info!(
+                    "terms are equal! current {:?} | {:?}",
+                    self.persistent.current_term, term,
+                );
 
-                    true
-                }
-                false => {
-                    warn!(
-                        "adjusting term! current {:?} | {:?}",
-                        self.persistent.current_term, term,
-                    );
+                true
+            }
+            std::cmp::Ordering::Greater => {
+                warn!(
+                    "adjusting term! current {:?} | {:?}",
+                    self.persistent.current_term, term,
+                );
 
-                    self.persistent.current_term = term;
-                    self.persistent.voted_for = None;
+                self.persistent.adjust_term(term).await;
 
-                    true
-                }
-            },
+                true
+            }
         }
     }
 
@@ -439,6 +436,11 @@ mod tests {
         let mut test_state = State::init(test_receiver).await?;
 
         assert!(test_state.check_term(0).await);
+
+        test_state.persistent.current_term = 1;
+
+        assert!(test_state.check_term(2).await);
+        assert_eq!(test_state.persistent.current_term, 2);
 
         Ok(())
     }
