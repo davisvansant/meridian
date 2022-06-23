@@ -240,14 +240,39 @@ impl Candidate {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-//         let test_candidate = Candidate::init().await?;
-//         assert_eq!(test_candidate.election_timeout.as_millis(), 15000);
-//         Ok(())
-//     }
-// }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_transition, test_receive) = transition::Candidate::build().await;
+        let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
+            transition::ServerState::build().await;
+        let test_shutdown_signal = transition::Shutdown::build().await;
+        let test_leader_heartbeat_sender = server::Leader::build().await;
+        let (test_membership_sender, _test_membership_receiver) = membership::build().await;
+        let (test_state_sender, _test_state_receiver) = state::build().await;
+
+        let test_candidate = Candidate::init(
+            test_receive,
+            test_server_transition_state_sender,
+            test_shutdown_signal,
+            test_leader_heartbeat_sender,
+            test_membership_sender,
+            test_state_sender,
+        )
+        .await?;
+
+        assert!(test_candidate.election_timeout.as_millis() >= 15000);
+        assert!(test_candidate.election_timeout.as_millis() <= 30000);
+        assert_eq!(test_transition.capacity(), 64);
+        assert_eq!(test_candidate.exit_state.capacity(), 64);
+        assert_eq!(test_candidate.shutdown.receiver_count(), 0);
+        assert_eq!(test_candidate.heartbeat.receiver_count(), 0);
+        assert_eq!(test_candidate.membership.capacity(), 64);
+        assert_eq!(test_candidate.state.capacity(), 64);
+
+        Ok(())
+    }
+}
