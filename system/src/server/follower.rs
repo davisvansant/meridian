@@ -107,4 +107,46 @@ mod tests {
 
         Ok(())
     }
+
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    //     let (test_transition, test_receive) = transition::Follower::build().await;
+    //     let test_leader_heartbeat_sender = server::Leader::build().await;
+    //     let test_shutdown_signal = transition::Shutdown::build().await;
+    //     let (test_server_transition_state_sender, mut test_server_transition_state_receiver) =
+    //         transition::ServerState::build().await;
+
+    //     let mut test_follower = Follower::init(
+    //         test_receive,
+    //         test_leader_heartbeat_sender.to_owned(),
+    //         test_shutdown_signal,
+    //         test_server_transition_state_sender,
+    //     )
+    //     .await?;
+
+    //     tokio::spawn(async move {
+    //         test_follower.run().await.unwrap();
+    //     });
+
+    //     test_transition.send(transition::Follower::Run).await?;
+
+    //     let mut test_heartbeats = 0;
+
+    //     while test_heartbeats <= 1 {
+    //         tokio::time::sleep(Duration::from_millis(10000)).await;
+
+    //         test_leader_heartbeat_sender.send(server::Leader::Heartbeat)?;
+
+    //         test_heartbeats += 1;
+    //     }
+
+    //     match test_server_transition_state_receiver.recv().await {
+    //         Some(test_server_transition) => {
+    //             assert_eq!(test_server_transition, transition::ServerState::Candidate);
+    //         }
+    //         None => panic!("expected transition state"),
+    //     }
+
+    //     Ok(())
+    // }
 }
