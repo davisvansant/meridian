@@ -84,31 +84,56 @@ impl Client {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
 
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-//         let (test_client_sender, test_client_receiver) = crate::channel::rpc_client::build().await;
-//         let (test_membership_sender, _test_membership_receiver) =
-//             crate::channel::membership::build().await;
-//         let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
-//         // let test_candidate_sender = crate::channel::server::build_candidate_transition().await;
-//         // let _test_candidate_receiver = test_candidate_sender.subscribe();
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::from_str("127.0.0.1:10000")?;
+        let test_client = Client::init(test_socket_address).await;
 
-//         let test_client = Client::init(
-//             test_client_receiver,
-//             test_membership_sender,
-//             test_state_sender,
-//             // test_candidate_sender,
-//         )
-//         .await?;
+        assert!(test_client.socket_address.is_ipv4());
+        assert_eq!(
+            test_client.socket_address.ip().to_string().as_str(),
+            "127.0.0.1",
+        );
+        assert_eq!(test_client.socket_address.port(), 10000);
 
-//         assert!(!test_client_sender.is_closed());
-//         assert!(!test_client.membership_sender.is_closed());
-//         assert!(!test_client.state_sender.is_closed());
+        Ok(())
+    }
 
-//         Ok(())
-//     }
-// }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn transmit() -> Result<(), Box<dyn std::error::Error>> {
+        let test_socket_address = SocketAddr::from_str("127.0.0.1:10000")?;
+        let mut test_client = Client::init(test_socket_address).await;
+        let test_tcp_socket = TcpSocket::new_v4()?;
+
+        test_tcp_socket.bind(test_socket_address)?;
+
+        let test_tcp_listener = test_tcp_socket.listen(1024)?;
+
+        tokio::spawn(async move {
+            match test_tcp_listener.accept().await {
+                Ok((mut test_tcp_stream, _test_socket_address)) => {
+                    let mut test_buffer = [0; 1024];
+
+                    let test_request_bytes = test_tcp_stream.read(&mut test_buffer).await.unwrap();
+                    test_tcp_stream
+                        .write_all(&test_buffer[0..test_request_bytes])
+                        .await
+                        .unwrap();
+                    test_tcp_stream.shutdown().await.unwrap();
+                }
+                Err(_) => panic!("testing transmit error..."),
+            }
+        });
+
+        let test_response = test_client.transmit(b"test_data").await?;
+
+        assert_eq!(test_response, b"test_data");
+
+        Ok(())
+    }
+}
