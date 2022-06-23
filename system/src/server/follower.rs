@@ -78,14 +78,33 @@ impl Follower {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[tokio::test(flavor = "multi_thread")]
-//     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-//         let test_follower = Follower::init().await?;
-//         assert_eq!(test_follower.election_timeout.as_millis(), 30000);
-//         Ok(())
-//     }
-// }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let (test_transition, test_receive) = transition::Follower::build().await;
+        let test_leader_heartbeat_sender = server::Leader::build().await;
+        let test_shutdown_signal = transition::Shutdown::build().await;
+        let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
+            transition::ServerState::build().await;
+
+        let test_follower = Follower::init(
+            test_receive,
+            test_leader_heartbeat_sender,
+            test_shutdown_signal,
+            test_server_transition_state_sender,
+        )
+        .await?;
+
+        assert!(test_follower.election_timeout.as_millis() >= 15000);
+        assert!(test_follower.election_timeout.as_millis() <= 30000);
+        assert_eq!(test_transition.capacity(), 64);
+        assert_eq!(test_follower.leader_heartbeat.receiver_count(), 0);
+        assert_eq!(test_follower.shutdown.receiver_count(), 0);
+        assert_eq!(test_follower.exit_state.capacity(), 64);
+
+        Ok(())
+    }
+}
