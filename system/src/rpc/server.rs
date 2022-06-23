@@ -140,7 +140,7 @@ impl Server {
 
                 let results = state::append_entries(state_sender, arguments).await?;
 
-                if term > results.term {
+                if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
                     heartbeat.send(server::Leader::Heartbeat)?;
@@ -168,7 +168,7 @@ impl Server {
 
                 let results = state::request_vote(state_sender, arguments).await?;
 
-                if term > results.term {
+                if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
                     heartbeat.send(server::Leader::Heartbeat)?;
