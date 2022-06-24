@@ -200,3 +200,26 @@ impl List {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn init() -> Result<(), Box<dyn std::error::Error>> {
+        let test_node_address = std::net::IpAddr::from_str("127.0.0.1")?;
+        let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
+        let test_initial_peers = Vec::with_capacity(0);
+        let (test_list_sender, test_list_receiver) = crate::channel::membership_list::build().await;
+        let test_list = List::init(test_node, test_initial_peers, test_list_receiver).await?;
+
+        assert!(test_list.initial.is_empty());
+        assert!(test_list.alive.is_empty());
+        assert!(test_list.suspected.is_empty());
+        assert!(test_list.confirmed.is_empty());
+        assert_eq!(test_list_sender.capacity(), 64);
+
+        Ok(())
+    }
+}
