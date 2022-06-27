@@ -108,7 +108,7 @@ impl Message {
         let message = match flexbuffers_root.as_map().idx("message").as_str() {
             "ack" => Message::Ack,
             "ping" => Message::Ping,
-            "ping-req" => Message::PingReq,
+            "ping_req" => Message::PingReq,
             _ => panic!("could not parse incoming udp message..."),
         };
 
@@ -198,64 +198,142 @@ impl Message {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_ack() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_message_ack = Message::Ack.build().await;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn ack() -> Result<(), Box<dyn std::error::Error>> {
+        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+        let test_node = crate::node::Node::init(test_node_address, 10000, 15000, 20000).await?;
 
-    //     assert_eq!(test_message_ack, b"ack");
-    //     assert_eq!(test_message_ack.len(), 3);
+        let mut test_alive_list = Vec::with_capacity(1);
+        let mut test_suspected_list = Vec::with_capacity(1);
+        let mut test_confirmed_list = Vec::with_capacity(1);
 
-    //     Ok(())
-    // }
+        test_alive_list.push(test_node.to_owned());
+        test_suspected_list.push(test_node.to_owned());
+        test_confirmed_list.push(test_node.to_owned());
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_ping() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_message_ping = Message::Ping.build().await;
+        let test_ack = Message::Ack
+            .build_list(
+                &test_node,
+                &test_alive_list,
+                &test_suspected_list,
+                &test_confirmed_list,
+            )
+            .await;
 
-    //     assert_eq!(test_message_ping, b"ping");
-    //     assert_eq!(test_message_ping.len(), 4);
+        assert!(!test_ack.is_empty());
 
-    //     Ok(())
-    // }
+        let (
+            test_from_list_message,
+            test_from_list_node,
+            test_from_list_alive_list,
+            test_from_list_suspected_list,
+            test_from_list_confirmed_list,
+        ) = Message::from_list(&test_ack).await?;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_ping_req() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_message_ping_req = Message::PingReq.build().await;
+        assert_eq!(test_from_list_message, Message::Ack);
+        assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert_eq!(test_from_list_alive_list.len(), 1);
+        assert_eq!(test_from_list_suspected_list.len(), 1);
+        assert_eq!(test_from_list_confirmed_list.len(), 1);
 
-    //     assert_eq!(test_message_ping_req, b"ping-req");
-    //     assert_eq!(test_message_ping_req.len(), 8);
+        Ok(())
+    }
 
-    //     Ok(())
-    // }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn ping() -> Result<(), Box<dyn std::error::Error>> {
+        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+        let test_node = crate::node::Node::init(test_node_address, 10000, 15000, 20000).await?;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_from_ack_bytes() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_ack_bytes = b"ack"; //bar
-    //     let test_message_ack = Message::from_bytes(test_ack_bytes).await;
+        let mut test_alive_list = Vec::with_capacity(1);
+        let mut test_suspected_list = Vec::with_capacity(1);
+        let mut test_confirmed_list = Vec::with_capacity(1);
 
-    //     assert_eq!(test_message_ack, Message::Ack);
+        test_alive_list.push(test_node.to_owned());
+        test_suspected_list.push(test_node.to_owned());
+        test_confirmed_list.push(test_node.to_owned());
 
-    //     Ok(())
-    // }
+        let test_ping = Message::Ping
+            .build_list(
+                &test_node,
+                &test_alive_list,
+                &test_suspected_list,
+                &test_confirmed_list,
+            )
+            .await;
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_from_ping_bytes() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_ping_bytes = b"ping";
-    //     let test_message_ping = Message::from_bytes(test_ping_bytes).await;
+        assert!(!test_ping.is_empty());
 
-    //     assert_eq!(test_message_ping, Message::Ping);
+        let (
+            test_from_list_message,
+            test_from_list_node,
+            test_from_list_alive_list,
+            test_from_list_suspected_list,
+            test_from_list_confirmed_list,
+        ) = Message::from_list(&test_ping).await?;
 
-    //     Ok(())
-    // }
+        assert_eq!(test_from_list_message, Message::Ping);
+        assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert_eq!(test_from_list_alive_list.len(), 1);
+        assert_eq!(test_from_list_suspected_list.len(), 1);
+        assert_eq!(test_from_list_confirmed_list.len(), 1);
 
-    // #[tokio::test(flavor = "multi_thread")]
-    // async fn message_from_ping_req_bytes() -> Result<(), Box<dyn std::error::Error>> {
-    //     let test_ping_req_bytes = b"ping-req";
-    //     let test_message_ping_req = Message::from_bytes(test_ping_req_bytes).await;
+        Ok(())
+    }
 
-    //     assert_eq!(test_message_ping_req, Message::PingReq);
+    #[tokio::test(flavor = "multi_thread")]
+    async fn ping_req() -> Result<(), Box<dyn std::error::Error>> {
+        let test_node_address = std::net::IpAddr::from_str("0.0.0.0")?;
+        let test_node = crate::node::Node::init(test_node_address, 10000, 15000, 20000).await?;
 
-    //     Ok(())
-    // }
+        let mut test_alive_list = Vec::with_capacity(1);
+        let mut test_suspected_list = Vec::with_capacity(1);
+        let mut test_confirmed_list = Vec::with_capacity(1);
+
+        test_alive_list.push(test_node.to_owned());
+        test_suspected_list.push(test_node.to_owned());
+        test_confirmed_list.push(test_node.to_owned());
+
+        let test_ping_req = Message::PingReq
+            .build_list(
+                &test_node,
+                &test_alive_list,
+                &test_suspected_list,
+                &test_confirmed_list,
+            )
+            .await;
+
+        assert!(!test_ping_req.is_empty());
+
+        let (
+            test_from_list_message,
+            test_from_list_node,
+            test_from_list_alive_list,
+            test_from_list_suspected_list,
+            test_from_list_confirmed_list,
+        ) = Message::from_list(&test_ping_req).await?;
+
+        assert_eq!(test_from_list_message, Message::PingReq);
+        assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert_eq!(test_from_list_alive_list.len(), 1);
+        assert_eq!(test_from_list_suspected_list.len(), 1);
+        assert_eq!(test_from_list_confirmed_list.len(), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[should_panic]
+    async fn from_list_panic() {
+        let bad_message_data = b"bad_data";
+
+        let (
+            _test_from_list_message,
+            _test_from_list_node,
+            _test_from_list_alive_list,
+            _test_from_list_suspected_list,
+            _test_from_list_confirmed_list,
+        ) = Message::from_list(bad_message_data).await.unwrap();
+    }
 }
