@@ -123,29 +123,62 @@ impl MembershipCommunications {
         origin: SocketAddr,
         ping_target_sender: &MembershipFailureDetectorPingTargetSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let (message, origin_node, peer_active_list, peer_suspected_list, peer_confirmed_list) =
-            Message::from_list(bytes).await?;
+        let (
+            message,
+            origin_node,
+            suspect,
+            peer_active_list,
+            peer_suspected_list,
+            peer_confirmed_list,
+        ) = Message::from_list(bytes).await?;
 
         match message {
             Message::Ack => {
                 info!("received ack!");
 
-                if let Ok(active_receiver) =
-                    ping_target_sender.send(MembershipFailureDetectorPingTarget::Member(origin))
-                {
-                    info!(
-                        "sent {:?} to active reciever {:?}",
-                        &origin, active_receiver,
-                    );
+                if ping_target_sender.receiver_count() > 0 {
+                    match suspect {
+                        Some((forward_address, suspect_address)) => {
+                            ping_target_sender.send(
+                                MembershipFailureDetectorPingTarget::Member(suspect_address),
+                            )?;
+
+                            let node = get_node(list_sender).await?;
+                            let local_alive_list = get_alive(list_sender).await?;
+                            let local_suspected_list = get_suspected(list_sender).await?;
+                            let local_confirmed_list = get_confirmed(list_sender).await?;
+
+                            let ack = Message::Ack
+                                .build_list(
+                                    &node,
+                                    Some((&forward_address, &suspect_address)),
+                                    &local_alive_list,
+                                    &local_suspected_list,
+                                    &local_confirmed_list,
+                                )
+                                .await;
+
+                            if node.membership_address().await != forward_address {
+                                sender.send(MembershipCommunicationsMessage::Send(
+                                    ack,
+                                    forward_address,
+                                ))?;
+                            }
+                        }
+                        None => {
+                            ping_target_sender
+                                .send(MembershipFailureDetectorPingTarget::Member(origin))?;
+                        }
+                    }
                 }
 
                 insert_alive(list_sender, &origin_node).await?;
 
-                // for alive_node in &peer_active_list {
-                //     remove_confirmed(list_sender, alive_node).await?;
-                //     remove_suspected(list_sender, alive_node).await?;
-                //     insert_alive(list_sender, alive_node).await?;
-                // }
+                for alive_node in &peer_active_list {
+                    // remove_confirmed(list_sender, alive_node).await?;
+                    // remove_suspected(list_sender, alive_node).await?;
+                    insert_alive(list_sender, alive_node).await?;
+                }
 
                 for suspected_node in &peer_suspected_list {
                     remove_alive(list_sender, suspected_node).await?;
@@ -170,6 +203,7 @@ impl MembershipCommunications {
                 let ack = Message::Ack
                     .build_list(
                         &node,
+                        None,
                         &local_alive_list,
                         &local_suspected_list,
                         &local_confirmed_list,
@@ -206,16 +240,19 @@ impl MembershipCommunications {
                 let local_suspected_list = get_suspected(list_sender).await?;
                 let local_confirmed_list = get_confirmed(list_sender).await?;
 
-                let ping = Message::Ack
-                    .build_list(
-                        &node,
-                        &local_alive_list,
-                        &local_suspected_list,
-                        &local_confirmed_list,
-                    )
-                    .await;
+                if let Some((forward_address, suspect_address)) = suspect {
+                    let ping = Message::Ping
+                        .build_list(
+                            &node,
+                            Some((&forward_address, &suspect_address)),
+                            &local_alive_list,
+                            &local_suspected_list,
+                            &local_confirmed_list,
+                        )
+                        .await;
 
-                sender.send(MembershipCommunicationsMessage::Send(ping, origin))?;
+                    sender.send(MembershipCommunicationsMessage::Send(ping, suspect_address))?;
+                }
 
                 for suspected_node in &peer_suspected_list {
                     remove_alive(list_sender, suspected_node).await?;
