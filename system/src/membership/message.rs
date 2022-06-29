@@ -1,6 +1,6 @@
-use flexbuffers::{Builder, BuilderOptions};
+use flexbuffers::{Builder, BuilderOptions, Reader};
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use uuid::Uuid;
@@ -18,6 +18,7 @@ impl Message {
     pub async fn build_list(
         &self,
         node: &Node,
+        suspect: Option<(&SocketAddr, &SocketAddr)>,
         alive_list: &[Node],
         suspected_list: &[Node],
         confirmed_list: &[Node],
@@ -47,6 +48,19 @@ impl Message {
         node_map.push("membership_port", node.membership_port);
 
         node_map.end_map();
+
+        let mut suspect_message_vector = message_data.start_vector("suspect");
+
+        if let Some(suspect) = suspect {
+            let mut suspect_message_map = suspect_message_vector.start_map();
+
+            suspect_message_map.push("forward_address", suspect.0.to_string().as_str());
+            suspect_message_map.push("suspected_address", suspect.1.to_string().as_str());
+
+            suspect_message_map.end_map();
+        }
+
+        suspect_message_vector.end_vector();
 
         let mut alive_list_vector = message_data.start_vector("alive_list");
 
@@ -102,7 +116,17 @@ impl Message {
     }
     pub async fn from_list(
         message_data: &[u8],
-    ) -> Result<(Message, Node, Vec<Node>, Vec<Node>, Vec<Node>), Box<dyn std::error::Error>> {
+    ) -> Result<
+        (
+            Message,
+            Node,
+            Option<(SocketAddr, SocketAddr)>,
+            Vec<Node>,
+            Vec<Node>,
+            Vec<Node>,
+        ),
+        Box<dyn std::error::Error>,
+    > {
         let flexbuffers_root = flexbuffers::Reader::get_root(message_data)?;
 
         let message = match flexbuffers_root.as_map().idx("message").as_str() {
@@ -112,39 +136,28 @@ impl Message {
             _ => panic!("could not parse incoming udp message..."),
         };
 
-        let flexbuffer_node = flexbuffers_root.as_map().idx("node").as_map();
+        let flexbuffer_node = flexbuffers_root.as_map().idx("node");
+        let node = Self::build_node(flexbuffer_node).await?;
 
-        let id = Uuid::parse_str(flexbuffer_node.idx("id").as_str())?;
-        let address = IpAddr::from_str(flexbuffer_node.idx("address").as_str())?;
-        let client_port = flexbuffer_node.idx("client_port").as_u16();
-        let cluster_port = flexbuffer_node.idx("cluster_port").as_u16();
-        let membership_port = flexbuffer_node.idx("membership_port").as_u16();
+        let flexbuffer_suspect = flexbuffers_root.as_map().idx("suspect");
+        let suspect = if flexbuffer_suspect.as_map().is_empty() {
+            None
+        } else {
+            // Some(Self::build_node(flexbuffer_suspect).await?)
+            let forward_address = flexbuffer_suspect.as_map().idx("forward_address").as_str();
+            let suspect_address = flexbuffer_suspect.as_map().idx("suspect_address").as_str();
 
-        let node = Node {
-            id,
-            address,
-            client_port,
-            cluster_port,
-            membership_port,
+            Some((
+                SocketAddr::from_str(forward_address)?,
+                SocketAddr::from_str(suspect_address)?,
+            ))
         };
 
         let flexbuffer_alive_list = flexbuffers_root.as_map().idx("alive_list").as_vector();
         let mut alive_list = Vec::with_capacity(flexbuffer_alive_list.len());
 
         for alive_node in flexbuffer_alive_list.iter() {
-            let id = Uuid::parse_str(alive_node.as_map().idx("id").as_str())?;
-            let address = IpAddr::from_str(alive_node.as_map().idx("address").as_str())?;
-            let client_port = alive_node.as_map().idx("client_port").as_u16();
-            let cluster_port = alive_node.as_map().idx("cluster_port").as_u16();
-            let membership_port = alive_node.as_map().idx("membership_port").as_u16();
-
-            let node = Node {
-                id,
-                address,
-                client_port,
-                cluster_port,
-                membership_port,
-            };
+            let node = Self::build_node(alive_node).await?;
 
             alive_list.push(node);
         }
@@ -153,19 +166,7 @@ impl Message {
         let mut suspected_list = Vec::with_capacity(flexbuffer_suspected_list.len());
 
         for suspected_node in flexbuffer_suspected_list.iter() {
-            let id = Uuid::parse_str(suspected_node.as_map().idx("id").as_str())?;
-            let address = IpAddr::from_str(suspected_node.as_map().idx("address").as_str())?;
-            let client_port = suspected_node.as_map().idx("client_port").as_u16();
-            let cluster_port = suspected_node.as_map().idx("cluster_port").as_u16();
-            let membership_port = suspected_node.as_map().idx("membership_port").as_u16();
-
-            let node = Node {
-                id,
-                address,
-                client_port,
-                cluster_port,
-                membership_port,
-            };
+            let node = Self::build_node(suspected_node).await?;
 
             suspected_list.push(node);
         }
@@ -174,24 +175,35 @@ impl Message {
         let mut confirmed_list = Vec::with_capacity(flexbuffer_confirmed_list.len());
 
         for confirmed_node in flexbuffer_confirmed_list.iter() {
-            let id = Uuid::parse_str(confirmed_node.as_map().idx("id").as_str())?;
-            let address = IpAddr::from_str(confirmed_node.as_map().idx("address").as_str())?;
-            let client_port = confirmed_node.as_map().idx("client_port").as_u16();
-            let cluster_port = confirmed_node.as_map().idx("cluster_port").as_u16();
-            let membership_port = confirmed_node.as_map().idx("membership_port").as_u16();
-
-            let node = Node {
-                id,
-                address,
-                client_port,
-                cluster_port,
-                membership_port,
-            };
+            let node = Self::build_node(confirmed_node).await?;
 
             confirmed_list.push(node);
         }
 
-        Ok((message, node, alive_list, suspected_list, confirmed_list))
+        Ok((
+            message,
+            node,
+            suspect,
+            alive_list,
+            suspected_list,
+            confirmed_list,
+        ))
+    }
+
+    async fn build_node(node: Reader<&[u8]>) -> Result<Node, Box<dyn std::error::Error>> {
+        let id = Uuid::parse_str(node.as_map().idx("id").as_str())?;
+        let address = IpAddr::from_str(node.as_map().idx("address").as_str())?;
+        let client_port = node.as_map().idx("client_port").as_u16();
+        let cluster_port = node.as_map().idx("cluster_port").as_u16();
+        let membership_port = node.as_map().idx("membership_port").as_u16();
+
+        Ok(Node {
+            id,
+            address,
+            client_port,
+            cluster_port,
+            membership_port,
+        })
     }
 }
 
@@ -216,6 +228,7 @@ mod tests {
         let test_ack = Message::Ack
             .build_list(
                 &test_node,
+                None,
                 &test_alive_list,
                 &test_suspected_list,
                 &test_confirmed_list,
@@ -227,6 +240,7 @@ mod tests {
         let (
             test_from_list_message,
             test_from_list_node,
+            test_from_list_suspect,
             test_from_list_alive_list,
             test_from_list_suspected_list,
             test_from_list_confirmed_list,
@@ -234,6 +248,7 @@ mod tests {
 
         assert_eq!(test_from_list_message, Message::Ack);
         assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert!(test_from_list_suspect.is_none());
         assert_eq!(test_from_list_alive_list.len(), 1);
         assert_eq!(test_from_list_suspected_list.len(), 1);
         assert_eq!(test_from_list_confirmed_list.len(), 1);
@@ -257,6 +272,7 @@ mod tests {
         let test_ping = Message::Ping
             .build_list(
                 &test_node,
+                None,
                 &test_alive_list,
                 &test_suspected_list,
                 &test_confirmed_list,
@@ -268,6 +284,7 @@ mod tests {
         let (
             test_from_list_message,
             test_from_list_node,
+            test_from_list_suspect,
             test_from_list_alive_list,
             test_from_list_suspected_list,
             test_from_list_confirmed_list,
@@ -275,6 +292,7 @@ mod tests {
 
         assert_eq!(test_from_list_message, Message::Ping);
         assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert!(test_from_list_suspect.is_none());
         assert_eq!(test_from_list_alive_list.len(), 1);
         assert_eq!(test_from_list_suspected_list.len(), 1);
         assert_eq!(test_from_list_confirmed_list.len(), 1);
@@ -298,6 +316,7 @@ mod tests {
         let test_ping_req = Message::PingReq
             .build_list(
                 &test_node,
+                None,
                 &test_alive_list,
                 &test_suspected_list,
                 &test_confirmed_list,
@@ -309,6 +328,7 @@ mod tests {
         let (
             test_from_list_message,
             test_from_list_node,
+            test_from_list_suspect,
             test_from_list_alive_list,
             test_from_list_suspected_list,
             test_from_list_confirmed_list,
@@ -316,6 +336,7 @@ mod tests {
 
         assert_eq!(test_from_list_message, Message::PingReq);
         assert_eq!(test_from_list_node.id.get_version_num(), 4);
+        assert!(test_from_list_suspect.is_none());
         assert_eq!(test_from_list_alive_list.len(), 1);
         assert_eq!(test_from_list_suspected_list.len(), 1);
         assert_eq!(test_from_list_confirmed_list.len(), 1);
@@ -331,6 +352,7 @@ mod tests {
         let (
             _test_from_list_message,
             _test_from_list_node,
+            _test_from_list_suspect,
             _test_from_list_alive_list,
             _test_from_list_suspected_list,
             _test_from_list_confirmed_list,
