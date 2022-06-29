@@ -30,7 +30,7 @@ impl StaticJoin {
         let initial_nodes = get_initial(&self.membership_list_sender).await?;
 
         let ping = Message::Ping
-            .build_list(&node, &alive_list, &suspected_list, &confirmed_list)
+            .build_list(&node, None, &alive_list, &suspected_list, &confirmed_list)
             .await;
 
         for origin in initial_nodes {

@@ -95,6 +95,7 @@ impl FailureDectector {
             let ping = Message::Ping
                 .build_list(
                     &node,
+                    None,
                     &local_alive_list,
                     &local_suspected_list,
                     &local_confirmed_list,
