@@ -1,6 +1,8 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
+use crate::node::Node;
+
 use tokio::time::{sleep, timeout, Duration};
 
 use crate::channel::membership_communications::send_message;
@@ -11,8 +13,8 @@ use crate::channel::membership_failure_detector::{
 };
 use crate::channel::membership_list::MembershipListSender;
 use crate::channel::membership_list::{
-    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_suspected,
-    remove_alive, remove_confirmed, remove_suspected,
+    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
+    insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
 use crate::channel::transition::ShutdownReceiver;
 use crate::membership::Message;
@@ -20,6 +22,7 @@ use crate::{error, info, warn};
 
 pub struct FailureDectector {
     protocol_period: Duration,
+    time_out: Duration,
     list_sender: MembershipListSender,
     send_udp_message: MembershipCommunicationsSender,
     receiver: MembershipFailureDetectorReceiver,
@@ -33,12 +36,14 @@ impl FailureDectector {
         send_udp_message: MembershipCommunicationsSender,
         ping_target_channel: MembershipFailureDetectorPingTargetSender,
     ) -> FailureDectector {
-        let protocol_period = Duration::from_secs(2);
+        let protocol_period = Duration::from_secs(5);
+        let time_out = Duration::from_secs(2);
 
         info!("initialized!");
 
         FailureDectector {
             protocol_period,
+            time_out,
             list_sender,
             receiver,
             send_udp_message,
@@ -62,7 +67,7 @@ impl FailureDectector {
 
                     break
                 }
-                result = self.probe() => {
+                result = self.protocol_period() => {
                     match result {
                         Ok(()) => {
                             info!("probe complete!");
@@ -78,70 +83,160 @@ impl FailureDectector {
         Ok(())
     }
 
-    async fn probe(&self) -> Result<(), Box<dyn std::error::Error>> {
-        sleep(Duration::from_secs(5)).await;
+    async fn protocol_period(&self) -> Result<(), Box<dyn std::error::Error>> {
+        sleep(self.protocol_period).await;
 
-        let mut receive_ping_target_ack = self.ping_target_channel.subscribe();
+        let direct_list = get_alive(&self.list_sender).await?;
+        let mut suspected = Vec::with_capacity(1);
 
-        let alive_list = get_alive(&self.list_sender).await?;
+        for ping_target in direct_list {
+            if let Err(error) = self.send_direct(ping_target).await {
+                error!("ping target direct error -> {:?}", error);
 
-        for member in alive_list {
-            let mut address = member.membership_address().await;
-            let node = get_node(&self.list_sender).await?;
-            let local_alive_list = get_alive(&self.list_sender).await?;
-            let local_suspected_list = get_suspected(&self.list_sender).await?;
-            let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+                suspected.push(ping_target);
 
-            let ping = Message::Ping
-                .build_list(
-                    &node,
-                    None,
-                    &local_alive_list,
-                    &local_suspected_list,
-                    &local_confirmed_list,
-                )
-                .await;
+                break;
+            }
+        }
 
-            // For local testing, incoming UDP socket recv_from socket address is 127.0.0.1
-            address.set_ip(IpAddr::from_str("127.0.0.1")?);
+        if !suspected.is_empty() {
+            let indirect_list = get_alive(&self.list_sender).await?;
 
-            info!("sending message to -> {:?}", &address);
+            for ping_req_target in indirect_list {
+                if let Err(error) = self.send_indirect(ping_req_target, suspected[0]).await {
+                    error!("indirect probe failure -> {:?}", error);
+                    error!("confirmed member as faulty -> {:?}", &suspected[0]);
 
-            send_message(&self.send_udp_message, &ping, address).await?;
-
-            match timeout(self.protocol_period, receive_ping_target_ack.recv()).await {
-                Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
-                    if address == ping_target {
-                        remove_suspected(&self.list_sender, &member).await?;
-                        remove_confirmed(&self.list_sender, &member).await?;
-                        insert_alive(&self.list_sender, &member).await?;
-                    } else {
-                        warn!("nodes dont match!");
-                        warn!(
-                            "sent address = {:?} | received address {:?}",
-                            &address, &ping_target,
-                        );
-                    }
-                }
-                Ok(Err(error)) => {
-                    error!("error with ping target channel -> {:?}", error);
-
-                    remove_alive(&self.list_sender, &member).await?;
-                    remove_confirmed(&self.list_sender, &member).await?;
-                    insert_suspected(&self.list_sender, &member).await?;
-                }
-                Err(error) => {
-                    error!(
-                        "membership failure detector protocol period expired... {:?}",
-                        error,
-                    );
-
-                    remove_alive(&self.list_sender, &member).await?;
-                    remove_confirmed(&self.list_sender, &member).await?;
-                    insert_suspected(&self.list_sender, &member).await?;
+                    break;
                 }
             }
         }
+
+        let suspected_list = get_suspected(&self.list_sender).await?;
+
+        for member in suspected_list {
+            self.confirmed(&member).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn send_direct(&self, member: Node) -> Result<(), Box<dyn std::error::Error>> {
+        let mut ping_target_ack = self.ping_target_channel.subscribe();
+
+        let node = get_node(&self.list_sender).await?;
+        let local_alive_list = get_alive(&self.list_sender).await?;
+        let local_suspected_list = get_suspected(&self.list_sender).await?;
+        let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+
+        let ping = Message::Ping
+            .build_list(
+                &node,
+                None,
+                &local_alive_list,
+                &local_suspected_list,
+                &local_confirmed_list,
+            )
+            .await;
+
+        let mut address = member.membership_address().await;
+        address.set_ip(IpAddr::from_str("127.0.0.1")?);
+
+        send_message(&self.send_udp_message, &ping, address).await?;
+
+        match timeout(self.time_out, ping_target_ack.recv()).await {
+            Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
+                info!("address -> {:?}", &address);
+                info!("ping target -> {:?}", &ping_target);
+
+                match address == ping_target {
+                    true => {
+                        self.alive(&member).await?;
+
+                        Ok(())
+                    }
+                    false => Err(Box::from("received ack from unexpected member")),
+                }
+            }
+            Ok(Err(error)) => Err(Box::from(error)),
+            Err(error) => {
+                self.suspected(&member).await?;
+
+                Err(Box::from(error))
+            }
+        }
+    }
+
+    async fn send_indirect(
+        &self,
+        member: Node,
+        suspect: Node,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut ping_target_ack = self.ping_target_channel.subscribe();
+
+        let node = get_node(&self.list_sender).await?;
+        let local_alive_list = get_alive(&self.list_sender).await?;
+        let local_suspected_list = get_suspected(&self.list_sender).await?;
+        let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+
+        let ping_req = Message::Ping
+            .build_list(
+                &node,
+                Some((
+                    &node.membership_address().await,
+                    &suspect.membership_address().await,
+                )),
+                &local_alive_list,
+                &local_suspected_list,
+                &local_confirmed_list,
+            )
+            .await;
+
+        let mut address = member.membership_address().await;
+        address.set_ip(IpAddr::from_str("127.0.0.1")?);
+
+        send_message(&self.send_udp_message, &ping_req, address).await?;
+
+        match timeout(self.time_out, ping_target_ack.recv()).await {
+            Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
+                match suspect.membership_address().await == ping_target {
+                    true => {
+                        self.alive(&suspect).await?;
+
+                        Ok(())
+                    }
+                    false => Err(Box::from("received ack from unexpected member...")),
+                }
+            }
+            Ok(Err(error)) => Err(Box::from(error)),
+            Err(error) => {
+                self.confirmed(&suspect).await?;
+
+                Err(Box::from(error))
+            }
+        }
+    }
+
+    async fn alive(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        remove_confirmed(&self.list_sender, member).await?;
+        remove_suspected(&self.list_sender, member).await?;
+        insert_alive(&self.list_sender, member).await?;
+
+        Ok(())
+    }
+
+    async fn suspected(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        remove_confirmed(&self.list_sender, member).await?;
+        remove_alive(&self.list_sender, member).await?;
+        insert_suspected(&self.list_sender, member).await?;
+
+        Ok(())
+    }
+
+    async fn confirmed(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        remove_alive(&self.list_sender, member).await?;
+        remove_suspected(&self.list_sender, member).await?;
+        insert_confirmed(&self.list_sender, member).await?;
 
         Ok(())
     }
