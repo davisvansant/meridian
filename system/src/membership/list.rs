@@ -132,7 +132,7 @@ impl List {
                     info!("updated node! {:?}", value);
                 }
                 None => {
-                    info!("added node !");
+                    info!("added node -> {:?}!", &node);
                 }
             }
         }
