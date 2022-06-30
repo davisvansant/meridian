@@ -132,6 +132,24 @@ impl MembershipCommunications {
             peer_confirmed_list,
         ) = Message::from_list(bytes).await?;
 
+        insert_alive(list_sender, &origin_node).await?;
+
+        for alive_node in &peer_active_list {
+            remove_suspected(list_sender, alive_node).await?;
+            insert_alive(list_sender, alive_node).await?;
+        }
+
+        for suspected_node in &peer_suspected_list {
+            insert_suspected(list_sender, suspected_node).await?;
+            remove_alive(list_sender, suspected_node).await?;
+        }
+
+        for confirmed_node in &peer_confirmed_list {
+            remove_alive(list_sender, confirmed_node).await?;
+            remove_suspected(list_sender, confirmed_node).await?;
+            insert_confirmed(list_sender, confirmed_node).await?;
+        }
+
         match message {
             Message::Ack => {
                 info!("received ack!");
@@ -139,9 +157,9 @@ impl MembershipCommunications {
                 if ping_target_sender.receiver_count() > 0 {
                     match suspect {
                         Some((forward_address, suspect_address)) => {
-                            ping_target_sender.send(
-                                MembershipFailureDetectorPingTarget::Member(suspect_address),
-                            )?;
+                            // ping_target_sender.send(
+                            //     MembershipFailureDetectorPingTarget::Member(suspect_address),
+                            // )?;
 
                             let node = get_node(list_sender).await?;
                             let local_alive_list = get_alive(list_sender).await?;
@@ -159,10 +177,17 @@ impl MembershipCommunications {
                                 .await;
 
                             if node.membership_address().await != forward_address {
+                                ping_target_sender.send(
+                                    MembershipFailureDetectorPingTarget::Member(suspect_address),
+                                )?;
+
                                 sender.send(MembershipCommunicationsMessage::Send(
                                     ack,
                                     forward_address,
                                 ))?;
+                            } else {
+                                ping_target_sender
+                                    .send(MembershipFailureDetectorPingTarget::Member(origin))?;
                             }
                         }
                         None => {
@@ -170,26 +195,6 @@ impl MembershipCommunications {
                                 .send(MembershipFailureDetectorPingTarget::Member(origin))?;
                         }
                     }
-                }
-
-                insert_alive(list_sender, &origin_node).await?;
-
-                for alive_node in &peer_active_list {
-                    // remove_confirmed(list_sender, alive_node).await?;
-                    // remove_suspected(list_sender, alive_node).await?;
-                    insert_alive(list_sender, alive_node).await?;
-                }
-
-                for suspected_node in &peer_suspected_list {
-                    remove_alive(list_sender, suspected_node).await?;
-                    remove_confirmed(list_sender, suspected_node).await?;
-                    insert_suspected(list_sender, suspected_node).await?;
-                }
-
-                for confirmed_node in &peer_confirmed_list {
-                    remove_alive(list_sender, confirmed_node).await?;
-                    remove_suspected(list_sender, confirmed_node).await?;
-                    insert_confirmed(list_sender, confirmed_node).await?;
                 }
             }
             Message::Ping => {
@@ -211,26 +216,6 @@ impl MembershipCommunications {
                     .await;
 
                 sender.send(MembershipCommunicationsMessage::Send(ack, origin))?;
-
-                remove_confirmed(list_sender, &origin_node).await?;
-                remove_suspected(list_sender, &origin_node).await?;
-                insert_alive(list_sender, &origin_node).await?;
-
-                for alive_node in &peer_active_list {
-                    insert_alive(list_sender, alive_node).await?;
-                }
-
-                for suspected_node in &peer_suspected_list {
-                    remove_alive(list_sender, suspected_node).await?;
-                    remove_confirmed(list_sender, suspected_node).await?;
-                    insert_suspected(list_sender, suspected_node).await?;
-                }
-
-                for confirmed_node in &peer_confirmed_list {
-                    remove_alive(list_sender, confirmed_node).await?;
-                    remove_suspected(list_sender, confirmed_node).await?;
-                    insert_confirmed(list_sender, confirmed_node).await?;
-                }
             }
             Message::PingReq => {
                 info!("received ping request!");
@@ -252,18 +237,6 @@ impl MembershipCommunications {
                         .await;
 
                     sender.send(MembershipCommunicationsMessage::Send(ping, suspect_address))?;
-                }
-
-                for suspected_node in &peer_suspected_list {
-                    remove_alive(list_sender, suspected_node).await?;
-                    remove_confirmed(list_sender, suspected_node).await?;
-                    insert_suspected(list_sender, suspected_node).await?;
-                }
-
-                for confirmed_node in &peer_confirmed_list {
-                    remove_alive(list_sender, confirmed_node).await?;
-                    remove_suspected(list_sender, confirmed_node).await?;
-                    insert_confirmed(list_sender, confirmed_node).await?;
                 }
             }
         }
