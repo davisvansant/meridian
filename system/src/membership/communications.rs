@@ -13,7 +13,7 @@ use crate::channel::membership_list::{
     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
     insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
-use crate::channel::transition::ShutdownReceiver;
+use crate::channel::transition::ShutdownSender;
 use crate::membership::Message;
 use crate::{error, info};
 
@@ -22,6 +22,7 @@ pub struct MembershipCommunications {
     list_sender: MembershipListSender,
     receiver: MembershipCommunicationsSender,
     ping_target_channel: MembershipFailureDetectorPingTargetSender,
+    shutdown: ShutdownSender,
 }
 
 impl MembershipCommunications {
@@ -30,6 +31,7 @@ impl MembershipCommunications {
         list_sender: MembershipListSender,
         receiver: MembershipCommunicationsSender,
         ping_target_channel: MembershipFailureDetectorPingTargetSender,
+        shutdown: ShutdownSender,
     ) -> MembershipCommunications {
         info!("initialized!");
 
@@ -38,13 +40,11 @@ impl MembershipCommunications {
             list_sender,
             receiver,
             ping_target_channel,
+            shutdown,
         }
     }
 
-    pub async fn run(
-        &mut self,
-        shutdown: &mut ShutdownReceiver,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind(self.socket_address).await?;
         let mut buffer = [0; 1024];
 
@@ -52,6 +52,7 @@ impl MembershipCommunications {
         let sending_udp_socket = receiving_udp_socket.clone();
 
         let mut receiver = self.receiver.subscribe();
+        let mut shutdown = self.shutdown.subscribe();
 
         info!("running!");
 
@@ -268,12 +269,14 @@ mod tests {
         let test_sender = crate::channel::membership_communications::build().await;
         let test_ping_target_sender =
             crate::channel::membership_failure_detector::build_ping_target().await;
+        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
 
         let test_membership_communications = MembershipCommunications::init(
             test_socket_address,
             test_list_sender,
             test_sender,
             test_ping_target_sender,
+            test_shutdown_signal,
         )
         .await;
 

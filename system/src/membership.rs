@@ -78,8 +78,6 @@ impl Membership {
         let (failure_detector_sender, failure_detector_receiver) =
             membership_failure_detector::FailureDetector::build().await;
 
-        let mut communications_shutdown = self.shutdown.subscribe();
-
         let mut list = List::init(server, launch_nodes, list_receiver).await?;
 
         tokio::spawn(async move {
@@ -94,11 +92,12 @@ impl Membership {
             list_sender.to_owned(),
             send_udp_message.to_owned(),
             failure_detector_ping_target_sender.to_owned(),
+            self.shutdown.to_owned(),
         )
         .await;
 
         tokio::spawn(async move {
-            if let Err(error) = communications.run(&mut communications_shutdown).await {
+            if let Err(error) = communications.run().await {
                 error!("membership communications -> {:?}", error);
             }
         });
