@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::channel::membership::{MembershipReceiver, MembershipRequest, MembershipResponse};
-use crate::channel::membership_failure_detector::{build, build_ping_target, launch};
+use crate::channel::membership_failure_detector;
 use crate::channel::membership_list::{get_alive, shutdown};
 use crate::channel::transition::ShutdownSender;
 use crate::node::Node;
@@ -72,14 +72,13 @@ impl Membership {
         launch_nodes: Vec<SocketAddr>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (list_sender, list_receiver) = crate::channel::membership_list::build().await;
-        let failure_detector_ping_target_sender = build_ping_target().await;
+        let failure_detector_ping_target_sender =
+            membership_failure_detector::build_ping_target().await;
         let send_udp_message = crate::channel::membership_communications::build().await;
-        let (failure_detector_sender, failure_detector_reciever) = build().await;
+        let (failure_detector_sender, failure_detector_receiver) =
+            membership_failure_detector::FailureDetector::build().await;
 
         let mut communications_shutdown = self.shutdown.subscribe();
-        let mut failure_detector_shutdown = self.shutdown.subscribe();
-
-        drop(self.shutdown.to_owned());
 
         let mut list = List::init(server, launch_nodes, list_receiver).await?;
 
@@ -106,14 +105,15 @@ impl Membership {
 
         let mut failure_detector = FailureDectector::init(
             list_sender.to_owned(),
-            failure_detector_reciever,
             send_udp_message.to_owned(),
             failure_detector_ping_target_sender,
+            failure_detector_receiver,
+            self.shutdown.to_owned(),
         )
         .await;
 
         tokio::spawn(async move {
-            if let Err(error) = failure_detector.run(&mut failure_detector_shutdown).await {
+            if let Err(error) = failure_detector.run().await {
                 error!("membership failure detector -> {:?}", error);
             }
         });
@@ -121,12 +121,16 @@ impl Membership {
         let mut static_join =
             StaticJoin::init(send_udp_message.to_owned(), list_sender.to_owned()).await;
 
+        drop(self.shutdown.to_owned());
+
         info!("running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 MembershipRequest::FailureDectector => {
-                    launch(&failure_detector_sender).await?;
+                    failure_detector_sender
+                        .send(membership_failure_detector::FailureDetector::Run)
+                        .await?;
                 }
                 MembershipRequest::Members => {
                     info!("received members request!");

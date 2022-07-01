@@ -8,15 +8,15 @@ use tokio::time::{sleep, timeout, Duration};
 use crate::channel::membership_communications::send_message;
 use crate::channel::membership_communications::MembershipCommunicationsSender;
 use crate::channel::membership_failure_detector::{
-    MembershipFailureDetectorPingTarget, MembershipFailureDetectorPingTargetSender,
-    MembershipFailureDetectorReceiver,
+    FailureDetectorReceiver, MembershipFailureDetectorPingTarget,
+    MembershipFailureDetectorPingTargetSender,
 };
 use crate::channel::membership_list::MembershipListSender;
 use crate::channel::membership_list::{
     get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
     insert_suspected, remove_alive, remove_confirmed, remove_suspected,
 };
-use crate::channel::transition::ShutdownReceiver;
+use crate::channel::transition::ShutdownSender;
 use crate::membership::Message;
 use crate::{error, info, warn};
 
@@ -25,16 +25,18 @@ pub struct FailureDectector {
     time_out: Duration,
     list_sender: MembershipListSender,
     send_udp_message: MembershipCommunicationsSender,
-    receiver: MembershipFailureDetectorReceiver,
     ping_target_channel: MembershipFailureDetectorPingTargetSender,
+    enter_state: FailureDetectorReceiver,
+    shutdown: ShutdownSender,
 }
 
 impl FailureDectector {
     pub async fn init(
         list_sender: MembershipListSender,
-        receiver: MembershipFailureDetectorReceiver,
         send_udp_message: MembershipCommunicationsSender,
         ping_target_channel: MembershipFailureDetectorPingTargetSender,
+        enter_state: FailureDetectorReceiver,
+        shutdown: ShutdownSender,
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(5);
         let time_out = Duration::from_secs(2);
@@ -45,36 +47,34 @@ impl FailureDectector {
             protocol_period,
             time_out,
             list_sender,
-            receiver,
             send_udp_message,
             ping_target_channel,
+            enter_state,
+            shutdown,
         }
     }
 
-    pub async fn run(
-        &mut self,
-        shutdown: &mut ShutdownReceiver,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        if let Ok(()) = self.receiver.changed().await {
-            info!("launching membership failure detector!");
-        }
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut shutdown = self.shutdown.subscribe();
 
         loop {
             tokio::select! {
                 biased;
                 _ = shutdown.recv() => {
-                    info!("shutting down...");
+                    info!("shutting down!");
 
-                    break
+                    break;
                 }
-                result = self.protocol_period() => {
-                    match result {
-                        Ok(()) => {
-                            info!("probe complete!");
-                        }
-                        Err(error) => {
-                            error!("probe failed with error -> {:?}", error);
-                        }
+
+                Some(run) = self.enter_state.recv() => {
+                    info!("failure detector -> {:?}", run);
+                    info!("Protocol Period -> {:?}", self.protocol_period);
+                    info!("Time Out -> {:?}", self.time_out);
+
+                    self.enter_state.close();
+
+                    loop {
+                        self.protocol_period().await?;
                     }
                 }
             }
