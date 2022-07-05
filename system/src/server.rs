@@ -1,6 +1,6 @@
 use tokio::time::{sleep, Duration};
 
-use crate::channel::membership;
+use crate::channel::membership::{MembershipRequest, MembershipSender};
 use crate::channel::server::LeaderHeartbeatSender;
 use crate::channel::state::{StateRequest, StateSender};
 use crate::channel::transition::{
@@ -20,7 +20,7 @@ mod leader;
 mod preflight;
 
 pub struct Server {
-    membership: membership::MembershipSender,
+    membership: MembershipSender,
     state: StateSender,
     leader_heartbeat: LeaderHeartbeatSender,
     shutdown: ShutdownSender,
@@ -29,7 +29,7 @@ pub struct Server {
 
 impl Server {
     pub async fn init(
-        membership: membership::MembershipSender,
+        membership: MembershipSender,
         state: StateSender,
         leader_heartbeat: LeaderHeartbeatSender,
         shutdown: ShutdownSender,
@@ -175,7 +175,7 @@ impl Server {
     async fn run_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
         Shutdown::send(&self.shutdown).await?;
         StateRequest::shutdown(&self.state).await?;
-        membership::shutdown(&self.membership).await?;
+        MembershipRequest::shutdown(&self.membership).await?;
 
         Ok(())
     }

@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use tokio::signal::ctrl_c;
 
-use crate::channel;
+use crate::channel::membership::MembershipRequest;
 use crate::channel::server::Leader;
 use crate::channel::state::StateRequest;
 use crate::channel::transition::{Shutdown, Transition};
@@ -37,7 +37,7 @@ pub async fn launch(
     // |        init membership channel
     // -------------------------------------------------------------------------------------------
 
-    let (membership_sender, membership_receiver) = channel::membership::build().await;
+    let (membership_sender, membership_receiver) = MembershipRequest::build().await;
     let server_membership_sender = membership_sender.to_owned();
 
     // -------------------------------------------------------------------------------------------

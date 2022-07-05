@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 
-use crate::channel::membership;
+use crate::channel::membership::{MembershipRequest, MembershipSender};
 use crate::channel::state::{StateRequest, StateSender};
 use crate::channel::transition::{
     LeaderStateReceiver, ShutdownSender, Transition, TransitionSender,
@@ -13,7 +13,7 @@ pub struct Leader {
     enter_state: LeaderStateReceiver,
     exit_state: TransitionSender,
     shutdown: ShutdownSender,
-    membership: membership::MembershipSender,
+    membership: MembershipSender,
     state: StateSender,
 }
 
@@ -22,7 +22,7 @@ impl Leader {
         enter_state: LeaderStateReceiver,
         exit_state: TransitionSender,
         shutdown: ShutdownSender,
-        membership: membership::MembershipSender,
+        membership: MembershipSender,
         state: StateSender,
     ) -> Result<Leader, Box<dyn std::error::Error>> {
         Ok(Leader {
@@ -70,14 +70,14 @@ impl Leader {
 
     async fn heartbeat(
         &self,
-        membership: &membership::MembershipSender,
+        membership: &MembershipSender,
         state: &StateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         sleep(Duration::from_secs(15)).await;
 
-        let node = membership::node(membership).await?;
+        let node = MembershipRequest::node(membership).await?;
         let append_entries_arguments = StateRequest::heartbeat(state, node.id.to_string()).await?;
-        let cluster_members = membership::cluster_members(membership).await?;
+        let cluster_members = MembershipRequest::cluster_members(membership).await?;
 
         for follower in cluster_members {
             let socket_address = follower.build_address(follower.cluster_port).await;
@@ -129,8 +129,7 @@ mod tests {
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
             Transition::build().await;
         let test_shutdown_sender = Shutdown::build().await;
-        let (test_membership_sender, _test_membership_receiver) =
-            crate::channel::membership::build().await;
+        let (test_membership_sender, _test_membership_receiver) = MembershipRequest::build().await;
         let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
 
         let test_leader = Leader::init(

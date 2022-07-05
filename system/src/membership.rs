@@ -136,16 +136,12 @@ impl Membership {
 
                     let members = get_alive(&list_sender).await?;
 
-                    if let Err(error) = response.send(MembershipResponse::Members(members)) {
-                        error!("error sending membership response -> {:?}", error);
-                    }
+                    response.send(MembershipResponse::Members(members))?;
                 }
                 MembershipRequest::Node => {
                     let node = server;
 
-                    if let Err(error) = response.send(MembershipResponse::Node(node)) {
-                        error!("error sending membership response -> {:?}", error);
-                    }
+                    response.send(MembershipResponse::Node(node))?;
                 }
                 MembershipRequest::StaticJoin => {
                     static_join.run().await?;
@@ -153,11 +149,7 @@ impl Membership {
                     let alive = get_alive(&list_sender).await?;
                     let expected = self.cluster_size.majority().await;
 
-                    if let Err(error) =
-                        response.send(MembershipResponse::Status((alive.len(), expected)))
-                    {
-                        error!("error sending membership response -> {:?}", error);
-                    }
+                    response.send(MembershipResponse::Status((alive.len(), expected)))?
                 }
                 // MembershipRequest::Status => {
                 //     let members = get_alive(&list_sender).await?;
@@ -217,7 +209,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_one() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = crate::channel::membership::build().await;
+        let (test_sender, test_receiver) = MembershipRequest::build().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::One, test_receiver, test_shutdown_signal).await?;
@@ -231,7 +223,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_three() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = crate::channel::membership::build().await;
+        let (test_sender, test_receiver) = MembershipRequest::build().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::Three, test_receiver, test_shutdown_signal).await?;
@@ -245,7 +237,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_five() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = crate::channel::membership::build().await;
+        let (test_sender, test_receiver) = MembershipRequest::build().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::Five, test_receiver, test_shutdown_signal).await?;

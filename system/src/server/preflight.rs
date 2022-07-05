@@ -1,6 +1,6 @@
 use tokio::time::{sleep, Duration};
 
-use crate::channel::membership;
+use crate::channel::membership::{MembershipRequest, MembershipSender};
 use crate::channel::transition::{
     PreflightStateReceiver, ShutdownSender, Transition, TransitionSender,
 };
@@ -10,7 +10,7 @@ pub struct Preflight {
     enter_state: PreflightStateReceiver,
     exit_state: TransitionSender,
     shutdown: ShutdownSender,
-    membership: membership::MembershipSender,
+    membership: MembershipSender,
 }
 
 impl Preflight {
@@ -18,7 +18,7 @@ impl Preflight {
         enter_state: PreflightStateReceiver,
         exit_state: TransitionSender,
         shutdown: ShutdownSender,
-        membership: membership::MembershipSender,
+        membership: MembershipSender,
     ) -> Result<Preflight, Box<dyn std::error::Error>> {
         Ok(Preflight {
             enter_state,
@@ -50,10 +50,10 @@ impl Preflight {
         let mut errors = 0;
 
         while errors <= 4 {
-            let (active, expected) = membership::static_join(&self.membership).await?;
+            let (active, expected) = MembershipRequest::static_join(&self.membership).await?;
 
             if active == expected {
-                membership::launch_failure_detector(&self.membership).await?;
+                MembershipRequest::launch_failure_detector(&self.membership).await?;
 
                 self.exit_state.send(Transition::FollowerState).await?;
 
