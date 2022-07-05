@@ -3,7 +3,7 @@ use tokio::sync::{broadcast, mpsc};
 pub type ElectionResultReceiver = mpsc::Receiver<ElectionResult>;
 pub type ElectionResultSender = mpsc::Sender<ElectionResult>;
 
-pub type LeaderSender = broadcast::Sender<Leader>;
+pub type LeaderHeartbeatSender = broadcast::Sender<Leader>;
 
 #[derive(Clone, Debug)]
 pub enum ElectionResult {
@@ -26,7 +26,7 @@ pub enum Leader {
 }
 
 impl Leader {
-    pub async fn build() -> LeaderSender {
+    pub async fn build() -> LeaderHeartbeatSender {
         let (leader_sender, _leader_receiver) = broadcast::channel::<Leader>(64);
 
         leader_sender

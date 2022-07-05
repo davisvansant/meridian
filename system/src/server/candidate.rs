@@ -2,11 +2,12 @@ use rand::{thread_rng, Rng};
 use std::net::SocketAddr;
 use tokio::time::{timeout_at, Duration, Instant};
 
+use crate::channel::membership;
+use crate::channel::server::{ElectionResult, ElectionResultSender, LeaderHeartbeatSender};
 use crate::channel::state::{StateRequest, StateSender};
 use crate::channel::transition::{
     CandidateStateReceiver, ShutdownSender, Transition, TransitionSender,
 };
-use crate::channel::{membership, server};
 use crate::rpc;
 use crate::{error, info, warn};
 
@@ -15,7 +16,7 @@ pub struct Candidate {
     enter_state: CandidateStateReceiver,
     exit_state: TransitionSender,
     shutdown: ShutdownSender,
-    heartbeat: server::LeaderSender,
+    heartbeat: LeaderHeartbeatSender,
     membership: membership::MembershipSender,
     state: StateSender,
 }
@@ -25,7 +26,7 @@ impl Candidate {
         enter_state: CandidateStateReceiver,
         exit_state: TransitionSender,
         shutdown: ShutdownSender,
-        heartbeat: server::LeaderSender,
+        heartbeat: LeaderHeartbeatSender,
         membership: membership::MembershipSender,
         state: StateSender,
     ) -> Result<Candidate, Box<dyn std::error::Error>> {
@@ -50,8 +51,7 @@ impl Candidate {
 
         let start_election_membership_sender = self.membership.to_owned();
 
-        let (election_result_sender, mut election_result_receiver) =
-            server::ElectionResult::build().await;
+        let (election_result_sender, mut election_result_receiver) = ElectionResult::build().await;
 
         let heartbeat = self.heartbeat.to_owned();
         let receive_heartbeat_election_result_sender = election_result_sender.to_owned();
@@ -90,7 +90,7 @@ impl Candidate {
 
                 match timeout_at(Instant::now() + self.election_timeout, election_result_receiver.recv()).await {
                     Ok(election_result) => match election_result {
-                        Some(server::ElectionResult::Follower) => {
+                        Some(ElectionResult::Follower) => {
                             info!("received heartbeat...stepping down");
 
                             heartbeat_handle.abort();
@@ -98,7 +98,7 @@ impl Candidate {
 
                             self.exit_state.send(Transition::FollowerState).await?;
                         }
-                        Some(crate::channel::server::ElectionResult::Leader) => {
+                        Some(ElectionResult::Leader) => {
                             info!("transitioning server to leader...");
 
                             heartbeat_handle.abort();
@@ -132,16 +132,14 @@ impl Candidate {
     }
 
     async fn receive_heartbeat(
-        heartbeat: server::LeaderSender,
-        election_result: server::ElectionResultSender,
+        heartbeat: LeaderHeartbeatSender,
+        election_result: ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut heartbeat = heartbeat.subscribe();
 
         heartbeat.recv().await?;
 
-        election_result
-            .send(server::ElectionResult::Follower)
-            .await?;
+        election_result.send(ElectionResult::Follower).await?;
 
         Ok(())
     }
@@ -149,7 +147,7 @@ impl Candidate {
     async fn start_election(
         membership: &membership::MembershipSender,
         state: &StateSender,
-        election_result: &server::ElectionResultSender,
+        election_result: &ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut leader_votes = Vec::with_capacity(5);
 
@@ -160,7 +158,7 @@ impl Candidate {
         let quorum = peers.len() / 2 + 1;
 
         if peers.is_empty() {
-            election_result.send(server::ElectionResult::Leader).await?;
+            election_result.send(ElectionResult::Leader).await?;
         } else {
             for peer in peers {
                 let socket_address = peer.build_address(peer.cluster_port).await;
@@ -195,11 +193,9 @@ impl Candidate {
             );
 
             if leader_votes.len() >= quorum {
-                election_result.send(server::ElectionResult::Leader).await?;
+                election_result.send(ElectionResult::Leader).await?;
             } else {
-                election_result
-                    .send(server::ElectionResult::Follower)
-                    .await?;
+                election_result.send(ElectionResult::Follower).await?;
             }
         }
 
@@ -210,7 +206,7 @@ impl Candidate {
         socket_address: SocketAddr,
         arguments: rpc::request_vote::RequestVoteArguments,
         state: &StateSender,
-        election_result: &server::ElectionResultSender,
+        election_result: &ElectionResultSender,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         info!(
             "sending election request to socket address -> {:?}",
@@ -229,9 +225,7 @@ impl Candidate {
             true => {
                 info!("peer at heigher term, transition to follower...");
 
-                election_result
-                    .send(server::ElectionResult::Follower)
-                    .await?;
+                election_result.send(ElectionResult::Follower).await?;
 
                 Ok(false)
             }
@@ -247,6 +241,7 @@ impl Candidate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::server::Leader;
     use crate::channel::transition::{CandidateState, Shutdown};
 
     #[tokio::test(flavor = "multi_thread")]
@@ -255,7 +250,7 @@ mod tests {
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
             Transition::build().await;
         let test_shutdown_signal = Shutdown::build().await;
-        let test_leader_heartbeat_sender = server::Leader::build().await;
+        let test_leader_heartbeat_sender = Leader::build().await;
         let (test_membership_sender, _test_membership_receiver) = membership::build().await;
         let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
 

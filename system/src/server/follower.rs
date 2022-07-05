@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng};
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::server;
+use crate::channel::server::{Leader, LeaderHeartbeatSender};
 use crate::channel::transition::{
     FollowerStateReceiver, ShutdownSender, Transition, TransitionSender,
 };
@@ -10,7 +10,7 @@ use crate::{error, info, warn};
 pub struct Follower {
     election_timeout: Duration,
     enter_state: FollowerStateReceiver,
-    leader_heartbeat: server::LeaderSender,
+    leader_heartbeat: LeaderHeartbeatSender,
     shutdown: ShutdownSender,
     exit_state: TransitionSender,
 }
@@ -18,7 +18,7 @@ pub struct Follower {
 impl Follower {
     pub async fn init(
         enter_state: FollowerStateReceiver,
-        leader_heartbeat: server::LeaderSender,
+        leader_heartbeat: LeaderHeartbeatSender,
         shutdown: ShutdownSender,
         exit_state: TransitionSender,
     ) -> Result<Follower, Box<dyn std::error::Error>> {
@@ -56,7 +56,7 @@ impl Follower {
 
                     loop {
                         match timeout_at(Instant::now() + self.election_timeout, leader_heartbeat.recv()).await {
-                            Ok(Ok(server::Leader::Heartbeat)) => {
+                            Ok(Ok(Leader::Heartbeat)) => {
                                     info!("receiving heartbeat...");
                             }
                             Ok(Err(error)) => {
@@ -89,7 +89,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let (test_transition, test_receive) = FollowerState::build().await;
-        let test_leader_heartbeat_sender = server::Leader::build().await;
+        let test_leader_heartbeat_sender = Leader::build().await;
         let test_shutdown_signal = Shutdown::build().await;
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
             Transition::build().await;

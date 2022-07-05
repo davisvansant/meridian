@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use tokio::signal::ctrl_c;
 
 use crate::channel;
+use crate::channel::server::Leader;
 use crate::channel::state::StateRequest;
 use crate::channel::transition::{Shutdown, Transition};
 use crate::membership::{ClusterSize, Membership};
@@ -50,7 +51,7 @@ pub async fn launch(
     // |        init server leader heartbeat channel
     // -------------------------------------------------------------------------------------------
 
-    let leader_heartbeat_sender = channel::server::Leader::build().await;
+    let leader_heartbeat_sender = Leader::build().await;
     let system_leader_sender = leader_heartbeat_sender.to_owned();
     let rpc_server_heartbeat_sender = leader_heartbeat_sender.to_owned();
 

@@ -3,8 +3,9 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use crate::channel::server::{Leader, LeaderHeartbeatSender};
 use crate::channel::state::{StateRequest, StateSender};
-use crate::channel::{server, transition};
+use crate::channel::transition::ShutdownReceiver;
 use crate::rpc::build_tcp_socket;
 use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
 use crate::{error, info, warn};
@@ -12,16 +13,16 @@ use crate::{error, info, warn};
 pub struct Server {
     socket_address: SocketAddr,
     state_sender: StateSender,
-    leader_heartbeat: server::LeaderSender,
-    shutdown: transition::ShutdownReceiver,
+    leader_heartbeat: LeaderHeartbeatSender,
+    shutdown: ShutdownReceiver,
 }
 
 impl Server {
     pub async fn init(
         state_sender: StateSender,
-        leader_heartbeat: server::LeaderSender,
+        leader_heartbeat: LeaderHeartbeatSender,
         socket_address: SocketAddr,
-        shutdown: transition::ShutdownReceiver,
+        shutdown: ShutdownReceiver,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         info!("initialized!");
 
@@ -79,7 +80,7 @@ impl Server {
 
     async fn process_tcp_stream(
         state: &StateSender,
-        heartbeat: &server::LeaderSender,
+        heartbeat: &LeaderHeartbeatSender,
         tcp_stream: &mut TcpStream,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
@@ -97,7 +98,7 @@ impl Server {
     async fn process_rpc_request(
         data: &[u8],
         state_sender: &StateSender,
-        heartbeat: &server::LeaderSender,
+        heartbeat: &LeaderHeartbeatSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -127,7 +128,7 @@ impl Server {
                 if entries.is_empty() {
                     info!("sending heartbeat from server ...");
 
-                    heartbeat.send(server::Leader::Heartbeat)?;
+                    heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let arguments = AppendEntriesArguments {
@@ -145,7 +146,7 @@ impl Server {
                 if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
-                    heartbeat.send(server::Leader::Heartbeat)?;
+                    heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let append_entries_results = Data::AppendEntriesResults(results).build().await?;
@@ -173,7 +174,7 @@ impl Server {
                 if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
-                    heartbeat.send(server::Leader::Heartbeat)?;
+                    heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let request_vote_results = Data::RequestVoteResults(results).build().await?;
@@ -192,14 +193,15 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::transition::Shutdown;
     use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
-        let test_leader_sender = crate::channel::server::Leader::build().await;
+        let test_leader_sender = Leader::build().await;
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
-        let test_shutdown_sender = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_sender = Shutdown::build().await;
         let test_shutdown_receiver = test_shutdown_sender.subscribe();
 
         drop(test_shutdown_sender);
