@@ -4,6 +4,7 @@ use tokio::signal::ctrl_c;
 
 use crate::channel;
 use crate::channel::state::StateRequest;
+use crate::channel::transition::{Shutdown, Transition};
 use crate::membership::{ClusterSize, Membership};
 use crate::node::Node;
 use crate::rpc;
@@ -25,7 +26,7 @@ pub async fn launch(
     // |        init shutdown channel
     // -------------------------------------------------------------------------------------------
 
-    let shutdown_signal = channel::transition::Shutdown::build().await;
+    let shutdown_signal = Shutdown::build().await;
     let shutdown_membership_task = shutdown_signal.to_owned();
     let shutdown_rpc_server_task = shutdown_signal.subscribe();
     let shutdown_system_server_task = shutdown_signal.to_owned();
@@ -42,7 +43,6 @@ pub async fn launch(
     // |        init state channel
     // -------------------------------------------------------------------------------------------
 
-    // let (state_sender, state_receiver) = channel::state::build().await;
     let (state_sender, state_receiver) = StateRequest::build().await;
     let rpc_communications_server_state_sender = state_sender.clone();
 
@@ -74,7 +74,7 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     let (server_transition_state_sender, server_transition_state_receiver) =
-        channel::transition::ServerState::build().await;
+        Transition::build().await;
 
     let mut system_server = server::Server::init(
         server_membership_sender,
@@ -135,7 +135,7 @@ pub async fn launch(
                     info!("received shutdown signal {:?}", ctrl_c);
                     info!("preparing to shut down...");
 
-                if let Err(error) = channel::transition::Shutdown::send(&shutdown_signal).await {
+                if let Err(error) = Shutdown::send(&shutdown_signal).await {
                     error!("error sending shutdown signal! -> {:?}", error);
                 }
                     break

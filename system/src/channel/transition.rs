@@ -1,72 +1,74 @@
 use tokio::sync::{broadcast, mpsc};
 
-pub type PreflightReceiver = mpsc::Receiver<Preflight>;
-pub type PreflightSender = mpsc::Sender<Preflight>;
+pub type PreflightStateReceiver = mpsc::Receiver<PreflightState>;
+pub type PreflightStateSender = mpsc::Sender<PreflightState>;
 
-pub type FollowerReceiver = mpsc::Receiver<Follower>;
-pub type FollowerSender = mpsc::Sender<Follower>;
+pub type FollowerStateReceiver = mpsc::Receiver<FollowerState>;
+pub type FollowerStateSender = mpsc::Sender<FollowerState>;
 
-pub type CandidateReceiver = mpsc::Receiver<Candidate>;
-pub type CandidateSender = mpsc::Sender<Candidate>;
+pub type CandidateStateReceiver = mpsc::Receiver<CandidateState>;
+pub type CandidateStateSender = mpsc::Sender<CandidateState>;
 
-pub type LeaderReceiver = mpsc::Receiver<Leader>;
-pub type LeaderSender = mpsc::Sender<Leader>;
+pub type LeaderStateReceiver = mpsc::Receiver<LeaderState>;
+pub type LeaderStateSender = mpsc::Sender<LeaderState>;
 
 pub type ShutdownReceiver = broadcast::Receiver<Shutdown>;
 pub type ShutdownSender = broadcast::Sender<Shutdown>;
 
-pub type ServerStateReceiver = mpsc::Receiver<ServerState>;
-pub type ServerStateSender = mpsc::Sender<ServerState>;
+pub type TransitionReceiver = mpsc::Receiver<Transition>;
+pub type TransitionSender = mpsc::Sender<Transition>;
 
 #[derive(Debug)]
-pub enum Preflight {
+pub enum PreflightState {
     Run,
 }
 
-impl Preflight {
-    pub async fn build() -> (PreflightSender, PreflightReceiver) {
-        let (preflight_sender, preflight_receiver) = mpsc::channel::<Preflight>(64);
+impl PreflightState {
+    pub async fn build() -> (PreflightStateSender, PreflightStateReceiver) {
+        let (preflight_state_sender, preflight_state_receiver) =
+            mpsc::channel::<PreflightState>(64);
 
-        (preflight_sender, preflight_receiver)
+        (preflight_state_sender, preflight_state_receiver)
     }
 }
 
 #[derive(Debug)]
-pub enum Follower {
+pub enum FollowerState {
     Run,
 }
 
-impl Follower {
-    pub async fn build() -> (FollowerSender, FollowerReceiver) {
-        let (follower_sender, follower_receiver) = mpsc::channel::<Follower>(64);
+impl FollowerState {
+    pub async fn build() -> (FollowerStateSender, FollowerStateReceiver) {
+        let (follower_state_sender, follower_state_receiver) = mpsc::channel::<FollowerState>(64);
 
-        (follower_sender, follower_receiver)
+        (follower_state_sender, follower_state_receiver)
     }
 }
 
 #[derive(Debug)]
-pub enum Candidate {
+pub enum CandidateState {
     Run,
 }
 
-impl Candidate {
-    pub async fn build() -> (CandidateSender, CandidateReceiver) {
-        let (candidate_sender, candidate_receiver) = mpsc::channel::<Candidate>(64);
+impl CandidateState {
+    pub async fn build() -> (CandidateStateSender, CandidateStateReceiver) {
+        let (candidate_state_sender, candidate_state_receiver) =
+            mpsc::channel::<CandidateState>(64);
 
-        (candidate_sender, candidate_receiver)
+        (candidate_state_sender, candidate_state_receiver)
     }
 }
 
 #[derive(Debug)]
-pub enum Leader {
+pub enum LeaderState {
     Run,
 }
 
-impl Leader {
-    pub async fn build() -> (LeaderSender, LeaderReceiver) {
-        let (leader_sender, leader_receiver) = mpsc::channel::<Leader>(64);
+impl LeaderState {
+    pub async fn build() -> (LeaderStateSender, LeaderStateReceiver) {
+        let (leader_state_sender, leader_state_receiver) = mpsc::channel::<LeaderState>(64);
 
-        (leader_sender, leader_receiver)
+        (leader_state_sender, leader_state_receiver)
     }
 }
 
@@ -90,18 +92,18 @@ impl Shutdown {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ServerState {
-    Candidate,
-    Follower,
-    Leader,
-    Preflight,
+pub enum Transition {
+    PreflightState,
+    FollowerState,
+    CandidateState,
+    LeaderState,
     Shutdown,
 }
 
-impl ServerState {
-    pub async fn build() -> (ServerStateSender, ServerStateReceiver) {
-        let (server_state_sender, server_state_recever) = mpsc::channel::<ServerState>(64);
+impl Transition {
+    pub async fn build() -> (TransitionSender, TransitionReceiver) {
+        let (transition_sender, transition_recever) = mpsc::channel::<Transition>(64);
 
-        (server_state_sender, server_state_recever)
+        (transition_sender, transition_recever)
     }
 }

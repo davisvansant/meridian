@@ -1,24 +1,27 @@
 use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 
+use crate::channel::membership;
 use crate::channel::state::{StateRequest, StateSender};
-use crate::channel::{membership, transition};
+use crate::channel::transition::{
+    LeaderStateReceiver, ShutdownSender, Transition, TransitionSender,
+};
 use crate::rpc;
 use crate::{error, info};
 
 pub struct Leader {
-    enter_state: transition::LeaderReceiver,
-    exit_state: transition::ServerStateSender,
-    shutdown: transition::ShutdownSender,
+    enter_state: LeaderStateReceiver,
+    exit_state: TransitionSender,
+    shutdown: ShutdownSender,
     membership: membership::MembershipSender,
     state: StateSender,
 }
 
 impl Leader {
     pub async fn init(
-        enter_state: transition::LeaderReceiver,
-        exit_state: transition::ServerStateSender,
-        shutdown: transition::ShutdownSender,
+        enter_state: LeaderStateReceiver,
+        exit_state: TransitionSender,
+        shutdown: ShutdownSender,
         membership: membership::MembershipSender,
         state: StateSender,
     ) -> Result<Leader, Box<dyn std::error::Error>> {
@@ -55,9 +58,7 @@ impl Leader {
                         }
                     }
 
-                    self.exit_state
-                        .send(transition::ServerState::Shutdown)
-                        .await?;
+                    self.exit_state.send(Transition::Shutdown).await?;
 
                     break;
                 }
@@ -120,14 +121,14 @@ impl Leader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::transition::{LeaderState, Shutdown};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_leader_sender, test_leader_receiver) =
-            crate::channel::transition::Leader::build().await;
+        let (_test_leader_sender, test_leader_receiver) = LeaderState::build().await;
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
-            crate::channel::transition::ServerState::build().await;
-        let test_shutdown_sender = crate::channel::transition::Shutdown::build().await;
+            Transition::build().await;
+        let test_shutdown_sender = Shutdown::build().await;
         let (test_membership_sender, _test_membership_receiver) =
             crate::channel::membership::build().await;
         let (test_state_sender, _test_state_receiver) = StateRequest::build().await;

@@ -3,15 +3,18 @@ use std::net::SocketAddr;
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::state::{StateRequest, StateSender};
-use crate::channel::{membership, server, transition};
+use crate::channel::transition::{
+    CandidateStateReceiver, ShutdownSender, Transition, TransitionSender,
+};
+use crate::channel::{membership, server};
 use crate::rpc;
 use crate::{error, info, warn};
 
 pub struct Candidate {
     election_timeout: Duration,
-    enter_state: transition::CandidateReceiver,
-    exit_state: transition::ServerStateSender,
-    shutdown: transition::ShutdownSender,
+    enter_state: CandidateStateReceiver,
+    exit_state: TransitionSender,
+    shutdown: ShutdownSender,
     heartbeat: server::LeaderSender,
     membership: membership::MembershipSender,
     state: StateSender,
@@ -19,9 +22,9 @@ pub struct Candidate {
 
 impl Candidate {
     pub async fn init(
-        enter_state: transition::CandidateReceiver,
-        exit_state: transition::ServerStateSender,
-        shutdown: transition::ShutdownSender,
+        enter_state: CandidateStateReceiver,
+        exit_state: TransitionSender,
+        shutdown: ShutdownSender,
         heartbeat: server::LeaderSender,
         membership: membership::MembershipSender,
         state: StateSender,
@@ -93,14 +96,14 @@ impl Candidate {
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(transition::ServerState::Follower).await?;
+                            self.exit_state.send(Transition::FollowerState).await?;
                         }
                         Some(crate::channel::server::ElectionResult::Leader) => {
                             info!("transitioning server to leader...");
 
                             heartbeat_handle.abort();
 
-                            self.exit_state.send(transition::ServerState::Leader).await?;
+                            self.exit_state.send(Transition::LeaderState).await?;
                         }
                         None => {
                             warn!("candidate election timeout lapsed...trying again...");
@@ -108,7 +111,7 @@ impl Candidate {
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(transition::ServerState::Candidate).await?;
+                            self.exit_state.send(Transition::CandidateState).await?;
                         }
                     },
                     Err(error) => {
@@ -119,7 +122,7 @@ impl Candidate {
                         heartbeat_handle.abort();
                         start_election_handle.abort();
 
-                        self.exit_state.send(transition::ServerState::Candidate).await?;
+                        self.exit_state.send(Transition::CandidateState).await?;
                     }
                 }
             }
@@ -244,13 +247,14 @@ impl Candidate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::transition::{CandidateState, Shutdown};
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_transition, test_receive) = transition::Candidate::build().await;
+        let (test_transition, test_receive) = CandidateState::build().await;
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
-            transition::ServerState::build().await;
-        let test_shutdown_signal = transition::Shutdown::build().await;
+            Transition::build().await;
+        let test_shutdown_signal = Shutdown::build().await;
         let test_leader_heartbeat_sender = server::Leader::build().await;
         let (test_membership_sender, _test_membership_receiver) = membership::build().await;
         let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
