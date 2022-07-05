@@ -3,21 +3,22 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use crate::channel::{server, state, transition};
+use crate::channel::state::{StateRequest, StateSender};
+use crate::channel::{server, transition};
 use crate::rpc::build_tcp_socket;
 use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
 use crate::{error, info, warn};
 
 pub struct Server {
     socket_address: SocketAddr,
-    state_sender: state::StateSender,
+    state_sender: StateSender,
     leader_heartbeat: server::LeaderSender,
     shutdown: transition::ShutdownReceiver,
 }
 
 impl Server {
     pub async fn init(
-        state_sender: state::StateSender,
+        state_sender: StateSender,
         leader_heartbeat: server::LeaderSender,
         socket_address: SocketAddr,
         shutdown: transition::ShutdownReceiver,
@@ -77,7 +78,7 @@ impl Server {
     }
 
     async fn process_tcp_stream(
-        state: &state::StateSender,
+        state: &StateSender,
         heartbeat: &server::LeaderSender,
         tcp_stream: &mut TcpStream,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -95,7 +96,7 @@ impl Server {
 
     async fn process_rpc_request(
         data: &[u8],
-        state_sender: &state::StateSender,
+        state_sender: &StateSender,
         heartbeat: &server::LeaderSender,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
@@ -138,7 +139,8 @@ impl Server {
                     leader_commit,
                 };
 
-                let results = state::append_entries(state_sender, arguments).await?;
+                let results =
+                    StateRequest::append_entries_arguments(state_sender, arguments).await?;
 
                 if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
@@ -166,7 +168,7 @@ impl Server {
                     last_log_term,
                 };
 
-                let results = state::request_vote(state_sender, arguments).await?;
+                let results = StateRequest::request_vote_arguments(state_sender, arguments).await?;
 
                 if term > results.term && heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
@@ -194,7 +196,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
+        let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
         let test_leader_sender = crate::channel::server::Leader::build().await;
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
         let test_shutdown_sender = crate::channel::transition::Shutdown::build().await;

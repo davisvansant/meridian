@@ -45,24 +45,14 @@ impl State {
 
                     info!("sending append entries results -> {:?}", &results);
 
-                    if let Err(error) = response.send(StateResponse::AppendEntries(results)) {
-                        error!("append entries response -> {:?}", error);
-                    }
+                    response.send(StateResponse::AppendEntries(results))?;
                 }
                 StateRequest::AppendEntriesResults(results) => {
                     info!("received append entries results -> {:?}", &results);
 
                     match self.persistent.check_term(results.term).await {
-                        true => {
-                            if let Err(error) = response.send(StateResponse::Follower(false)) {
-                                error!("check term true response -> {:?}", error);
-                            }
-                        }
-                        false => {
-                            if let Err(error) = response.send(StateResponse::Follower(true)) {
-                                error!("check term false response -> {:?}", error);
-                            }
-                        }
+                        true => response.send(StateResponse::Follower(false))?,
+                        false => response.send(StateResponse::Follower(true))?,
                     }
                 }
                 StateRequest::Candidate(candidate_id) => {
@@ -71,16 +61,12 @@ impl State {
 
                     let arguments = self.request_vote_arguments(&candidate_id).await?;
 
-                    if let Err(error) = response.send(StateResponse::Candidate(arguments)) {
-                        error!("sending request vote arguments -> {:?}", error);
-                    }
+                    response.send(StateResponse::Candidate(arguments))?
                 }
                 StateRequest::Heartbeat(leader_id) => {
                     let heartbeat = self.append_entries_heartbeat(leader_id).await?;
 
-                    if let Err(error) = response.send(StateResponse::Heartbeat(heartbeat)) {
-                        println!("sending heartbeat arguments -> {:?}", error);
-                    }
+                    response.send(StateResponse::Heartbeat(heartbeat))?
                 }
                 StateRequest::Leader => {
                     self.init_leader_volatile_state().await?;
@@ -92,24 +78,14 @@ impl State {
 
                     info!("sending request vote results -> {:?}", &results);
 
-                    if let Err(error) = response.send(StateResponse::RequestVote(results)) {
-                        error!("sending request vote response -> {:?}", error);
-                    }
+                    response.send(StateResponse::RequestVote(results))?
                 }
                 StateRequest::RequestVoteResults(results) => {
                     info!("received request vote results -> {:?}", &results);
 
                     match self.persistent.check_term(results.term).await {
-                        true => {
-                            if let Err(error) = response.send(StateResponse::Follower(true)) {
-                                error!("check term true response -> {:?}", error);
-                            }
-                        }
-                        false => {
-                            if let Err(error) = response.send(StateResponse::Follower(false)) {
-                                error!("check term false response -> {:?}", error);
-                            }
-                        }
+                        true => response.send(StateResponse::Follower(true))?,
+                        false => response.send(StateResponse::Follower(false))?,
                     }
                 }
                 StateRequest::Shutdown => {
@@ -250,7 +226,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = crate::channel::state::build().await;
+        let (test_sender, test_receiver) = StateRequest::build().await;
         let test_state = State::init(test_receiver).await?;
 
         assert_eq!(test_state.persistent.current_term, 0);
@@ -264,7 +240,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_leader_volatile_state() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         assert!(test_state.leader_volatile.is_none());
@@ -278,7 +254,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_leader_id = String::from("some_leader_id");
@@ -301,7 +277,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_results_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 1;
@@ -327,7 +303,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_results_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 2;
@@ -353,7 +329,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_candidate_id = String::from("some_candidate_id");
@@ -375,7 +351,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_results_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 1;
@@ -399,7 +375,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_results_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = crate::channel::state::build().await;
+        let (_test_sender, test_receiver) = StateRequest::build().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 2;

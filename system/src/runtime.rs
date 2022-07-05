@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use tokio::signal::ctrl_c;
 
 use crate::channel;
+use crate::channel::state::StateRequest;
 use crate::membership::{ClusterSize, Membership};
 use crate::node::Node;
 use crate::rpc;
@@ -41,7 +42,8 @@ pub async fn launch(
     // |        init state channel
     // -------------------------------------------------------------------------------------------
 
-    let (state_sender, state_receiver) = channel::state::build().await;
+    // let (state_sender, state_receiver) = channel::state::build().await;
+    let (state_sender, state_receiver) = StateRequest::build().await;
     let rpc_communications_server_state_sender = state_sender.clone();
 
     // -------------------------------------------------------------------------------------------

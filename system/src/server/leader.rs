@@ -1,7 +1,8 @@
 use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 
-use crate::channel::{membership, state, transition};
+use crate::channel::state::{StateRequest, StateSender};
+use crate::channel::{membership, transition};
 use crate::rpc;
 use crate::{error, info};
 
@@ -10,7 +11,7 @@ pub struct Leader {
     exit_state: transition::ServerStateSender,
     shutdown: transition::ShutdownSender,
     membership: membership::MembershipSender,
-    state: state::StateSender,
+    state: StateSender,
 }
 
 impl Leader {
@@ -19,7 +20,7 @@ impl Leader {
         exit_state: transition::ServerStateSender,
         shutdown: transition::ShutdownSender,
         membership: membership::MembershipSender,
-        state: state::StateSender,
+        state: StateSender,
     ) -> Result<Leader, Box<dyn std::error::Error>> {
         Ok(Leader {
             enter_state,
@@ -44,7 +45,7 @@ impl Leader {
                 Some(run) = self.enter_state.recv() => {
                     info!("running leader! -> {:?}", run);
 
-                    state::leader(&self.state).await?;
+                    StateRequest::init_leader(&self.state).await?;
 
                     loop {
                         if let Err(error) = self.heartbeat(&self.membership, &self.state).await {
@@ -69,12 +70,12 @@ impl Leader {
     async fn heartbeat(
         &self,
         membership: &membership::MembershipSender,
-        state: &state::StateSender,
+        state: &StateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         sleep(Duration::from_secs(15)).await;
 
         let node = membership::node(membership).await?;
-        let append_entries_arguments = state::heartbeat(state, node.id.to_string()).await?;
+        let append_entries_arguments = StateRequest::heartbeat(state, node.id.to_string()).await?;
         let cluster_members = membership::cluster_members(membership).await?;
 
         for follower in cluster_members {
@@ -98,7 +99,7 @@ impl Leader {
     async fn append_entries(
         socket_address: SocketAddr,
         arguments: rpc::append_entries::AppendEntriesArguments,
-        state: &state::StateSender,
+        state: &StateSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         info!(
             "sending heartbeat to socket address -> {:?}",
@@ -110,7 +111,7 @@ impl Leader {
 
         info!("append entries results -> {:?}", &append_entries_results);
 
-        state::append_entries_results(state, append_entries_results).await?;
+        StateRequest::append_entries_results(state, append_entries_results).await?;
 
         Ok(())
     }
@@ -129,7 +130,7 @@ mod tests {
         let test_shutdown_sender = crate::channel::transition::Shutdown::build().await;
         let (test_membership_sender, _test_membership_receiver) =
             crate::channel::membership::build().await;
-        let (test_state_sender, _test_state_receiver) = crate::channel::state::build().await;
+        let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
 
         let test_leader = Leader::init(
             test_leader_receiver,

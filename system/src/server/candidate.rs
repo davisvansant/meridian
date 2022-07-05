@@ -2,7 +2,8 @@ use rand::{thread_rng, Rng};
 use std::net::SocketAddr;
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::{membership, server, state, transition};
+use crate::channel::state::{StateRequest, StateSender};
+use crate::channel::{membership, server, transition};
 use crate::rpc;
 use crate::{error, info, warn};
 
@@ -13,7 +14,7 @@ pub struct Candidate {
     shutdown: transition::ShutdownSender,
     heartbeat: server::LeaderSender,
     membership: membership::MembershipSender,
-    state: state::StateSender,
+    state: StateSender,
 }
 
 impl Candidate {
@@ -23,7 +24,7 @@ impl Candidate {
         shutdown: transition::ShutdownSender,
         heartbeat: server::LeaderSender,
         membership: membership::MembershipSender,
-        state: state::StateSender,
+        state: StateSender,
     ) -> Result<Candidate, Box<dyn std::error::Error>> {
         let mut rng = thread_rng();
 
@@ -144,13 +145,13 @@ impl Candidate {
 
     async fn start_election(
         membership: &membership::MembershipSender,
-        state: &state::StateSender,
+        state: &StateSender,
         election_result: &server::ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut leader_votes = Vec::with_capacity(5);
 
         let node = membership::node(membership).await?;
-        let request_vote_arguments = state::candidate(state, node.id.to_string()).await?;
+        let request_vote_arguments = StateRequest::candidate(state, node.id.to_string()).await?;
         let peers = membership::cluster_members(membership).await?;
 
         let quorum = peers.len() / 2 + 1;
@@ -205,7 +206,7 @@ impl Candidate {
     async fn request_vote(
         socket_address: SocketAddr,
         arguments: rpc::request_vote::RequestVoteArguments,
-        state: &state::StateSender,
+        state: &StateSender,
         election_result: &server::ElectionResultSender,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         info!(
@@ -219,7 +220,7 @@ impl Candidate {
         info!("request vote results -> {:?}", &request_vote_results);
 
         let vote_granted = request_vote_results.vote_granted;
-        let transition = state::request_vote_results(state, request_vote_results).await?;
+        let transition = StateRequest::request_vote_results(state, request_vote_results).await?;
 
         match transition {
             true => {
@@ -252,7 +253,7 @@ mod tests {
         let test_shutdown_signal = transition::Shutdown::build().await;
         let test_leader_heartbeat_sender = server::Leader::build().await;
         let (test_membership_sender, _test_membership_receiver) = membership::build().await;
-        let (test_state_sender, _test_state_receiver) = state::build().await;
+        let (test_state_sender, _test_state_receiver) = StateRequest::build().await;
 
         let test_candidate = Candidate::init(
             test_receive,
