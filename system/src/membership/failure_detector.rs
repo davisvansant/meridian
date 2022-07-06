@@ -5,17 +5,11 @@ use crate::node::Node;
 
 use tokio::time::{sleep, timeout, Duration};
 
-use crate::channel::membership_communications::send_message;
-use crate::channel::membership_communications::MembershipCommunicationsSender;
-use crate::channel::membership_failure_detector::{
-    FailureDetectorReceiver, MembershipFailureDetectorPingTarget,
-    MembershipFailureDetectorPingTargetSender,
+use crate::channel::membership::failure_detector::{
+    FailureDetectorProtocolReceiver, PingTarget, PingTargetSender,
 };
-use crate::channel::membership_list::MembershipListSender;
-use crate::channel::membership_list::{
-    get_alive, get_confirmed, get_node, get_suspected, insert_alive, insert_confirmed,
-    insert_suspected, remove_alive, remove_confirmed, remove_suspected,
-};
+use crate::channel::membership::list::{ListRequest, ListSender};
+use crate::channel::membership::sender::{Dissemination, DisseminationSender};
 use crate::channel::transition::ShutdownSender;
 use crate::membership::Message;
 use crate::{error, info, warn};
@@ -23,19 +17,19 @@ use crate::{error, info, warn};
 pub struct FailureDectector {
     protocol_period: Duration,
     time_out: Duration,
-    list_sender: MembershipListSender,
-    send_udp_message: MembershipCommunicationsSender,
-    ping_target_channel: MembershipFailureDetectorPingTargetSender,
-    enter_state: FailureDetectorReceiver,
+    list_sender: ListSender,
+    dissemination: DisseminationSender,
+    ping_target_channel: PingTargetSender,
+    enter_state: FailureDetectorProtocolReceiver,
     shutdown: ShutdownSender,
 }
 
 impl FailureDectector {
     pub async fn init(
-        list_sender: MembershipListSender,
-        send_udp_message: MembershipCommunicationsSender,
-        ping_target_channel: MembershipFailureDetectorPingTargetSender,
-        enter_state: FailureDetectorReceiver,
+        list_sender: ListSender,
+        dissemination: DisseminationSender,
+        ping_target_channel: PingTargetSender,
+        enter_state: FailureDetectorProtocolReceiver,
         shutdown: ShutdownSender,
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(5);
@@ -47,7 +41,7 @@ impl FailureDectector {
             protocol_period,
             time_out,
             list_sender,
-            send_udp_message,
+            dissemination,
             ping_target_channel,
             enter_state,
             shutdown,
@@ -86,7 +80,7 @@ impl FailureDectector {
     async fn protocol_period(&self) -> Result<(), Box<dyn std::error::Error>> {
         sleep(self.protocol_period).await;
 
-        let direct_list = get_alive(&self.list_sender).await?;
+        let direct_list = ListRequest::get_alive(&self.list_sender).await?;
         let mut suspected = Vec::with_capacity(1);
 
         for ping_target in direct_list {
@@ -100,7 +94,7 @@ impl FailureDectector {
         }
 
         if !suspected.is_empty() {
-            let indirect_list = get_alive(&self.list_sender).await?;
+            let indirect_list = ListRequest::get_alive(&self.list_sender).await?;
 
             for ping_req_target in indirect_list {
                 if let Err(error) = self.send_indirect(ping_req_target, suspected[0]).await {
@@ -112,7 +106,7 @@ impl FailureDectector {
             }
         }
 
-        let suspected_list = get_suspected(&self.list_sender).await?;
+        let suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
 
         for member in suspected_list {
             self.confirmed(&member).await?;
@@ -124,10 +118,10 @@ impl FailureDectector {
     async fn send_direct(&self, member: Node) -> Result<(), Box<dyn std::error::Error>> {
         let mut ping_target_ack = self.ping_target_channel.subscribe();
 
-        let node = get_node(&self.list_sender).await?;
-        let local_alive_list = get_alive(&self.list_sender).await?;
-        let local_suspected_list = get_suspected(&self.list_sender).await?;
-        let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+        let node = ListRequest::get_node(&self.list_sender).await?;
+        let local_alive_list = ListRequest::get_alive(&self.list_sender).await?;
+        let local_suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
+        let local_confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
 
         let ping = Message::Ping
             .build_list(
@@ -142,10 +136,13 @@ impl FailureDectector {
         let mut address = member.membership_address().await;
         address.set_ip(IpAddr::from_str("127.0.0.1")?);
 
-        send_message(&self.send_udp_message, &ping, address).await?;
+        info!("preparing ping target -> {:?}", &address);
+
+        self.dissemination
+            .send(Dissemination::Message(ping, address))?;
 
         match timeout(self.time_out, ping_target_ack.recv()).await {
-            Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
+            Ok(Ok(PingTarget::Member(ping_target))) => {
                 info!("address -> {:?}", &address);
                 info!("ping target -> {:?}", &ping_target);
 
@@ -174,12 +171,12 @@ impl FailureDectector {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut ping_target_ack = self.ping_target_channel.subscribe();
 
-        let node = get_node(&self.list_sender).await?;
-        let local_alive_list = get_alive(&self.list_sender).await?;
-        let local_suspected_list = get_suspected(&self.list_sender).await?;
-        let local_confirmed_list = get_confirmed(&self.list_sender).await?;
+        let node = ListRequest::get_node(&self.list_sender).await?;
+        let local_alive_list = ListRequest::get_alive(&self.list_sender).await?;
+        let local_suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
+        let local_confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
 
-        let ping_req = Message::Ping
+        let ping_req = Message::PingReq
             .build_list(
                 &node,
                 Some((
@@ -195,10 +192,13 @@ impl FailureDectector {
         let mut address = member.membership_address().await;
         address.set_ip(IpAddr::from_str("127.0.0.1")?);
 
-        send_message(&self.send_udp_message, &ping_req, address).await?;
+        warn!("preparing ping req target -> {:?}", &address);
+
+        self.dissemination
+            .send(Dissemination::Message(ping_req, address))?;
 
         match timeout(self.time_out, ping_target_ack.recv()).await {
-            Ok(Ok(MembershipFailureDetectorPingTarget::Member(ping_target))) => {
+            Ok(Ok(PingTarget::Member(ping_target))) => {
                 match suspect.membership_address().await == ping_target {
                     true => {
                         self.alive(&suspect).await?;
@@ -218,25 +218,25 @@ impl FailureDectector {
     }
 
     async fn alive(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
-        remove_confirmed(&self.list_sender, member).await?;
-        remove_suspected(&self.list_sender, member).await?;
-        insert_alive(&self.list_sender, member).await?;
+        ListRequest::remove_confirmed(&self.list_sender, member).await?;
+        ListRequest::remove_suspected(&self.list_sender, member).await?;
+        ListRequest::insert_alive(&self.list_sender, member).await?;
 
         Ok(())
     }
 
     async fn suspected(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
-        remove_confirmed(&self.list_sender, member).await?;
-        remove_alive(&self.list_sender, member).await?;
-        insert_suspected(&self.list_sender, member).await?;
+        ListRequest::remove_confirmed(&self.list_sender, member).await?;
+        ListRequest::remove_alive(&self.list_sender, member).await?;
+        ListRequest::insert_suspected(&self.list_sender, member).await?;
 
         Ok(())
     }
 
     async fn confirmed(&self, member: &Node) -> Result<(), Box<dyn std::error::Error>> {
-        remove_alive(&self.list_sender, member).await?;
-        remove_suspected(&self.list_sender, member).await?;
-        insert_confirmed(&self.list_sender, member).await?;
+        ListRequest::remove_alive(&self.list_sender, member).await?;
+        ListRequest::remove_suspected(&self.list_sender, member).await?;
+        ListRequest::insert_confirmed(&self.list_sender, member).await?;
 
         Ok(())
     }

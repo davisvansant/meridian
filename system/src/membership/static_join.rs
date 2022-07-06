@@ -1,40 +1,34 @@
-use crate::channel::membership_communications::send_message;
-use crate::channel::membership_communications::MembershipCommunicationsSender;
-use crate::channel::membership_list::MembershipListSender;
-use crate::channel::membership_list::{
-    get_alive, get_confirmed, get_initial, get_node, get_suspected,
-};
+use crate::channel::membership::list::{ListRequest, ListSender};
+use crate::channel::membership::sender::{Dissemination, DisseminationSender};
 use crate::membership::Message;
 
 pub struct StaticJoin {
-    membership_communications_sender: MembershipCommunicationsSender,
-    membership_list_sender: MembershipListSender,
+    dissemination: DisseminationSender,
+    list_sender: ListSender,
 }
 
 impl StaticJoin {
-    pub async fn init(
-        membership_communications_sender: MembershipCommunicationsSender,
-        membership_list_sender: MembershipListSender,
-    ) -> StaticJoin {
+    pub async fn init(dissemination: DisseminationSender, list_sender: ListSender) -> StaticJoin {
         StaticJoin {
-            membership_communications_sender,
-            membership_list_sender,
+            dissemination,
+            list_sender,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let node = get_node(&self.membership_list_sender).await?;
-        let alive_list = get_alive(&self.membership_list_sender).await?;
-        let suspected_list = get_suspected(&self.membership_list_sender).await?;
-        let confirmed_list = get_confirmed(&self.membership_list_sender).await?;
-        let initial_nodes = get_initial(&self.membership_list_sender).await?;
+        let node = ListRequest::get_node(&self.list_sender).await?;
+        let alive_list = ListRequest::get_alive(&self.list_sender).await?;
+        let suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
+        let confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
+        let initial_nodes = ListRequest::get_initial(&self.list_sender).await?;
 
         let ping = Message::Ping
             .build_list(&node, None, &alive_list, &suspected_list, &confirmed_list)
             .await;
 
         for origin in initial_nodes {
-            send_message(&self.membership_communications_sender, &ping, origin).await?;
+            self.dissemination
+                .send(Dissemination::Message(ping.to_owned(), origin))?;
         }
 
         Ok(())
