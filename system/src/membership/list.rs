@@ -3,9 +3,7 @@ use std::net::SocketAddr;
 
 use uuid::Uuid;
 
-use crate::channel::membership_list::{
-    MembershipListReceiver, MembershipListRequest, MembershipListResponse,
-};
+use crate::channel::membership::list::{ListReceiver, ListRequest, ListResponse};
 use crate::node::Node;
 use crate::{error, info};
 
@@ -15,14 +13,14 @@ pub struct List {
     alive: HashMap<Uuid, Node>,
     suspected: HashMap<Uuid, Node>,
     confirmed: HashMap<Uuid, Node>,
-    receiver: MembershipListReceiver,
+    receiver: ListReceiver,
 }
 
 impl List {
     pub async fn init(
         server: Node,
         initial: Vec<SocketAddr>,
-        receiver: MembershipListReceiver,
+        receiver: ListReceiver,
     ) -> Result<List, Box<dyn std::error::Error>> {
         let alive = HashMap::with_capacity(10);
         let suspected = HashMap::with_capacity(10);
@@ -45,76 +43,64 @@ impl List {
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
-                MembershipListRequest::GetNode => {
+                ListRequest::GetNode => {
                     let node = self.server;
 
-                    if let Err(error) = response.send(MembershipListResponse::Node(node)) {
-                        error!("error sending membership list response -> {:?}", error);
-                    }
+                    response.send(ListResponse::Node(node))?;
                 }
-                MembershipListRequest::GetInitial => {
+                ListRequest::GetInitial => {
                     let initial = self.initial.to_vec();
 
-                    if let Err(error) = response.send(MembershipListResponse::Initial(initial)) {
-                        error!("error sending membership list response -> {:?}", error);
-                    }
+                    response.send(ListResponse::Initial(initial))?;
                 }
-                MembershipListRequest::GetAlive => {
+                ListRequest::GetAlive => {
                     let mut alive = Vec::with_capacity(self.alive.len());
 
                     for member in self.alive.values() {
                         alive.push(member.to_owned());
                     }
 
-                    if let Err(error) = response.send(MembershipListResponse::Alive(alive)) {
-                        error!("error sending membership list response -> {:?}", error);
-                    }
+                    response.send(ListResponse::Alive(alive))?;
                 }
-                MembershipListRequest::GetSuspected => {
+                ListRequest::GetSuspected => {
                     let mut suspected = Vec::with_capacity(self.suspected.len());
 
                     for node in self.suspected.values() {
                         suspected.push(node.to_owned());
                     }
 
-                    if let Err(error) = response.send(MembershipListResponse::Suspected(suspected))
-                    {
-                        error!("error sending membership list response -> {:?}", error);
-                    }
+                    response.send(ListResponse::Suspected(suspected))?;
                 }
-                MembershipListRequest::GetConfirmed => {
+                ListRequest::GetConfirmed => {
                     let mut confirmed = Vec::with_capacity(self.confirmed.len());
 
                     for node in self.confirmed.values() {
                         confirmed.push(node.to_owned());
                     }
 
-                    if let Err(error) = response.send(MembershipListResponse::Confirmed(confirmed))
-                    {
-                        error!("error sending membership list response -> {:?}", error);
-                    }
+                    response.send(ListResponse::Confirmed(confirmed))?;
                 }
-                MembershipListRequest::InsertAlive(node) => {
+                ListRequest::InsertAlive(node) => {
                     if node != self.server {
                         self.insert_alive(node).await?;
                     }
                 }
-                MembershipListRequest::InsertSuspected(node) => {
+                ListRequest::InsertSuspected(node) => {
                     self.insert_supsected(node).await?;
                 }
-                MembershipListRequest::InsertConfirmed(node) => {
+                ListRequest::InsertConfirmed(node) => {
                     self.insert_confirmed(node).await?;
                 }
-                MembershipListRequest::RemoveAlive(node) => {
+                ListRequest::RemoveAlive(node) => {
                     self.remove_alive(&node).await?;
                 }
-                MembershipListRequest::RemoveSuspected(node) => {
+                ListRequest::RemoveSuspected(node) => {
                     self.remove_suspected(&node).await?;
                 }
-                MembershipListRequest::RemoveConfirmed(node) => {
+                ListRequest::RemoveConfirmed(node) => {
                     self.remove_confirmed(&node).await?;
                 }
-                MembershipListRequest::Shutdown => {
+                ListRequest::Shutdown => {
                     info!("shutting down...");
 
                     self.receiver.close();
@@ -204,6 +190,7 @@ impl List {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::membership::list::ListRequest;
     use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -211,7 +198,7 @@ mod tests {
         let test_node_address = std::net::IpAddr::from_str("127.0.0.1")?;
         let test_node = Node::init(test_node_address, 10000, 15000, 20000).await?;
         let test_initial_peers = Vec::with_capacity(0);
-        let (test_list_sender, test_list_receiver) = crate::channel::membership_list::build().await;
+        let (test_list_sender, test_list_receiver) = ListRequest::build().await;
         let test_list = List::init(test_node, test_initial_peers, test_list_receiver).await?;
 
         assert!(test_list.initial.is_empty());
