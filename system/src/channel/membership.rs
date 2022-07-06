@@ -4,6 +4,10 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::node::Node;
 
+pub mod failure_detector;
+pub mod list;
+pub mod sender;
+
 pub type MembershipReceiver =
     mpsc::Receiver<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
 pub type MembershipSender = mpsc::Sender<(MembershipRequest, oneshot::Sender<MembershipResponse>)>;
