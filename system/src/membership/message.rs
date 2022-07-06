@@ -139,13 +139,13 @@ impl Message {
         let flexbuffer_node = flexbuffers_root.as_map().idx("node");
         let node = Self::build_node(flexbuffer_node).await?;
 
-        let flexbuffer_suspect = flexbuffers_root.as_map().idx("suspect");
-        let suspect = if flexbuffer_suspect.as_map().is_empty() {
+        let flexbuffer_suspect = flexbuffers_root.as_map().idx("suspect").as_vector();
+        let suspect = if flexbuffer_suspect.is_empty() {
             None
         } else {
-            // Some(Self::build_node(flexbuffer_suspect).await?)
-            let forward_address = flexbuffer_suspect.as_map().idx("forward_address").as_str();
-            let suspect_address = flexbuffer_suspect.as_map().idx("suspect_address").as_str();
+            let flexbuffer_suspect_message = flexbuffer_suspect.idx(0).as_map();
+            let forward_address = flexbuffer_suspect_message.idx("forward_address").as_str();
+            let suspect_address = flexbuffer_suspect_message.idx("suspected_address").as_str();
 
             Some((
                 SocketAddr::from_str(forward_address)?,
