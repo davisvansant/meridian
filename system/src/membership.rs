@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 
 use crate::channel::membership::failure_detector::{FailureDetectorProtocol, PingTarget};
-use crate::channel::membership::list::ListRequest;
+use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::Dissemination;
 use crate::channel::membership::{MembershipReceiver, MembershipRequest, MembershipResponse};
 use crate::channel::transition::ShutdownSender;
@@ -77,7 +77,7 @@ impl Membership {
         server: Node,
         launch_nodes: Vec<SocketAddr>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let (list_sender, list_receiver) = ListRequest::build().await;
+        let (list_channel, list_receiver) = ListChannel::init().await;
         let failure_detector_ping_target_sender = PingTarget::build().await;
         let send_udp_message = Dissemination::build().await;
         let (failure_detector_sender, failure_detector_receiver) =
@@ -97,7 +97,7 @@ impl Membership {
 
         let mut receiver = Receiver::init(
             receiving_udp_socket,
-            list_sender.to_owned(),
+            list_channel.to_owned(),
             send_udp_message.to_owned(),
             failure_detector_ping_target_sender.to_owned(),
             self.shutdown.to_owned(),
@@ -124,7 +124,7 @@ impl Membership {
         });
 
         let mut failure_detector = FailureDectector::init(
-            list_sender.to_owned(),
+            list_channel.to_owned(),
             send_udp_message.to_owned(),
             failure_detector_ping_target_sender,
             failure_detector_receiver,
@@ -139,7 +139,7 @@ impl Membership {
         });
 
         let mut static_join =
-            StaticJoin::init(send_udp_message.to_owned(), list_sender.to_owned()).await;
+            StaticJoin::init(send_udp_message.to_owned(), list_channel.to_owned()).await;
 
         drop(self.shutdown.to_owned());
 
@@ -155,7 +155,7 @@ impl Membership {
                 MembershipRequest::Members => {
                     info!("received members request!");
 
-                    let members = ListRequest::get_alive(&list_sender).await?;
+                    let members = list_channel.get_alive().await?;
 
                     response.send(MembershipResponse::Members(members))?;
                 }
@@ -167,7 +167,7 @@ impl Membership {
                 MembershipRequest::StaticJoin => {
                     static_join.run().await?;
 
-                    let alive = ListRequest::get_alive(&list_sender).await?;
+                    let alive = list_channel.get_alive().await?;
                     let expected = self.cluster_size.majority().await;
 
                     response.send(MembershipResponse::Status((alive.len(), expected)))?
@@ -189,7 +189,7 @@ impl Membership {
                 MembershipRequest::Shutdown => {
                     info!("shutting down...");
 
-                    ListRequest::shutdown(&list_sender).await?;
+                    list_channel.shutdown().await?;
 
                     self.receiver.close();
                 }

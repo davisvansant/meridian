@@ -23,152 +23,6 @@ pub enum ListRequest {
     Shutdown,
 }
 
-impl ListRequest {
-    pub async fn build() -> (ListSender, ListReceiver) {
-        let (list_sender, list_receiver) =
-            mpsc::channel::<(ListRequest, oneshot::Sender<ListResponse>)>(64);
-
-        (list_sender, list_receiver)
-    }
-
-    pub async fn get_node(list: &ListSender) -> Result<Node, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        list.send((ListRequest::GetNode, request)).await?;
-
-        match response.await? {
-            ListResponse::Node(node) => Ok(node),
-            _ => Err(Box::from("unexpected list get node response!")),
-        }
-    }
-
-    pub async fn get_initial(
-        list: &ListSender,
-    ) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        list.send((ListRequest::GetInitial, request)).await?;
-
-        match response.await? {
-            ListResponse::Initial(initial) => Ok(initial),
-            _ => Err(Box::from("unexpected list get initial response!")),
-        }
-    }
-
-    pub async fn get_alive(list: &ListSender) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        list.send((ListRequest::GetAlive, request)).await?;
-
-        match response.await? {
-            ListResponse::Alive(alive) => Ok(alive),
-            _ => Err(Box::from("unexpected list get alive response!")),
-        }
-    }
-
-    pub async fn get_suspected(list: &ListSender) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        list.send((ListRequest::GetSuspected, request)).await?;
-
-        match response.await? {
-            ListResponse::Suspected(suspected) => Ok(suspected),
-            _ => Err(Box::from("unexpected list get suspected response!")),
-        }
-    }
-
-    pub async fn get_confirmed(list: &ListSender) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        list.send((ListRequest::GetConfirmed, request)).await?;
-
-        match response.await? {
-            ListResponse::Confirmed(confirmed) => Ok(confirmed),
-            _ => Err(Box::from("unexpected list get confirmed response!")),
-        }
-    }
-
-    pub async fn insert_alive(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::InsertAlive(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn insert_suspected(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::InsertSuspected(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn insert_confirmed(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::InsertConfirmed(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn remove_alive(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::RemoveAlive(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn remove_suspected(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::RemoveSuspected(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn remove_confirmed(
-        list: &ListSender,
-        node: &Node,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        list.send((ListRequest::RemoveConfirmed(*node), _request))
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn shutdown(list: &ListSender) -> Result<(), Box<dyn std::error::Error>> {
-        let (request, _response) = oneshot::channel();
-
-        list.send((ListRequest::Shutdown, request)).await?;
-
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum ListResponse {
     Node(Node),
@@ -203,3 +57,145 @@ impl fmt::Display for ListResponse {
 }
 
 impl std::error::Error for ListResponse {}
+
+#[derive(Clone, Debug)]
+pub struct ListChannel {
+    request: ListSender,
+}
+
+impl ListChannel {
+    pub async fn init() -> (ListChannel, ListReceiver) {
+        let (request, response) = mpsc::channel::<(ListRequest, oneshot::Sender<ListResponse>)>(64);
+
+        (ListChannel { request }, response)
+    }
+
+    pub async fn get_node(&self) -> Result<Node, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request.send((ListRequest::GetNode, request)).await?;
+
+        match response.await? {
+            ListResponse::Node(node) => Ok(node),
+            _ => Err(Box::from("unexpected list get node response!")),
+        }
+    }
+
+    pub async fn get_initial(&self) -> Result<Vec<SocketAddr>, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::GetInitial, request))
+            .await?;
+
+        match response.await? {
+            ListResponse::Initial(initial) => Ok(initial),
+            _ => Err(Box::from("unexpected list get initial response!")),
+        }
+    }
+
+    pub async fn get_alive(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request.send((ListRequest::GetAlive, request)).await?;
+
+        match response.await? {
+            ListResponse::Alive(alive) => Ok(alive),
+            _ => Err(Box::from("unexpected list get alive response!")),
+        }
+    }
+
+    pub async fn get_suspected(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::GetSuspected, request))
+            .await?;
+
+        match response.await? {
+            ListResponse::Suspected(suspected) => Ok(suspected),
+            _ => Err(Box::from("unexpected list get suspected response!")),
+        }
+    }
+
+    pub async fn get_confirmed(&self) -> Result<Vec<Node>, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::GetConfirmed, request))
+            .await?;
+
+        match response.await? {
+            ListResponse::Confirmed(confirmed) => Ok(confirmed),
+            _ => Err(Box::from("unexpected list get confirmed response!")),
+        }
+    }
+
+    pub async fn insert_alive(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::InsertAlive(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_suspected(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::InsertSuspected(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_confirmed(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::InsertConfirmed(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_alive(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::RemoveAlive(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_suspected(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::RemoveSuspected(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_confirmed(&self, node: &Node) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((ListRequest::RemoveConfirmed(*node), _request))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let (request, _response) = oneshot::channel();
+
+        self.request.send((ListRequest::Shutdown, request)).await?;
+
+        Ok(())
+    }
+}

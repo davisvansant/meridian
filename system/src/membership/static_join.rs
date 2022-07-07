@@ -1,26 +1,26 @@
-use crate::channel::membership::list::{ListRequest, ListSender};
+use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::{Dissemination, DisseminationSender};
 use crate::membership::Message;
 
 pub struct StaticJoin {
     dissemination: DisseminationSender,
-    list_sender: ListSender,
+    list: ListChannel,
 }
 
 impl StaticJoin {
-    pub async fn init(dissemination: DisseminationSender, list_sender: ListSender) -> StaticJoin {
+    pub async fn init(dissemination: DisseminationSender, list: ListChannel) -> StaticJoin {
         StaticJoin {
             dissemination,
-            list_sender,
+            list,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let node = ListRequest::get_node(&self.list_sender).await?;
-        let alive_list = ListRequest::get_alive(&self.list_sender).await?;
-        let suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
-        let confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
-        let initial_nodes = ListRequest::get_initial(&self.list_sender).await?;
+        let node = self.list.get_node().await?;
+        let alive_list = self.list.get_alive().await?;
+        let suspected_list = self.list.get_suspected().await?;
+        let confirmed_list = self.list.get_confirmed().await?;
+        let initial_nodes = self.list.get_initial().await?;
 
         let ping = Message::Ping
             .build_list(&node, None, &alive_list, &suspected_list, &confirmed_list)

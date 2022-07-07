@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 
 use crate::channel::membership::failure_detector::{PingTarget, PingTargetSender};
-use crate::channel::membership::list::{ListRequest, ListSender};
+use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::{Dissemination, DisseminationSender};
 use crate::channel::transition::ShutdownSender;
 use crate::membership::Message;
@@ -11,7 +11,7 @@ use crate::{error, info, warn};
 
 pub struct Receiver {
     udp_socket: Arc<UdpSocket>,
-    list_sender: ListSender,
+    list: ListChannel,
     dissemination: DisseminationSender,
     failure_detector: PingTargetSender,
     shutdown: ShutdownSender,
@@ -20,7 +20,7 @@ pub struct Receiver {
 impl Receiver {
     pub async fn init(
         udp_socket: Arc<UdpSocket>,
-        list_sender: ListSender,
+        list: ListChannel,
         dissemination: DisseminationSender,
         failure_detector: PingTargetSender,
         shutdown: ShutdownSender,
@@ -29,7 +29,7 @@ impl Receiver {
 
         Receiver {
             udp_socket,
-            list_sender,
+            list,
             dissemination,
             failure_detector,
             shutdown,
@@ -54,7 +54,7 @@ impl Receiver {
                     match result {
                         Ok((bytes, origin)) => {
                             let udp_message = UdpMessage::init(
-                                self.list_sender.to_owned(),
+                                self.list.to_owned(),
                                 self.dissemination.to_owned(),
                                 self.failure_detector.to_owned(),
                             )
@@ -77,19 +77,19 @@ impl Receiver {
 }
 
 struct UdpMessage {
-    list_sender: ListSender,
+    list: ListChannel,
     dissemination: DisseminationSender,
     failure_detector: PingTargetSender,
 }
 
 impl UdpMessage {
     async fn init(
-        list_sender: ListSender,
+        list: ListChannel,
         dissemination: DisseminationSender,
         failure_detector: PingTargetSender,
     ) -> UdpMessage {
         UdpMessage {
-            list_sender,
+            list,
             dissemination,
             failure_detector,
         }
@@ -109,22 +109,22 @@ impl UdpMessage {
             peer_confirmed_list,
         ) = Message::from_list(bytes).await?;
 
-        ListRequest::insert_alive(&self.list_sender, &origin_node).await?;
+        self.list.insert_alive(&origin_node).await?;
 
         for alive_member in &peer_active_list {
-            ListRequest::remove_suspected(&self.list_sender, alive_member).await?;
-            ListRequest::insert_alive(&self.list_sender, alive_member).await?;
+            self.list.remove_suspected(alive_member).await?;
+            self.list.insert_alive(alive_member).await?;
         }
 
         for suspected_member in &peer_suspected_list {
-            ListRequest::insert_suspected(&self.list_sender, suspected_member).await?;
-            ListRequest::remove_alive(&self.list_sender, suspected_member).await?;
+            self.list.insert_suspected(suspected_member).await?;
+            self.list.remove_alive(suspected_member).await?;
         }
 
         for confirmed_member in &peer_confirmed_list {
-            ListRequest::remove_alive(&self.list_sender, confirmed_member).await?;
-            ListRequest::remove_suspected(&self.list_sender, confirmed_member).await?;
-            ListRequest::insert_confirmed(&self.list_sender, confirmed_member).await?;
+            self.list.remove_alive(confirmed_member).await?;
+            self.list.remove_suspected(confirmed_member).await?;
+            self.list.insert_confirmed(confirmed_member).await?;
         }
 
         match message {
@@ -156,12 +156,10 @@ impl UdpMessage {
         if self.failure_detector.receiver_count() > 0 {
             match suspect {
                 Some((forward_address, suspect_address)) => {
-                    let node = ListRequest::get_node(&self.list_sender).await?;
-                    let local_alive_list = ListRequest::get_alive(&self.list_sender).await?;
-                    let local_suspected_list =
-                        ListRequest::get_suspected(&self.list_sender).await?;
-                    let local_confirmed_list =
-                        ListRequest::get_confirmed(&self.list_sender).await?;
+                    let node = self.list.get_node().await?;
+                    let local_alive_list = self.list.get_alive().await?;
+                    let local_suspected_list = self.list.get_suspected().await?;
+                    let local_confirmed_list = self.list.get_confirmed().await?;
 
                     let ack = Message::Ack
                         .build_list(
@@ -195,10 +193,10 @@ impl UdpMessage {
         origin: SocketAddr,
         _suspect: Option<(SocketAddr, SocketAddr)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let node = ListRequest::get_node(&self.list_sender).await?;
-        let local_alive_list = ListRequest::get_alive(&self.list_sender).await?;
-        let local_suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
-        let local_confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
+        let node = self.list.get_node().await?;
+        let local_alive_list = self.list.get_alive().await?;
+        let local_suspected_list = self.list.get_suspected().await?;
+        let local_confirmed_list = self.list.get_confirmed().await?;
 
         let ack = Message::Ack
             .build_list(
@@ -220,10 +218,10 @@ impl UdpMessage {
         &self,
         suspect: Option<(SocketAddr, SocketAddr)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let node = ListRequest::get_node(&self.list_sender).await?;
-        let local_alive_list = ListRequest::get_alive(&self.list_sender).await?;
-        let local_suspected_list = ListRequest::get_suspected(&self.list_sender).await?;
-        let local_confirmed_list = ListRequest::get_confirmed(&self.list_sender).await?;
+        let node = self.list.get_node().await?;
+        let local_alive_list = self.list.get_alive().await?;
+        let local_suspected_list = self.list.get_suspected().await?;
+        let local_confirmed_list = self.list.get_confirmed().await?;
 
         if let Some((forward_address, suspect_address)) = suspect {
             let ping = Message::Ping
@@ -260,7 +258,7 @@ mod tests {
         let test_receiving_udp_socket = Arc::new(test_udp_socket);
         let _test_sending_udp_socket = test_receiving_udp_socket.clone();
 
-        let (test_list_sender, _test_list_receiver) = ListRequest::build().await;
+        let (test_list_sender, _test_list_receiver) = ListChannel::init().await;
         let test_dissemination = Dissemination::build().await;
         let test_failure_detector = PingTarget::build().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
@@ -278,20 +276,18 @@ mod tests {
             &test_receiver.udp_socket.local_addr()?.to_string(),
             "127.0.0.1:25000",
         );
-        assert_eq!(test_receiver.list_sender.capacity(), 64);
         assert_eq!(test_receiver.dissemination.receiver_count(), 0);
         assert_eq!(test_receiver.failure_detector.receiver_count(), 0);
         assert_eq!(test_receiver.shutdown.receiver_count(), 0);
 
         let test_udp_message = UdpMessage::init(
-            test_receiver.list_sender.to_owned(),
+            test_receiver.list.to_owned(),
             test_receiver.dissemination.to_owned(),
             test_receiver.failure_detector.to_owned(),
         )
         .await;
 
         assert_eq!(test_udp_message.dissemination.receiver_count(), 0);
-        assert_eq!(test_udp_message.list_sender.capacity(), 64);
         assert_eq!(test_udp_message.failure_detector.receiver_count(), 0);
 
         Ok(())
