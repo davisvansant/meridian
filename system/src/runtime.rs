@@ -4,7 +4,7 @@ use tokio::signal::ctrl_c;
 
 use crate::channel::membership::MembershipRequest;
 use crate::channel::server::Leader;
-use crate::channel::state::StateRequest;
+use crate::channel::state::StateChannel;
 use crate::channel::transition::{Shutdown, Transition};
 use crate::membership::{ClusterSize, Membership};
 use crate::node::Node;
@@ -44,8 +44,8 @@ pub async fn launch(
     // |        init state channel
     // -------------------------------------------------------------------------------------------
 
-    let (state_sender, state_receiver) = StateRequest::build().await;
-    let rpc_communications_server_state_sender = state_sender.clone();
+    let (state_channel, state_receiver) = StateChannel::init().await;
+    let rpc_communications_server_state_sender = state_channel.clone();
 
     // -------------------------------------------------------------------------------------------
     // |        init server leader heartbeat channel
@@ -79,7 +79,7 @@ pub async fn launch(
 
     let mut system_server = server::Server::init(
         server_membership_sender,
-        state_sender,
+        state_channel,
         system_leader_sender,
         shutdown_system_server_task,
         server_transition_state_receiver,

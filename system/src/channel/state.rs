@@ -19,127 +19,6 @@ pub enum StateRequest {
     Shutdown,
 }
 
-impl StateRequest {
-    pub async fn build() -> (StateSender, StateReceiver) {
-        let (sender, receiver) =
-            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
-
-        (sender, receiver)
-    }
-
-    pub async fn append_entries_arguments(
-        state: &StateSender,
-        arguments: AppendEntriesArguments,
-    ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::AppendEntries(arguments), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::AppendEntries(results) => Ok(results),
-            _ => Err(Box::from("Unexpected invoke append entries response!")),
-        }
-    }
-
-    pub async fn append_entries_results(
-        state: &StateSender,
-        results: AppendEntriesResults,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::AppendEntriesResults(results), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::Follower(transition) => Ok(transition),
-            _ => Err(Box::from("unexpected receive append entries response!")),
-        }
-    }
-
-    pub async fn request_vote_arguments(
-        state: &StateSender,
-        arguments: RequestVoteArguments,
-    ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::RequestVote(arguments), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::RequestVote(results) => Ok(results),
-            _ => Err(Box::from("unexpected invoke Request Vote response!")),
-        }
-    }
-
-    pub async fn request_vote_results(
-        state: &StateSender,
-        results: RequestVoteResults,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::RequestVoteResults(results), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::Follower(transition) => Ok(transition),
-            _ => Err(Box::from("unexpected receive request vote response!")),
-        }
-    }
-
-    pub async fn candidate(
-        state: &StateSender,
-        candidate_id: String,
-    ) -> Result<RequestVoteArguments, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::Candidate(candidate_id), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::Candidate(request_vote_arguments) => Ok(request_vote_arguments),
-            _ => Err(Box::from("Unexpected Candidate Response!")),
-        }
-    }
-
-    pub async fn heartbeat(
-        state: &StateSender,
-        leader_id: String,
-    ) -> Result<AppendEntriesArguments, Box<dyn std::error::Error>> {
-        let (request, response) = oneshot::channel();
-
-        state
-            .send((StateRequest::Heartbeat(leader_id), request))
-            .await?;
-
-        match response.await? {
-            StateResponse::Heartbeat(heartbeat) => Ok(heartbeat),
-            _ => Err(Box::from("unexpected heartbeat response!")),
-        }
-    }
-
-    pub async fn init_leader(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
-        let (request, _response) = oneshot::channel();
-
-        state.send((StateRequest::Leader, request)).await?;
-
-        Ok(())
-    }
-
-    pub async fn shutdown(state: &StateSender) -> Result<(), Box<dyn std::error::Error>> {
-        let (_request, _response) = oneshot::channel();
-
-        state.send((StateRequest::Shutdown, _request)).await?;
-
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum StateResponse {
     AppendEntries(AppendEntriesResults),
@@ -174,3 +53,131 @@ impl fmt::Display for StateResponse {
 }
 
 impl std::error::Error for StateResponse {}
+
+#[derive(Clone, Debug)]
+pub struct StateChannel {
+    request: StateSender,
+}
+
+impl StateChannel {
+    pub async fn init() -> (StateChannel, StateReceiver) {
+        let (request, response) =
+            mpsc::channel::<(StateRequest, oneshot::Sender<StateResponse>)>(64);
+
+        (StateChannel { request }, response)
+    }
+
+    pub async fn append_entries_arguments(
+        &self,
+        arguments: AppendEntriesArguments,
+    ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::AppendEntries(arguments), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::AppendEntries(results) => Ok(results),
+            _ => Err(Box::from("Unexpected invoke append entries response!")),
+        }
+    }
+
+    pub async fn append_entries_results(
+        &self,
+        results: AppendEntriesResults,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::AppendEntriesResults(results), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::Follower(transition) => Ok(transition),
+            _ => Err(Box::from("unexpected receive append entries response!")),
+        }
+    }
+
+    pub async fn request_vote_arguments(
+        &self,
+        arguments: RequestVoteArguments,
+    ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::RequestVote(arguments), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::RequestVote(results) => Ok(results),
+            _ => Err(Box::from("unexpected invoke Request Vote response!")),
+        }
+    }
+
+    pub async fn request_vote_results(
+        &self,
+        results: RequestVoteResults,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::RequestVoteResults(results), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::Follower(transition) => Ok(transition),
+            _ => Err(Box::from("unexpected receive request vote response!")),
+        }
+    }
+
+    pub async fn candidate(
+        &self,
+        candidate_id: String,
+    ) -> Result<RequestVoteArguments, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::Candidate(candidate_id), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::Candidate(request_vote_arguments) => Ok(request_vote_arguments),
+            _ => Err(Box::from("Unexpected Candidate Response!")),
+        }
+    }
+
+    pub async fn heartbeat(
+        &self,
+        leader_id: String,
+    ) -> Result<AppendEntriesArguments, Box<dyn std::error::Error>> {
+        let (request, response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::Heartbeat(leader_id), request))
+            .await?;
+
+        match response.await? {
+            StateResponse::Heartbeat(heartbeat) => Ok(heartbeat),
+            _ => Err(Box::from("unexpected heartbeat response!")),
+        }
+    }
+
+    pub async fn init_leader(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let (request, _response) = oneshot::channel();
+
+        self.request.send((StateRequest::Leader, request)).await?;
+
+        Ok(())
+    }
+
+    pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let (_request, _response) = oneshot::channel();
+
+        self.request
+            .send((StateRequest::Shutdown, _request))
+            .await?;
+
+        Ok(())
+    }
+}

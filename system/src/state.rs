@@ -223,24 +223,24 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::state::StateChannel;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let test_state = State::init(test_receiver).await?;
 
         assert_eq!(test_state.persistent.current_term, 0);
         assert_eq!(test_state.persistent.voted_for, None);
         assert_eq!(test_state.persistent.log.len(), 0);
         assert_eq!(test_state.persistent.log.capacity(), 4096);
-        assert!(!test_sender.is_closed());
 
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_leader_volatile_state() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let mut test_state = State::init(test_receiver).await?;
 
         assert!(test_state.leader_volatile.is_none());
@@ -254,7 +254,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_heartbeat() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_leader_id = String::from("some_leader_id");
@@ -277,7 +277,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_results_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 1;
@@ -303,7 +303,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn append_entries_results_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 2;
@@ -329,7 +329,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_arguments() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let test_state = State::init(test_receiver).await?;
 
         let test_candidate_id = String::from("some_candidate_id");
@@ -351,7 +351,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_results_true() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 1;
@@ -375,7 +375,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_vote_results_false() -> Result<(), Box<dyn std::error::Error>> {
-        let (_test_sender, test_receiver) = StateRequest::build().await;
+        let (_test_sender, test_receiver) = StateChannel::init().await;
         let mut test_state = State::init(test_receiver).await?;
 
         test_state.persistent.current_term = 2;
