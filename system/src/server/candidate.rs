@@ -2,7 +2,7 @@ use rand::{thread_rng, Rng};
 use std::net::SocketAddr;
 use tokio::time::{timeout_at, Duration, Instant};
 
-use crate::channel::membership::{MembershipRequest, MembershipSender};
+use crate::channel::membership::MembershipChannel;
 use crate::channel::server::{ElectionResult, ElectionResultSender, LeaderHeartbeatSender};
 use crate::channel::state::StateChannel;
 use crate::channel::transition::{
@@ -17,7 +17,7 @@ pub struct Candidate {
     exit_state: TransitionSender,
     shutdown: ShutdownSender,
     heartbeat: LeaderHeartbeatSender,
-    membership: MembershipSender,
+    membership: MembershipChannel,
     state: StateChannel,
 }
 
@@ -27,7 +27,7 @@ impl Candidate {
         exit_state: TransitionSender,
         shutdown: ShutdownSender,
         heartbeat: LeaderHeartbeatSender,
-        membership: MembershipSender,
+        membership: MembershipChannel,
         state: StateChannel,
     ) -> Result<Candidate, Box<dyn std::error::Error>> {
         let mut rng = thread_rng();
@@ -145,15 +145,15 @@ impl Candidate {
     }
 
     async fn start_election(
-        membership: &MembershipSender,
+        membership: &MembershipChannel,
         state: &StateChannel,
         election_result: &ElectionResultSender,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut leader_votes = Vec::with_capacity(5);
 
-        let node = MembershipRequest::node(membership).await?;
+        let node = membership.node().await?;
         let request_vote_arguments = state.candidate(node.id.to_string()).await?;
-        let peers = MembershipRequest::cluster_members(membership).await?;
+        let peers = membership.cluster_members().await?;
 
         let quorum = peers.len() / 2 + 1;
 
@@ -251,7 +251,7 @@ mod tests {
             Transition::build().await;
         let test_shutdown_signal = Shutdown::build().await;
         let test_leader_heartbeat_sender = Leader::build().await;
-        let (test_membership_sender, _test_membership_receiver) = MembershipRequest::build().await;
+        let (test_membership_sender, _test_membership_receiver) = MembershipChannel::init().await;
         let (test_state_sender, _test_state_receiver) = StateChannel::init().await;
 
         let test_candidate = Candidate::init(
@@ -270,7 +270,6 @@ mod tests {
         assert_eq!(test_candidate.exit_state.capacity(), 64);
         assert_eq!(test_candidate.shutdown.receiver_count(), 0);
         assert_eq!(test_candidate.heartbeat.receiver_count(), 0);
-        assert_eq!(test_candidate.membership.capacity(), 64);
 
         Ok(())
     }

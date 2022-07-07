@@ -203,6 +203,7 @@ impl Membership {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::channel::membership::MembershipChannel;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn cluster_size_one() -> Result<(), Box<dyn std::error::Error>> {
@@ -230,13 +231,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_one() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = MembershipRequest::build().await;
+        let (_test_sender, test_receiver) = MembershipChannel::init().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::One, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::One);
-        assert_eq!(test_sender.capacity(), 64);
         assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
@@ -244,13 +244,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_three() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = MembershipRequest::build().await;
+        let (_test_sender, test_receiver) = MembershipChannel::init().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::Three, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::Three);
-        assert_eq!(test_sender.capacity(), 64);
         assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
@@ -258,13 +257,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init_five() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_sender, test_receiver) = MembershipRequest::build().await;
+        let (_test_sender, test_receiver) = MembershipChannel::init().await;
         let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
         let test_membership =
             Membership::init(ClusterSize::Five, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::Five);
-        assert_eq!(test_sender.capacity(), 64);
         assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
