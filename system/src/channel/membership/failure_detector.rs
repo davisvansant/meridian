@@ -3,8 +3,8 @@ use tokio::sync::{broadcast, mpsc};
 
 pub type PingTargetSender = broadcast::Sender<PingTarget>;
 
-pub type FailureDetectorProtocolReceiver = mpsc::Receiver<FailureDetectorProtocol>;
-pub type FailureDetectorProtocolSender = mpsc::Sender<FailureDetectorProtocol>;
+pub type EnterState = mpsc::Receiver<FailureDetectorComponent>;
+pub type FailureDetectorTask = mpsc::Sender<FailureDetectorComponent>;
 
 #[derive(Clone, Debug)]
 pub enum PingTarget {
@@ -19,18 +19,25 @@ impl PingTarget {
     }
 }
 
-#[derive(Debug)]
-pub enum FailureDetectorProtocol {
+#[derive(Clone, Debug)]
+pub enum FailureDetectorComponent {
     Run,
 }
 
-impl FailureDetectorProtocol {
-    pub async fn build() -> (
-        FailureDetectorProtocolSender,
-        FailureDetectorProtocolReceiver,
-    ) {
-        let (sender, receiver) = mpsc::channel::<FailureDetectorProtocol>(64);
+pub struct FailureDetector {
+    task: FailureDetectorTask,
+}
 
-        (sender, receiver)
+impl FailureDetector {
+    pub async fn init() -> (FailureDetector, EnterState) {
+        let (task, enter_state) = mpsc::channel::<FailureDetectorComponent>(64);
+
+        (FailureDetector { task }, enter_state)
+    }
+
+    pub async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.task.send(FailureDetectorComponent::Run).await?;
+
+        Ok(())
     }
 }
