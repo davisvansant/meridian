@@ -2,11 +2,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
-use crate::channel::membership::failure_detector::{FailureDetectorProtocol, PingTarget};
+use crate::channel::membership::failure_detector::{FailureDetector, PingTarget};
 use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::Dissemination;
 use crate::channel::membership::{MembershipReceiver, MembershipRequest, MembershipResponse};
-use crate::channel::transition::ShutdownSender;
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::node::Node;
 use crate::{error, info};
 
@@ -54,14 +54,14 @@ impl ClusterSize {
 pub struct Membership {
     cluster_size: ClusterSize,
     receiver: MembershipReceiver,
-    shutdown: ShutdownSender,
+    shutdown: Shutdown,
 }
 
 impl Membership {
     pub async fn init(
         cluster_size: ClusterSize,
         receiver: MembershipReceiver,
-        shutdown: ShutdownSender,
+        shutdown: Shutdown,
     ) -> Result<Membership, Box<dyn std::error::Error>> {
         info!("initialized!");
 
@@ -80,8 +80,7 @@ impl Membership {
         let (list_channel, list_receiver) = ListChannel::init().await;
         let failure_detector_ping_target_sender = PingTarget::build().await;
         let send_udp_message = Dissemination::build().await;
-        let (failure_detector_sender, failure_detector_receiver) =
-            FailureDetectorProtocol::build().await;
+        let (failure_detector_task, failure_detector_enter_state) = FailureDetector::init().await;
         let mut list = List::init(server, launch_nodes, list_receiver).await?;
 
         tokio::spawn(async move {
@@ -127,7 +126,7 @@ impl Membership {
             list_channel.to_owned(),
             send_udp_message.to_owned(),
             failure_detector_ping_target_sender,
-            failure_detector_receiver,
+            failure_detector_enter_state,
             self.shutdown.to_owned(),
         )
         .await;
@@ -141,16 +140,12 @@ impl Membership {
         let mut static_join =
             StaticJoin::init(send_udp_message.to_owned(), list_channel.to_owned()).await;
 
-        drop(self.shutdown.to_owned());
-
         info!("running...");
 
         while let Some((request, response)) = self.receiver.recv().await {
             match request {
                 MembershipRequest::FailureDectector => {
-                    failure_detector_sender
-                        .send(FailureDetectorProtocol::Run)
-                        .await?;
+                    failure_detector_task.run().await?;
                 }
                 MembershipRequest::Members => {
                     info!("received members request!");
@@ -232,12 +227,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init_one() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = MembershipChannel::init().await;
-        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
         let test_membership =
             Membership::init(ClusterSize::One, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::One);
-        assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
     }
@@ -245,12 +239,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init_three() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = MembershipChannel::init().await;
-        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
         let test_membership =
             Membership::init(ClusterSize::Three, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::Three);
-        assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
     }
@@ -258,12 +251,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn init_five() -> Result<(), Box<dyn std::error::Error>> {
         let (_test_sender, test_receiver) = MembershipChannel::init().await;
-        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
         let test_membership =
             Membership::init(ClusterSize::Five, test_receiver, test_shutdown_signal).await?;
 
         assert_eq!(test_membership.cluster_size, ClusterSize::Five);
-        assert_eq!(test_membership.shutdown.receiver_count(), 0);
 
         Ok(())
     }

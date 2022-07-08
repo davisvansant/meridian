@@ -5,12 +5,10 @@ use crate::node::Node;
 
 use tokio::time::{sleep, timeout, Duration};
 
-use crate::channel::membership::failure_detector::{
-    FailureDetectorProtocolReceiver, PingTarget, PingTargetSender,
-};
+use crate::channel::membership::failure_detector::{EnterState, PingTarget, PingTargetSender};
 use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::{Dissemination, DisseminationSender};
-use crate::channel::transition::ShutdownSender;
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::membership::Message;
 use crate::{error, info, warn};
 
@@ -20,8 +18,8 @@ pub struct FailureDectector {
     list: ListChannel,
     dissemination: DisseminationSender,
     ping_target_channel: PingTargetSender,
-    enter_state: FailureDetectorProtocolReceiver,
-    shutdown: ShutdownSender,
+    enter_state: EnterState,
+    shutdown: Shutdown,
 }
 
 impl FailureDectector {
@@ -29,8 +27,8 @@ impl FailureDectector {
         list: ListChannel,
         dissemination: DisseminationSender,
         ping_target_channel: PingTargetSender,
-        enter_state: FailureDetectorProtocolReceiver,
-        shutdown: ShutdownSender,
+        enter_state: EnterState,
+        shutdown: Shutdown,
     ) -> FailureDectector {
         let protocol_period = Duration::from_secs(5);
         let time_out = Duration::from_secs(2);

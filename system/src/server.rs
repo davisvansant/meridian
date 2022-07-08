@@ -2,11 +2,13 @@ use tokio::time::{sleep, Duration};
 
 use crate::channel::membership::MembershipChannel;
 use crate::channel::server::LeaderHeartbeatSender;
+use crate::channel::server_state::candidate::CandidateState;
+use crate::channel::server_state::follower::FollowerState;
+use crate::channel::server_state::leader::LeaderState;
+use crate::channel::server_state::preflight::PreflightState;
+use crate::channel::server_state::shutdown::Shutdown;
+use crate::channel::server_state::{ServerState, ServerStateChannel};
 use crate::channel::state::StateChannel;
-use crate::channel::transition::{
-    CandidateState, FollowerState, LeaderState, PreflightState, Shutdown, ShutdownSender,
-    Transition, TransitionReceiver, TransitionSender,
-};
 use crate::{error, info};
 
 use candidate::Candidate;
@@ -23,8 +25,7 @@ pub struct Server {
     membership: MembershipChannel,
     state: StateChannel,
     leader_heartbeat: LeaderHeartbeatSender,
-    shutdown: ShutdownSender,
-    transition: TransitionReceiver,
+    shutdown: Shutdown,
 }
 
 impl Server {
@@ -32,27 +33,24 @@ impl Server {
         membership: MembershipChannel,
         state: StateChannel,
         leader_heartbeat: LeaderHeartbeatSender,
-        shutdown: ShutdownSender,
-        transition: TransitionReceiver,
+        shutdown: Shutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         Ok(Server {
             membership,
             state,
             leader_heartbeat,
             shutdown,
-            transition,
         })
     }
 
-    pub async fn run(
-        &mut self,
-        send_transition: &TransitionSender,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut server_shutdown = self.shutdown.subscribe();
+
+        let (server_state_transition, mut server_enter_state) = ServerStateChannel::init().await;
 
         sleep(Duration::from_secs(5)).await;
 
-        send_transition.send(Transition::PreflightState).await?;
+        server_state_transition.preflight().await?;
 
         loop {
             tokio::select! {
@@ -65,16 +63,16 @@ impl Server {
                     break;
                 }
 
-                server_state = self.transition.recv() => {
+                server_state = server_enter_state.recv() => {
                     match server_state {
-                        Some(Transition::PreflightState) => {
+                        Some(ServerState::Preflight) => {
                             info!("running preflight tasks");
 
-                            let (transition, enter_state) = PreflightState::build().await;
+                            let (task, enter_state) = PreflightState::init().await;
 
                             let mut preflight = Preflight::init(
                                 enter_state,
-                                send_transition.to_owned(),
+                                server_state_transition.to_owned(),
                                 self.shutdown.to_owned(),
                                 self.membership.to_owned(),
                             )
@@ -88,18 +86,18 @@ impl Server {
 
                             sleep(Duration::from_secs(5)).await;
 
-                            transition.send(PreflightState::Run).await?;
+                            task.run().await?;
                         }
-                        Some(Transition::FollowerState) => {
+                        Some(ServerState::Follower) => {
                             info!("transitioning to follower");
 
-                            let (transition, enter_state) = FollowerState::build().await;
+                            let (task, enter_state) = FollowerState::init().await;
 
                             let mut follower = Follower::init(
                                 enter_state,
                                 self.leader_heartbeat.to_owned(),
                                 self.shutdown.to_owned(),
-                                send_transition.to_owned(),
+                                server_state_transition.to_owned(),
                             )
                             .await?;
 
@@ -109,16 +107,16 @@ impl Server {
                                 }
                             });
 
-                            transition.send(FollowerState::Run).await?;
+                            task.run().await?;
                         }
-                        Some(Transition::CandidateState) => {
+                        Some(ServerState::Candidate) => {
                             info!("transitioning to candidate");
 
-                            let (transition, enter_state) = CandidateState::build().await;
+                            let (task, enter_state) = CandidateState::init().await;
 
                             let mut candidate = Candidate::init(
                                 enter_state,
-                                send_transition.to_owned(),
+                                server_state_transition.to_owned(),
                                 self.shutdown.to_owned(),
                                 self.leader_heartbeat.to_owned(),
                                 self.membership.to_owned(),
@@ -132,16 +130,16 @@ impl Server {
                                 }
                             });
 
-                            transition.send(CandidateState::Run).await?;
+                            task.run().await?;
                         }
-                        Some(Transition::LeaderState) => {
+                        Some(ServerState::Leader) => {
                             info!("transitioning to leader");
 
-                            let (transition, enter_state) = LeaderState::build().await;
+                            let (task, enter_state) = LeaderState::init().await;
 
                             let mut leader = Leader::init(
                                 enter_state,
-                                send_transition.to_owned(),
+                                server_state_transition.to_owned(),
                                 self.shutdown.to_owned(),
                                 self.membership.to_owned(),
                                 self.state.to_owned(),
@@ -154,9 +152,9 @@ impl Server {
                                 }
                             });
 
-                            transition.send(LeaderState::Run).await?;
+                            task.run().await?;
                         }
-                        Some(Transition::Shutdown) => {
+                        Some(ServerState::Shutdown) => {
                             info!("shutting down!");
 
                             self.run_shutdown().await?;
@@ -173,7 +171,7 @@ impl Server {
     }
 
     async fn run_shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
-        Shutdown::send(&self.shutdown).await?;
+        self.shutdown.run()?;
         self.state.shutdown().await?;
         self.membership.shutdown().await?;
 

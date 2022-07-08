@@ -2,25 +2,25 @@ use rand::{thread_rng, Rng};
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::server::{Leader, LeaderHeartbeatSender};
-use crate::channel::transition::{
-    FollowerStateReceiver, ShutdownSender, Transition, TransitionSender,
-};
+use crate::channel::server_state::follower::EnterState;
+use crate::channel::server_state::shutdown::Shutdown;
+use crate::channel::server_state::ServerStateChannel;
 use crate::{error, info, warn};
 
 pub struct Follower {
     election_timeout: Duration,
-    enter_state: FollowerStateReceiver,
+    enter_state: EnterState,
     leader_heartbeat: LeaderHeartbeatSender,
-    shutdown: ShutdownSender,
-    exit_state: TransitionSender,
+    shutdown: Shutdown,
+    exit_state: ServerStateChannel,
 }
 
 impl Follower {
     pub async fn init(
-        enter_state: FollowerStateReceiver,
+        enter_state: EnterState,
         leader_heartbeat: LeaderHeartbeatSender,
-        shutdown: ShutdownSender,
-        exit_state: TransitionSender,
+        shutdown: Shutdown,
+        exit_state: ServerStateChannel,
     ) -> Result<Follower, Box<dyn std::error::Error>> {
         let mut rng = thread_rng();
 
@@ -67,7 +67,7 @@ impl Follower {
                             Err(error) => {
                                 warn!("timeout ending... starting election! {:?}", error);
 
-                                self.exit_state.send(Transition::CandidateState).await?;
+                                self.exit_state.candidate().await?;
 
                                 break;
                             }
@@ -84,15 +84,15 @@ impl Follower {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::transition::{FollowerState, Shutdown};
+    use crate::channel::server_state::follower::FollowerState;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_transition, test_receive) = FollowerState::build().await;
+        let (_test_transition, test_receive) = FollowerState::init().await;
         let test_leader_heartbeat_sender = Leader::build().await;
-        let test_shutdown_signal = Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
-            Transition::build().await;
+            ServerStateChannel::init().await;
 
         let test_follower = Follower::init(
             test_receive,
@@ -104,10 +104,7 @@ mod tests {
 
         assert!(test_follower.election_timeout.as_millis() >= 15000);
         assert!(test_follower.election_timeout.as_millis() <= 30000);
-        assert_eq!(test_transition.capacity(), 64);
         assert_eq!(test_follower.leader_heartbeat.receiver_count(), 0);
-        assert_eq!(test_follower.shutdown.receiver_count(), 0);
-        assert_eq!(test_follower.exit_state.capacity(), 64);
 
         Ok(())
     }

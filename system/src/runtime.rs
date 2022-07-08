@@ -4,8 +4,8 @@ use tokio::signal::ctrl_c;
 
 use crate::channel::membership::MembershipChannel;
 use crate::channel::server::Leader;
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::channel::state::StateChannel;
-use crate::channel::transition::{Shutdown, Transition};
 use crate::membership::{ClusterSize, Membership};
 use crate::node::Node;
 use crate::rpc;
@@ -27,11 +27,11 @@ pub async fn launch(
     // |        init shutdown channel
     // -------------------------------------------------------------------------------------------
 
-    let shutdown_signal = Shutdown::build().await;
-    let shutdown_membership_task = shutdown_signal.to_owned();
-    let shutdown_rpc_server_task = shutdown_signal.subscribe();
-    let shutdown_system_server_task = shutdown_signal.to_owned();
-    let mut system_shutdown = shutdown_signal.subscribe();
+    let shutdown = Shutdown::init();
+    let shutdown_membership = shutdown.to_owned();
+    let shutdown_rpc_server = shutdown.to_owned();
+    let shutdown_system_server = shutdown.to_owned();
+    let mut system_shutdown = shutdown.subscribe();
 
     // -------------------------------------------------------------------------------------------
     // |        init membership channel
@@ -61,7 +61,7 @@ pub async fn launch(
     // -------------------------------------------------------------------------------------------
 
     let mut membership =
-        Membership::init(cluster_size, membership_receiver, shutdown_membership_task).await?;
+        Membership::init(cluster_size, membership_receiver, shutdown_membership).await?;
 
     let membership_handle = tokio::spawn(async move {
         if let Err(error) = membership.run(node, peers).await {
@@ -73,20 +73,16 @@ pub async fn launch(
     // |        init system server
     // -------------------------------------------------------------------------------------------
 
-    let (server_transition_state_sender, server_transition_state_receiver) =
-        Transition::build().await;
-
     let mut system_server = server::Server::init(
         membership_channel,
         state_channel,
         system_leader_sender,
-        shutdown_system_server_task,
-        server_transition_state_receiver,
+        shutdown_system_server,
     )
     .await?;
 
     let system_server_handle = tokio::spawn(async move {
-        if let Err(error) = system_server.run(&server_transition_state_sender).await {
+        if let Err(error) = system_server.run().await {
             error!("server -> {:?}", error);
         }
     });
@@ -113,7 +109,7 @@ pub async fn launch(
         rpc_communications_server_state_sender,
         rpc_server_heartbeat_sender,
         node_socket_address,
-        shutdown_rpc_server_task,
+        shutdown_rpc_server,
     )
     .await?;
 
@@ -130,12 +126,12 @@ pub async fn launch(
     let shutdown_signal = tokio::spawn(async move {
         loop {
             tokio::select! {
-                // biased;
+                biased;
                 ctrl_c = ctrl_c() => {
                     info!("received shutdown signal {:?}", ctrl_c);
                     info!("preparing to shut down...");
 
-                if let Err(error) = Shutdown::send(&shutdown_signal).await {
+                if let Err(error) = shutdown.run() {
                     error!("error sending shutdown signal! -> {:?}", error);
                 }
                     break

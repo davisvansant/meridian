@@ -2,20 +2,20 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 
 use crate::channel::membership::sender::{Dissemination, DisseminationSender};
-use crate::channel::transition::ShutdownSender;
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::info;
 
 pub struct Sender {
     udp_socket: Arc<UdpSocket>,
     component: DisseminationSender,
-    shutdown: ShutdownSender,
+    shutdown: Shutdown,
 }
 
 impl Sender {
     pub async fn init(
         udp_socket: Arc<UdpSocket>,
         component: DisseminationSender,
-        shutdown: ShutdownSender,
+        shutdown: Shutdown,
     ) -> Sender {
         info!("initialized!");
 
@@ -66,7 +66,7 @@ mod tests {
         let test_sending_udp_socket = test_receiving_udp_socket.clone();
 
         let test_disseminiation = Dissemination::build().await;
-        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
 
         let test_sender = Sender::init(
             test_sending_udp_socket,
@@ -80,7 +80,6 @@ mod tests {
             "127.0.0.1:25000",
         );
         assert_eq!(test_sender.component.receiver_count(), 0);
-        assert_eq!(test_sender.shutdown.receiver_count(), 0);
 
         Ok(())
     }

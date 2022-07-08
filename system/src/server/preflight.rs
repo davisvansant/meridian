@@ -1,24 +1,23 @@
 use tokio::time::{sleep, Duration};
 
-// use crate::channel::membership::{MembershipRequest, MembershipSender};
 use crate::channel::membership::MembershipChannel;
-use crate::channel::transition::{
-    PreflightStateReceiver, ShutdownSender, Transition, TransitionSender,
-};
+use crate::channel::server_state::preflight::EnterState;
+use crate::channel::server_state::shutdown::Shutdown;
+use crate::channel::server_state::ServerStateChannel;
 use crate::{error, info};
 
 pub struct Preflight {
-    enter_state: PreflightStateReceiver,
-    exit_state: TransitionSender,
-    shutdown: ShutdownSender,
+    enter_state: EnterState,
+    exit_state: ServerStateChannel,
+    shutdown: Shutdown,
     membership: MembershipChannel,
 }
 
 impl Preflight {
     pub async fn init(
-        enter_state: PreflightStateReceiver,
-        exit_state: TransitionSender,
-        shutdown: ShutdownSender,
+        enter_state: EnterState,
+        exit_state: ServerStateChannel,
+        shutdown: Shutdown,
         membership: MembershipChannel,
     ) -> Result<Preflight, Box<dyn std::error::Error>> {
         Ok(Preflight {
@@ -55,8 +54,7 @@ impl Preflight {
 
             if active == expected {
                 self.membership.launch_failure_detector().await?;
-
-                self.exit_state.send(Transition::FollowerState).await?;
+                self.exit_state.follower().await?;
 
                 break;
             } else {
@@ -80,7 +78,7 @@ impl Preflight {
                     4 => {
                         error!("preflight tasks failed...shutting down...");
 
-                        self.exit_state.send(Transition::Shutdown).await?;
+                        self.exit_state.shutdown().await?;
                     }
                     _ => {}
                 }

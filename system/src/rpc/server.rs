@@ -4,8 +4,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::channel::server::{Leader, LeaderHeartbeatSender};
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::channel::state::StateChannel;
-use crate::channel::transition::ShutdownReceiver;
 use crate::rpc::build_tcp_socket;
 use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
 use crate::{error, info, warn};
@@ -14,7 +14,7 @@ pub struct Server {
     socket_address: SocketAddr,
     state: StateChannel,
     leader_heartbeat: LeaderHeartbeatSender,
-    shutdown: ShutdownReceiver,
+    shutdown: Shutdown,
 }
 
 impl Server {
@@ -22,7 +22,7 @@ impl Server {
         state: StateChannel,
         leader_heartbeat: LeaderHeartbeatSender,
         socket_address: SocketAddr,
-        shutdown: ShutdownReceiver,
+        shutdown: Shutdown,
     ) -> Result<Server, Box<dyn std::error::Error>> {
         info!("initialized!");
 
@@ -46,10 +46,12 @@ impl Server {
         let backlog = 1024;
         let tcp_listener = tcp_socket.listen(backlog)?;
 
+        let mut shutdown = self.shutdown.subscribe();
+
         loop {
             tokio::select! {
                 biased;
-                 _ = self.shutdown.recv() => {
+                 _ = shutdown.recv() => {
                     info!("shutting down...");
 
                     break
@@ -192,7 +194,6 @@ impl Server {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel::transition::Shutdown;
     use std::str::FromStr;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -200,16 +201,13 @@ mod tests {
         let (test_state_sender, _test_state_receiver) = StateChannel::init().await;
         let test_leader_sender = Leader::build().await;
         let test_socket_address = SocketAddr::from_str("0.0.0.0:1245")?;
-        let test_shutdown_sender = Shutdown::build().await;
-        let test_shutdown_receiver = test_shutdown_sender.subscribe();
-
-        drop(test_shutdown_sender);
+        let test_shutdown = Shutdown::init();
 
         let test_server = Server::init(
             test_state_sender,
             test_leader_sender,
             test_socket_address,
-            test_shutdown_receiver,
+            test_shutdown,
         )
         .await?;
 

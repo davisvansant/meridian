@@ -4,18 +4,18 @@ use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::channel::membership::MembershipChannel;
 use crate::channel::server::{ElectionResult, ElectionResultSender, LeaderHeartbeatSender};
+use crate::channel::server_state::candidate::EnterState;
+use crate::channel::server_state::shutdown::Shutdown;
+use crate::channel::server_state::ServerStateChannel;
 use crate::channel::state::StateChannel;
-use crate::channel::transition::{
-    CandidateStateReceiver, ShutdownSender, Transition, TransitionSender,
-};
 use crate::rpc;
 use crate::{error, info, warn};
 
 pub struct Candidate {
     election_timeout: Duration,
-    enter_state: CandidateStateReceiver,
-    exit_state: TransitionSender,
-    shutdown: ShutdownSender,
+    enter_state: EnterState,
+    exit_state: ServerStateChannel,
+    shutdown: Shutdown,
     heartbeat: LeaderHeartbeatSender,
     membership: MembershipChannel,
     state: StateChannel,
@@ -23,9 +23,9 @@ pub struct Candidate {
 
 impl Candidate {
     pub async fn init(
-        enter_state: CandidateStateReceiver,
-        exit_state: TransitionSender,
-        shutdown: ShutdownSender,
+        enter_state: EnterState,
+        exit_state: ServerStateChannel,
+        shutdown: Shutdown,
         heartbeat: LeaderHeartbeatSender,
         membership: MembershipChannel,
         state: StateChannel,
@@ -96,14 +96,14 @@ impl Candidate {
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(Transition::FollowerState).await?;
+                            self.exit_state.follower().await?;
                         }
                         Some(ElectionResult::Leader) => {
                             info!("transitioning server to leader...");
 
                             heartbeat_handle.abort();
 
-                            self.exit_state.send(Transition::LeaderState).await?;
+                            self.exit_state.leader().await?;
                         }
                         None => {
                             warn!("candidate election timeout lapsed...trying again...");
@@ -111,7 +111,7 @@ impl Candidate {
                             heartbeat_handle.abort();
                             start_election_handle.abort();
 
-                            self.exit_state.send(Transition::CandidateState).await?;
+                            self.exit_state.candidate().await?;
                         }
                     },
                     Err(error) => {
@@ -122,7 +122,7 @@ impl Candidate {
                         heartbeat_handle.abort();
                         start_election_handle.abort();
 
-                        self.exit_state.send(Transition::CandidateState).await?;
+                        self.exit_state.candidate().await?;
                     }
                 }
             }
@@ -242,14 +242,15 @@ impl Candidate {
 mod tests {
     use super::*;
     use crate::channel::server::Leader;
-    use crate::channel::transition::{CandidateState, Shutdown};
+    use crate::channel::server_state::candidate::CandidateState;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let (test_transition, test_receive) = CandidateState::build().await;
+        let (_test_transition, test_receive) = CandidateState::init().await;
+
         let (test_server_transition_state_sender, _test_server_transition_state_receiver) =
-            Transition::build().await;
-        let test_shutdown_signal = Shutdown::build().await;
+            ServerStateChannel::init().await;
+        let test_shutdown_signal = Shutdown::init();
         let test_leader_heartbeat_sender = Leader::build().await;
         let (test_membership_sender, _test_membership_receiver) = MembershipChannel::init().await;
         let (test_state_sender, _test_state_receiver) = StateChannel::init().await;
@@ -266,9 +267,6 @@ mod tests {
 
         assert!(test_candidate.election_timeout.as_millis() >= 15000);
         assert!(test_candidate.election_timeout.as_millis() <= 30000);
-        assert_eq!(test_transition.capacity(), 64);
-        assert_eq!(test_candidate.exit_state.capacity(), 64);
-        assert_eq!(test_candidate.shutdown.receiver_count(), 0);
         assert_eq!(test_candidate.heartbeat.receiver_count(), 0);
 
         Ok(())

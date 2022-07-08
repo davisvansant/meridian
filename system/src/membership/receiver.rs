@@ -5,7 +5,7 @@ use tokio::net::UdpSocket;
 use crate::channel::membership::failure_detector::{PingTarget, PingTargetSender};
 use crate::channel::membership::list::ListChannel;
 use crate::channel::membership::sender::{Dissemination, DisseminationSender};
-use crate::channel::transition::ShutdownSender;
+use crate::channel::server_state::shutdown::Shutdown;
 use crate::membership::Message;
 use crate::{error, info, warn};
 
@@ -14,7 +14,7 @@ pub struct Receiver {
     list: ListChannel,
     dissemination: DisseminationSender,
     failure_detector: PingTargetSender,
-    shutdown: ShutdownSender,
+    shutdown: Shutdown,
 }
 
 impl Receiver {
@@ -23,7 +23,7 @@ impl Receiver {
         list: ListChannel,
         dissemination: DisseminationSender,
         failure_detector: PingTargetSender,
-        shutdown: ShutdownSender,
+        shutdown: Shutdown,
     ) -> Receiver {
         info!("initialized!");
 
@@ -261,7 +261,7 @@ mod tests {
         let (test_list_sender, _test_list_receiver) = ListChannel::init().await;
         let test_dissemination = Dissemination::build().await;
         let test_failure_detector = PingTarget::build().await;
-        let test_shutdown_signal = crate::channel::transition::Shutdown::build().await;
+        let test_shutdown_signal = Shutdown::init();
 
         let test_receiver = Receiver::init(
             test_receiving_udp_socket,
@@ -278,7 +278,6 @@ mod tests {
         );
         assert_eq!(test_receiver.dissemination.receiver_count(), 0);
         assert_eq!(test_receiver.failure_detector.receiver_count(), 0);
-        assert_eq!(test_receiver.shutdown.receiver_count(), 0);
 
         let test_udp_message = UdpMessage::init(
             test_receiver.list.to_owned(),
