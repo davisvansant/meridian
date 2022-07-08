@@ -57,16 +57,20 @@ impl Server {
                     break
                 }
 
-                Ok((mut tcp_stream, socket_address)) = tcp_listener.accept() => {
+                Ok((tcp_stream, socket_address)) = tcp_listener.accept() => {
                     info!("processing incoming connection...");
                     info!("stream -> {:?}", &tcp_stream);
                     info!("socket address -> {:?}", &socket_address);
 
-                    let state = self.state.to_owned();
-                    let heartbeat = self.leader_heartbeat.to_owned();
+                    let mut process = Process::init(
+                        self.state.to_owned(),
+                        self.leader_heartbeat.to_owned(),
+                        tcp_stream,
+                    )
+                    .await;
 
                     tokio::spawn(async move {
-                        if let Err(error) = Self::process_tcp_stream(&state, &heartbeat, &mut tcp_stream).await {
+                        if let Err(error) = process.tcp_stream().await {
                             error!("tcp stream error -> {:?}", error);
                         }
                     });
@@ -79,29 +83,40 @@ impl Server {
 
         Ok(())
     }
+}
 
-    async fn process_tcp_stream(
-        state: &StateChannel,
-        heartbeat: &LeaderHeartbeatSender,
-        tcp_stream: &mut TcpStream,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+struct Process {
+    state: StateChannel,
+    heartbeat: LeaderHeartbeatSender,
+    tcp_stream: TcpStream,
+}
+
+impl Process {
+    async fn init(
+        state: StateChannel,
+        heartbeat: LeaderHeartbeatSender,
+        tcp_stream: TcpStream,
+    ) -> Process {
+        Process {
+            state,
+            heartbeat,
+            tcp_stream,
+        }
+    }
+
+    async fn tcp_stream(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
 
-        let rpc_request_bytes = tcp_stream.read(&mut buffer).await?;
-        let rpc_response_bytes =
-            Self::process_rpc_request(&buffer[0..rpc_request_bytes], state, heartbeat).await?;
+        let rpc_request_bytes = self.tcp_stream.read(&mut buffer).await?;
+        let rpc_response_bytes = self.rpc_request(&buffer[0..rpc_request_bytes]).await?;
 
-        tcp_stream.write_all(&rpc_response_bytes).await?;
-        tcp_stream.shutdown().await?;
+        self.tcp_stream.write_all(&rpc_response_bytes).await?;
+        self.tcp_stream.shutdown().await?;
 
         Ok(())
     }
 
-    async fn process_rpc_request(
-        data: &[u8],
-        state: &StateChannel,
-        heartbeat: &LeaderHeartbeatSender,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn rpc_request(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
         data.push_to_builder(&mut flexbuffers_builder);
@@ -130,7 +145,7 @@ impl Server {
                 if entries.is_empty() {
                     info!("sending heartbeat from server ...");
 
-                    heartbeat.send(Leader::Heartbeat)?;
+                    self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let arguments = AppendEntriesArguments {
@@ -142,12 +157,12 @@ impl Server {
                     leader_commit,
                 };
 
-                let results = state.append_entries_arguments(arguments).await?;
+                let results = self.state.append_entries_arguments(arguments).await?;
 
-                if term > results.term && heartbeat.receiver_count() > 0 {
+                if term > results.term && self.heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
-                    heartbeat.send(Leader::Heartbeat)?;
+                    self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let append_entries_results = Data::AppendEntriesResults(results).build().await?;
@@ -170,12 +185,12 @@ impl Server {
                     last_log_term,
                 };
 
-                let results = state.request_vote_arguments(arguments).await?;
+                let results = self.state.request_vote_arguments(arguments).await?;
 
-                if term > results.term && heartbeat.receiver_count() > 0 {
+                if term > results.term && self.heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
-                    heartbeat.send(Leader::Heartbeat)?;
+                    self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
                 let request_vote_results = Data::RequestVoteResults(results).build().await?;
