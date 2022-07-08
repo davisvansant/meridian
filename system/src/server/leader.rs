@@ -76,15 +76,13 @@ impl Leader {
         sleep(Duration::from_secs(15)).await;
 
         let node = membership.node().await?;
-        let append_entries_arguments = state.heartbeat(node.id.to_string()).await?;
+        let arguments = state.heartbeat(node.id.to_string()).await?;
         let cluster_members = membership.cluster_members().await?;
 
         for follower in cluster_members {
             let socket_address = follower.build_address(follower.cluster_port).await;
 
-            match Self::append_entries(socket_address, append_entries_arguments.to_owned(), state)
-                .await
-            {
+            match self.invoke(socket_address, arguments.to_owned()).await {
                 Ok(()) => info!("heartbeat sent!"),
                 Err(error) => {
                     error!("append entries heartbeart -> {:?}", error);
@@ -97,10 +95,10 @@ impl Leader {
         Ok(())
     }
 
-    async fn append_entries(
+    async fn invoke(
+        &self,
         socket_address: SocketAddr,
         arguments: rpc::append_entries::AppendEntriesArguments,
-        state: &StateChannel,
     ) -> Result<(), Box<dyn std::error::Error>> {
         info!(
             "sending heartbeat to socket address -> {:?}",
@@ -108,11 +106,11 @@ impl Leader {
         );
 
         let mut client = rpc::Client::init(socket_address).await;
-        let append_entries_results = client.send_append_entries(arguments).await?;
+        let results = client.send_append_entries(arguments).await?;
 
-        info!("append entries results -> {:?}", &append_entries_results);
+        info!("append entries results -> {:?}", &results);
 
-        state.append_entries_results(append_entries_results).await?;
+        self.state.append_entries_results(results).await?;
 
         Ok(())
     }
