@@ -1,5 +1,5 @@
 use rand::{thread_rng, Rng};
-use tokio::time::{timeout_at, Duration, Instant};
+use tokio::time::{timeout, Duration};
 
 use crate::channel::server::{Leader, LeaderHeartbeatSender};
 use crate::channel::server_state::follower::EnterState;
@@ -40,7 +40,6 @@ impl Follower {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut shutdown = self.shutdown.subscribe();
-        let mut leader_heartbeat = self.leader_heartbeat.subscribe();
 
         loop {
             tokio::select! {
@@ -55,29 +54,37 @@ impl Follower {
                     info!("follower -> {:?} | starting election timout....", run);
 
                     loop {
-                        match timeout_at(Instant::now() + self.election_timeout, leader_heartbeat.recv()).await {
-                            Ok(Ok(Leader::Heartbeat)) => {
-                                    info!("receiving heartbeat...");
-                            }
-                            Ok(Err(error)) => {
-                                error!("there was an error! -> {:?}", error);
+                        if let Err(error) = self.election_timeout().await {
+                            warn!("timeout ending... starting election! {:?}", error);
 
-                                break;
-                            }
-                            Err(error) => {
-                                warn!("timeout ending... starting election! {:?}", error);
-
-                                self.exit_state.candidate().await?;
-
-                                break;
-                            }
+                            break;
                         }
                     }
+
+                    self.exit_state.candidate().await?;
                 }
             }
         }
 
         Ok(())
+    }
+
+    async fn election_timeout(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut heartbeat = self.leader_heartbeat.subscribe();
+
+        match timeout(self.election_timeout, heartbeat.recv()).await {
+            Ok(Ok(Leader::Heartbeat)) => {
+                info!("receiving heartbeat...");
+
+                Ok(())
+            }
+            Ok(Err(error)) => {
+                error!("receiving leader heartbeat! -> {:?}", error);
+
+                Ok(())
+            }
+            Err(error) => Err(Box::new(error)),
+        }
     }
 }
 
