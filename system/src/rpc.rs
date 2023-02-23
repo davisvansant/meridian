@@ -1,6 +1,9 @@
 use flexbuffers::{Builder, BuilderOptions};
 // use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio::net::TcpSocket;
+use postcard::{from_bytes_cobs, to_allocvec_cobs, Error};
+// use tokio::net::TcpSocket;
+
+use serde::{Deserialize, Serialize};
 
 // use crate::node::Node;
 use crate::rpc::append_entries::{AppendEntriesArguments, AppendEntriesResults};
@@ -15,6 +18,46 @@ mod server;
 pub mod append_entries;
 pub mod install_snapshot;
 pub mod request_vote;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Request {
+    RequestVote(RequestVoteArguments),
+    AppendEntries(AppendEntriesArguments),
+}
+
+impl Request {
+    pub fn from(bytes: &mut [u8]) -> Result<Request, Error> {
+        let request = from_bytes_cobs(bytes)?;
+
+        Ok(request)
+    }
+
+    pub fn to(&self) -> Result<Vec<u8>, Error> {
+        let bytes = to_allocvec_cobs(self)?;
+
+        Ok(bytes)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Response {
+    RequestVote(RequestVoteResults),
+    AppendEntries(AppendEntriesResults),
+}
+
+impl Response {
+    pub fn from(bytes: &mut [u8]) -> Result<Response, Error> {
+        let response = from_bytes_cobs(bytes)?;
+
+        Ok(response)
+    }
+
+    pub fn to(&self) -> Result<Vec<u8>, Error> {
+        let bytes = to_allocvec_cobs(self)?;
+
+        Ok(bytes)
+    }
+}
 
 pub enum Data {
     AppendEntriesArguments(AppendEntriesArguments),
@@ -104,11 +147,11 @@ impl Data {
 //     SocketAddr::new(ip_address, port)
 // }
 
-pub async fn build_tcp_socket() -> Result<TcpSocket, Box<dyn std::error::Error>> {
-    let tcp_socket = TcpSocket::new_v4()?;
+// pub async fn build_tcp_socket() -> Result<TcpSocket, Box<dyn std::error::Error>> {
+//     let tcp_socket = TcpSocket::new_v4()?;
 
-    Ok(tcp_socket)
-}
+//     Ok(tcp_socket)
+// }
 
 #[cfg(test)]
 mod tests {
@@ -128,12 +171,28 @@ mod tests {
             leader_commit: 0,
         };
 
+        let test_cobs = postcard::to_allocvec_cobs(&test_append_entries_arguments)?;
+
+        assert_eq!(std::mem::size_of_val(&*test_cobs), 22);
+        assert_eq!(test_cobs.len(), 22);
+
+        let test_cobs = postcard::to_allocvec_cobs(&Request::AppendEntries(
+            test_append_entries_arguments.to_owned(),
+        ))?;
+
+        assert_eq!(std::mem::size_of_val(&*test_cobs), 23);
+        assert_eq!(test_cobs.len(), 23);
+
         let test_append_entries_arguments_data =
             Data::AppendEntriesArguments(test_append_entries_arguments)
                 .build()
                 .await?;
 
         assert_eq!(test_append_entries_arguments_data.len(), 157);
+        assert_eq!(
+            std::mem::size_of_val(&*test_append_entries_arguments_data),
+            157,
+        );
 
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -184,12 +243,28 @@ mod tests {
             success: false,
         };
 
+        let test_cobs = postcard::to_allocvec_cobs(&test_append_entries_results)?;
+
+        assert_eq!(std::mem::size_of_val(&*test_cobs), 4);
+        assert_eq!(test_cobs.len(), 4);
+
+        let test_cobs = postcard::to_allocvec_cobs(&Response::AppendEntries(
+            test_append_entries_results.to_owned(),
+        ))?;
+
+        assert_eq!(std::mem::size_of_val(&*test_cobs), 5);
+        assert_eq!(test_cobs.len(), 5);
+
         let test_append_entries_results_data =
             Data::AppendEntriesResults(test_append_entries_results)
                 .build()
                 .await?;
 
         assert_eq!(test_append_entries_results_data.len(), 73);
+        assert_eq!(
+            std::mem::size_of_val(&*test_append_entries_results_data),
+            73,
+        );
 
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -220,12 +295,23 @@ mod tests {
             last_log_term: 0,
         };
 
+        let test_cobs = postcard::to_allocvec_cobs(&Request::RequestVote(
+            test_request_vote_arguments.to_owned(),
+        ))?;
+
+        assert_eq!(std::mem::size_of_val(&*test_cobs), 24);
+        assert_eq!(test_cobs.len(), 24);
+
         let test_request_vote_arguments_data =
             Data::RequestVoteArguments(test_request_vote_arguments)
                 .build()
                 .await?;
 
         assert_eq!(test_request_vote_arguments_data.len(), 132);
+        assert_eq!(
+            std::mem::size_of_val(&*test_request_vote_arguments_data),
+            132,
+        );
 
         let mut test_flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
 
@@ -311,17 +397,17 @@ mod tests {
     //     Ok(())
     // }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn build_tcp_socket() -> Result<(), Box<dyn std::error::Error>> {
-        let test_socket_address = SocketAddr::from_str("127.0.0.1:1234")?;
-        let test_tcp_socket = super::build_tcp_socket().await?;
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn build_tcp_socket() -> Result<(), Box<dyn std::error::Error>> {
+    //     let test_socket_address = SocketAddr::from_str("127.0.0.1:1234")?;
+    //     let test_tcp_socket = super::build_tcp_socket().await?;
 
-        test_tcp_socket.bind(test_socket_address)?;
+    //     test_tcp_socket.bind(test_socket_address)?;
 
-        let test_local_address = test_tcp_socket.local_addr()?;
+    //     let test_local_address = test_tcp_socket.local_addr()?;
 
-        assert_eq!(test_local_address.to_string().as_str(), "127.0.0.1:1234");
+    //     assert_eq!(test_local_address.to_string().as_str(), "127.0.0.1:1234");
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
