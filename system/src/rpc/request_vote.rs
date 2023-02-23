@@ -1,4 +1,6 @@
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RequestVoteArguments {
     pub term: u32,
     pub candidate_id: String,
@@ -6,7 +8,7 @@ pub struct RequestVoteArguments {
     pub last_log_term: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RequestVoteResults {
     pub term: u32,
     pub vote_granted: bool,

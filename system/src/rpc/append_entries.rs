@@ -1,4 +1,6 @@
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AppendEntriesArguments {
     pub term: u32,
     pub leader_id: String,
@@ -8,7 +10,7 @@ pub struct AppendEntriesArguments {
     pub leader_commit: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AppendEntriesResults {
     pub term: u32,
     pub success: bool,
