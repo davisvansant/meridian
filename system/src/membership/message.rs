@@ -235,6 +235,8 @@ mod tests {
             )
             .await;
 
+        assert_eq!(std::mem::size_of_val(&*test_ack), 623);
+
         assert!(!test_ack.is_empty());
 
         let (
@@ -280,6 +282,7 @@ mod tests {
             .await;
 
         assert!(!test_ping.is_empty());
+        assert_eq!(std::mem::size_of_val(&*test_ping), 623);
 
         let (
             test_from_list_message,
