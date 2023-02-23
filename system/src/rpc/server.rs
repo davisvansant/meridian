@@ -1,13 +1,14 @@
-use flexbuffers::{Builder, BuilderOptions, Pushable};
+// use flexbuffers::{Builder, BuilderOptions, Pushable};
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 
 use crate::channel::server::{Leader, LeaderHeartbeatSender};
 use crate::channel::server_state::shutdown::Shutdown;
 use crate::channel::state::StateChannel;
-use crate::rpc::build_tcp_socket;
-use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
+// use crate::rpc::build_tcp_socket;
+// use crate::rpc::{AppendEntriesArguments, Data, RequestVoteArguments};
+use crate::rpc::{Request, Response};
 use crate::{error, info, warn};
 
 pub struct Server {
@@ -37,7 +38,8 @@ impl Server {
     pub async fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         info!("running!");
 
-        let tcp_socket = build_tcp_socket().await?;
+        // let tcp_socket = build_tcp_socket().await?;
+        let tcp_socket = TcpSocket::new_v4()?;
 
         tcp_socket.set_reuseaddr(true)?;
         tcp_socket.set_reuseport(true)?;
@@ -108,7 +110,7 @@ impl Process {
         let mut buffer = [0; 1024];
 
         let rpc_request_bytes = self.tcp_stream.read(&mut buffer).await?;
-        let rpc_response_bytes = self.rpc_request(&buffer[0..rpc_request_bytes]).await?;
+        let rpc_response_bytes = self.rpc_request(&mut buffer[0..rpc_request_bytes]).await?;
 
         self.tcp_stream.write_all(&rpc_response_bytes).await?;
         self.tcp_stream.shutdown().await?;
@@ -116,94 +118,141 @@ impl Process {
         Ok(())
     }
 
-    async fn rpc_request(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-        data.push_to_builder(&mut flexbuffers_builder);
-
-        let flexbuffers_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
-
-        match flexbuffers_root.as_map().idx("data").as_str() {
-            "append_entries_arguments" => {
+    async fn rpc_request(&self, bytes: &mut [u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        match Request::from(bytes)? {
+            Request::AppendEntries(arguments) => {
                 info!("received append entries arguments!");
 
-                let request_details = flexbuffers_root.as_map().idx("details").as_map();
-                let term = request_details.idx("term").as_u32();
-                let leader_id = request_details.idx("leader_id").as_str().to_string();
-                let prev_log_index = request_details.idx("prev_log_index").as_u32();
-                let prev_log_term = request_details.idx("prev_log_term").as_u32();
+                let leader_entries = arguments.entries.is_empty();
+                let leader_term = arguments.term;
 
-                let mut entries =
-                    Vec::with_capacity(request_details.idx("entries").as_vector().len());
-
-                for entry in request_details.idx("entries").as_vector().iter() {
-                    entries.push(entry.as_u32());
-                }
-
-                let leader_commit = request_details.idx("leader_commit").as_u32();
-
-                if entries.is_empty() {
+                if leader_entries {
                     info!("sending heartbeat from server ...");
 
                     self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
-                let arguments = AppendEntriesArguments {
-                    term,
-                    leader_id,
-                    prev_log_index,
-                    prev_log_term,
-                    entries,
-                    leader_commit,
-                };
-
                 let results = self.state.append_entries_arguments(arguments).await?;
+                let current_term = results.term;
 
-                if term > results.term && self.heartbeat.receiver_count() > 0 {
+                if leader_term > current_term && self.heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
                     self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
-                let append_entries_results = Data::AppendEntriesResults(results).build().await?;
+                let append_entries_results = Response::AppendEntries(results).to()?;
 
                 Ok(append_entries_results)
             }
-            "request_vote_arguments" => {
+            Request::RequestVote(arguments) => {
                 info!("received request vote arguments!");
 
-                let request_details = flexbuffers_root.as_map().idx("details").as_map();
-                let term = request_details.idx("term").as_u32();
-                let candidate_id = request_details.idx("candidate_id").as_str().to_string();
-                let last_log_index = request_details.idx("last_log_index").as_u32();
-                let last_log_term = request_details.idx("last_log_term").as_u32();
-
-                let arguments = RequestVoteArguments {
-                    term,
-                    candidate_id,
-                    last_log_index,
-                    last_log_term,
-                };
-
+                let candidate_term = arguments.term;
                 let results = self.state.request_vote_arguments(arguments).await?;
+                let current_term = results.term;
 
-                if term > results.term && self.heartbeat.receiver_count() > 0 {
+                if candidate_term > current_term && self.heartbeat.receiver_count() > 0 {
                     info!("request term is higher than current term!");
 
                     self.heartbeat.send(Leader::Heartbeat)?;
                 }
 
-                let request_vote_results = Data::RequestVoteResults(results).build().await?;
+                let request_vote_results = Response::RequestVote(results).to()?;
 
                 Ok(request_vote_results)
             }
-            _ => {
-                warn!("currently unknown ...");
-
-                Ok(String::from("unknown").as_bytes().to_vec())
-            }
         }
     }
+
+    // async fn rpc_request(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    //     let mut flexbuffers_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+    //     data.push_to_builder(&mut flexbuffers_builder);
+
+    //     let flexbuffers_root = flexbuffers::Reader::get_root(flexbuffers_builder.view())?;
+
+    //     match flexbuffers_root.as_map().idx("data").as_str() {
+    //         "append_entries_arguments" => {
+    //             info!("received append entries arguments!");
+
+    //             let request_details = flexbuffers_root.as_map().idx("details").as_map();
+    //             let term = request_details.idx("term").as_u32();
+    //             let leader_id = request_details.idx("leader_id").as_str().to_string();
+    //             let prev_log_index = request_details.idx("prev_log_index").as_u32();
+    //             let prev_log_term = request_details.idx("prev_log_term").as_u32();
+
+    //             let mut entries =
+    //                 Vec::with_capacity(request_details.idx("entries").as_vector().len());
+
+    //             for entry in request_details.idx("entries").as_vector().iter() {
+    //                 entries.push(entry.as_u32());
+    //             }
+
+    //             let leader_commit = request_details.idx("leader_commit").as_u32();
+
+    //             if entries.is_empty() {
+    //                 info!("sending heartbeat from server ...");
+
+    //                 self.heartbeat.send(Leader::Heartbeat)?;
+    //             }
+
+    //             let arguments = AppendEntriesArguments {
+    //                 term,
+    //                 leader_id,
+    //                 prev_log_index,
+    //                 prev_log_term,
+    //                 entries,
+    //                 leader_commit,
+    //             };
+
+    //             let results = self.state.append_entries_arguments(arguments).await?;
+
+    //             if term > results.term && self.heartbeat.receiver_count() > 0 {
+    //                 info!("request term is higher than current term!");
+
+    //                 self.heartbeat.send(Leader::Heartbeat)?;
+    //             }
+
+    //             let append_entries_results = Data::AppendEntriesResults(results).build().await?;
+
+    //             Ok(append_entries_results)
+    //         }
+    //         "request_vote_arguments" => {
+    //             info!("received request vote arguments!");
+
+    //             let request_details = flexbuffers_root.as_map().idx("details").as_map();
+    //             let term = request_details.idx("term").as_u32();
+    //             let candidate_id = request_details.idx("candidate_id").as_str().to_string();
+    //             let last_log_index = request_details.idx("last_log_index").as_u32();
+    //             let last_log_term = request_details.idx("last_log_term").as_u32();
+
+    //             let arguments = RequestVoteArguments {
+    //                 term,
+    //                 candidate_id,
+    //                 last_log_index,
+    //                 last_log_term,
+    //             };
+
+    //             let results = self.state.request_vote_arguments(arguments).await?;
+
+    //             if term > results.term && self.heartbeat.receiver_count() > 0 {
+    //                 info!("request term is higher than current term!");
+
+    //                 self.heartbeat.send(Leader::Heartbeat)?;
+    //             }
+
+    //             let request_vote_results = Data::RequestVoteResults(results).build().await?;
+
+    //             Ok(request_vote_results)
+    //         }
+    //         _ => {
+    //             warn!("currently unknown ...");
+
+    //             Ok(String::from("unknown").as_bytes().to_vec())
+    //         }
+    //     }
+    // }
 }
 
 #[cfg(test)]

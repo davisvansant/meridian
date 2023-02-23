@@ -1,7 +1,9 @@
-use flexbuffers::{Builder, BuilderOptions, Pushable};
+// use flexbuffers::{Builder, BuilderOptions, Pushable};
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
+
+use crate::rpc::{Request, Response};
 
 use crate::rpc::{
     AppendEntriesArguments, AppendEntriesResults, Data, RequestVoteArguments, RequestVoteResults,
@@ -16,55 +18,80 @@ impl Client {
         Client { socket_address }
     }
 
+    // pub async fn send_append_entries(
+    //     &mut self,
+    //     append_entries_arguments: AppendEntriesArguments,
+    // ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
+    //     let data = Data::AppendEntriesArguments(append_entries_arguments)
+    //         .build()
+    //         .await?;
+
+    //     let response = self.transmit(&data).await?;
+
+    //     let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+    //     response.push_to_builder(&mut flexbuffer_builder);
+
+    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
+    //     let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
+
+    //     let append_entries_results = AppendEntriesResults {
+    //         term: flexbuffer_root_details.idx("term").as_u32(),
+    //         success: flexbuffer_root_details.idx("success").as_bool(),
+    //     };
+
+    //     Ok(append_entries_results)
+    // }
     pub async fn send_append_entries(
         &mut self,
-        append_entries_arguments: AppendEntriesArguments,
+        arguments: AppendEntriesArguments,
     ) -> Result<AppendEntriesResults, Box<dyn std::error::Error>> {
-        let data = Data::AppendEntriesArguments(append_entries_arguments)
-            .build()
-            .await?;
+        let request_bytes = Request::AppendEntries(arguments).to()?;
+        let mut response_bytes = self.transmit(&request_bytes).await?;
 
-        let response = self.transmit(&data).await?;
-
-        let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-        response.push_to_builder(&mut flexbuffer_builder);
-
-        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
-        let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
-
-        let append_entries_results = AppendEntriesResults {
-            term: flexbuffer_root_details.idx("term").as_u32(),
-            success: flexbuffer_root_details.idx("success").as_bool(),
-        };
-
-        Ok(append_entries_results)
+        match Response::from(&mut response_bytes)? {
+            Response::AppendEntries(results) => Ok(results),
+            Response::RequestVote(_) => panic!("expeced append entries results"),
+        }
     }
 
     pub async fn send_request_vote(
         &mut self,
-        request_vote_arguments: RequestVoteArguments,
+        arguments: RequestVoteArguments,
     ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
-        let data = Data::RequestVoteArguments(request_vote_arguments)
-            .build()
-            .await?;
+        let request_bytes = Request::RequestVote(arguments).to()?;
+        let mut response_bytes = self.transmit(&request_bytes).await?;
 
-        let response = self.transmit(&data).await?;
-
-        let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
-
-        response.push_to_builder(&mut flexbuffer_builder);
-
-        let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
-        let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
-
-        let request_vote_results = RequestVoteResults {
-            term: flexbuffer_root_details.idx("term").as_u32(),
-            vote_granted: flexbuffer_root_details.idx("vote_granted").as_bool(),
-        };
-
-        Ok(request_vote_results)
+        match Response::from(&mut response_bytes)? {
+            Response::AppendEntries(_) => panic!("expected request vote results"),
+            Response::RequestVote(results) => Ok(results),
+        }
     }
+
+    // pub async fn send_request_vote(
+    //     &mut self,
+    //     request_vote_arguments: RequestVoteArguments,
+    // ) -> Result<RequestVoteResults, Box<dyn std::error::Error>> {
+    //     let data = Data::RequestVoteArguments(request_vote_arguments)
+    //         .build()
+    //         .await?;
+
+    //     let response = self.transmit(&data).await?;
+
+    //     let mut flexbuffer_builder = Builder::new(BuilderOptions::SHARE_NONE);
+
+    //     response.push_to_builder(&mut flexbuffer_builder);
+
+    //     let flexbuffer_root = flexbuffers::Reader::get_root(flexbuffer_builder.view())?;
+    //     let flexbuffer_root_details = flexbuffer_root.as_map().idx("details").as_map();
+
+    //     let request_vote_results = RequestVoteResults {
+    //         term: flexbuffer_root_details.idx("term").as_u32(),
+    //         vote_granted: flexbuffer_root_details.idx("vote_granted").as_bool(),
+    //     };
+
+    //     Ok(request_vote_results)
+    // }
 
     async fn transmit(&mut self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut buffer = [0; 1024];
